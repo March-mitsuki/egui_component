@@ -1,7 +1,15 @@
 [package]
 name = "egui_component_style_macros"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 edition = "2024"
+authors = ["Zehua Yang <march772827981@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+keywords = ["egui_component"]
+description = "Macros for egui_component, providing a shorthand method for styling components."
+categories = ["gui"]
+repository = "https://github.com/March-mitsuki/egui_component"
+homepage = "https://github.com/March-mitsuki/egui_component"
 
 [lib]
 proc-macro = true
