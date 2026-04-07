@@ -5,6 +5,10 @@
 [![Crates.io](https://img.shields.io/crates/v/egui_component.svg)](https://crates.io/crates/egui_component)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+![egui_component dark screenshot](images/key_visual.dark.png)
+
+![egui_component light screenshot](images/key_visual.light.png)
+
 ## 🚀 Introduction
 
 **egui_component** is a modern, non-intrusive component library built specifically for [egui](https://github.com/emilk/egui). It provides a set of preset component styles and a comprehensive styling system, offering out-of-the-box utility while giving developers full control over component appearance.
