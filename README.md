@@ -60,6 +60,10 @@ fn my_page(ui: &mut egui::Ui) {
 }
 ```
 
+## 📖 Examples
+
+See `examples/` directory for more examples.
+
 ## 📄 LICENSE
 
 This project and all its included packages are released under the **MIT License**.
