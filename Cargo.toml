@@ -1,0 +1,23 @@
+[package]
+name = "egui_component"
+version = "0.1.0"
+edition = "2024"
+authors = ["Zehua Yang <march772827981@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+keywords = ["egui", "ui", "component", "ui-kit", "gui"]
+description = "Unstyled, headless egui components with granular styling. Includes a fully-customizable styling system with optional pre-configured dark and light themes."
+categories = ["gui"]
+
+[dependencies]
+anyhow = "1"
+# style_macros = { path = "./style_macros", version = "*" }
+
+egui = { version = "0.34", features = ["serde"] }
+egui_animation = "0.11"
+
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+eframe = "0.34"
