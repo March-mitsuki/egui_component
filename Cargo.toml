@@ -1,6 +1,6 @@
 [package]
 name = "egui_component"
-version = "0.1.0"
+version = "0.1.0-alpha.1"
 edition = "2024"
 authors = ["Zehua Yang <march772827981@gmail.com>"]
 license = "MIT"
@@ -8,6 +8,8 @@ readme = "README.md"
 keywords = ["egui", "ui", "component", "ui-kit", "gui"]
 description = "Unstyled, headless egui components with granular styling. Includes a fully-customizable styling system with optional pre-configured dark and light themes."
 categories = ["gui"]
+repository = "https://github.com/March-mitsuki/egui_component"
+homepage = "https://github.com/March-mitsuki/egui_component"
 
 [dependencies]
 anyhow = "1"
