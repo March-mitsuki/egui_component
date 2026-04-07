@@ -13,7 +13,7 @@ homepage = "https://github.com/March-mitsuki/egui_component"
 
 [dependencies]
 anyhow = "1"
-egui_component_style_macros = "0.1.0-alpha.1"
+egui_component_style_macros = "0.1.0-alpha.2"
 
 egui = { version = "0.34", features = ["serde"] }
 egui_animation = "0.11"

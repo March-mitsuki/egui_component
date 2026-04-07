@@ -1,9 +1,9 @@
 use egui::{CornerRadius, Margin, Shadow, Stroke, Ui};
-// use style_macros::FrameModifier;
+use egui_component_style_macros::FrameModifier;
 
 use crate::theme::Theme;
 
-// #[derive(FrameModifier)]
+#[derive(FrameModifier)]
 pub struct Style {
     pub frame: egui::Frame,
 }

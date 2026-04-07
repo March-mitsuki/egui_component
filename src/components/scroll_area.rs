@@ -13,8 +13,8 @@ impl Style {
     pub fn new(theme: &Theme) -> Self {
         Self {
             outer_frame: CardFrame::new(theme, crate::theme::CardSize::Md)
-                .frame
-                .inner_margin(egui::Margin::symmetric(4, 8)),
+                .inner_margin(egui::Margin::symmetric(4, 8))
+                .into(),
             inner_frame: Frame::NONE.inner_margin(egui::Margin {
                 left: 4,
                 right: 12,

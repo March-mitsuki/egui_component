@@ -1,9 +1,9 @@
 use egui::{Popup, Response, Ui};
-// use style_macros::FrameModifier;
+use egui_component_style_macros::FrameModifier;
 
 use crate::theme::Theme;
 
-// #[derive(FrameModifier)]
+#[derive(FrameModifier)]
 pub struct Style {
     align: egui::RectAlign,
     gap: f32,
@@ -19,9 +19,17 @@ impl Style {
             close_behavior: egui::PopupCloseBehavior::CloseOnClick,
             frame: egui::Frame::default()
                 .fill(theme.colors.bg.accent)
-                .stroke(egui::Stroke { width: 1.0, color: theme.colors.gray.l2 })
+                .stroke(egui::Stroke {
+                    width: 1.0,
+                    color: theme.colors.gray.l2,
+                })
                 .inner_margin(egui::Margin::same(4))
-                .shadow(egui::Shadow { offset: [0, 0], blur: 8, spread: 0, color: egui::Color32::from_black_alpha(60) })
+                .shadow(egui::Shadow {
+                    offset: [0, 0],
+                    blur: 8,
+                    spread: 0,
+                    color: egui::Color32::from_black_alpha(60),
+                })
                 .corner_radius(egui::CornerRadius::same(theme.corner_radius.sm as u8)),
         }
     }

@@ -2,7 +2,11 @@
 自动化发布脚本
 
 1. uv sync
-2. uv run publish.py
+2. uv run publish.py bump
+3. uv run publish.py publish style_macros
+4. uv run publish.py publish style_macros --publish
+5. uv run publish.py publish main
+6. uv run publish.py publish main --publish
 """
 
 import os
@@ -178,12 +182,24 @@ def sync_self_dependency_version():
             if line.startswith("[dependencies]"):
                 is_dependency_section = True
 
-            if is_dependency_section and line.startswith("style_macros = "):
-                data = data.replace(line, f'style_macros = "{version}"')
+            if is_dependency_section and line.startswith(
+                "egui_component_style_macros = "
+            ):
+                data = data.replace(line, f'egui_component_style_macros = "{version}"')
                 break
 
     with open(CARGO_TOML_EGUI_COMPONENT, "w", encoding="utf-8") as f:
         f.write(data)
+
+    # make sure the style_macros in egui_component's Cargo.toml is updated
+    egui_component_toml = load_toml(CARGO_TOML_EGUI_COMPONENT)
+    style_macros_version = egui_component_toml["dependencies"][
+        "egui_component_style_macros"
+    ]
+    if style_macros_version != version:
+        raise ValueError(
+            f"style_macros version in egui_component's Cargo.toml does not match: {style_macros_version} != {version}"
+        )
 
 
 def bump_version(next_version: str):
@@ -231,6 +247,8 @@ class Cli:
             else:
                 run_cmd("cargo publish --dry-run --allow-dirty", CWD / "style_macros")
         elif pkg == "egui_component" or pkg == "main":
+            sync_self_dependency_version()
+            logger.info("Self dependency version synced")
             if publish:
                 run_cmd("cargo publish", CWD)
             else:

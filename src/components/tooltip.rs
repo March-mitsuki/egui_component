@@ -1,9 +1,9 @@
 use egui::{Response, Tooltip, Ui};
-// use style_macros::FrameModifier;
+use egui_component_style_macros::FrameModifier;
 
 use crate::theme::Theme;
 
-// #[derive(FrameModifier)]
+#[derive(FrameModifier)]
 pub struct Style {
     align: egui::RectAlign,
     gap: f32,

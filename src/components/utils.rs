@@ -1,13 +1,17 @@
 use egui::{Color32, Context, CornerRadius, Frame, Margin, Shadow, Stroke, Ui};
-// use style_macros::FrameModifier;
+use egui_component_style_macros::FrameModifier;
 
 use crate::theme::{CardSize, Theme};
 
-// #[derive(FrameModifier)]
+#[derive(FrameModifier)]
 pub struct CardFrame {
     pub frame: Frame,
 }
-
+impl From<CardFrame> for Frame {
+    fn from(card_frame: CardFrame) -> Self {
+        card_frame.frame
+    }
+}
 impl CardFrame {
     pub fn new(theme: &Theme, size: CardSize) -> Self {
         let margin = match size {
