@@ -899,14 +899,26 @@ dependencies = [
 
 [[package]]
 name = "egui_component"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 dependencies = [
  "anyhow",
  "eframe",
  "egui",
  "egui_animation",
+ "egui_component_style_macros",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "egui_component_style_macros"
+version = "0.1.0-alpha.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "96afc051aa59c23a7c54fc60e5986f815ec4084dbea9a8d4a2e8b6a693caa9d1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

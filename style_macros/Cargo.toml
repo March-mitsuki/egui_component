@@ -1,6 +1,6 @@
 [package]
 name = "egui_component_style_macros"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 edition = "2024"
 authors = ["Zehua Yang <march772827981@gmail.com>"]
 license = "MIT"
