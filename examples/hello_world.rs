@@ -8,7 +8,7 @@ fn main() -> eframe::Result {
         UiTheme::from_json_bytes(include_bytes!("theme.json")).expect("Failed to load theme.json");
 
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 680.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([320.0, 500.0]),
         ..Default::default()
     };
 

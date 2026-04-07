@@ -5,6 +5,10 @@
 [![Crates.io](https://img.shields.io/crates/v/egui_component.svg)](https://crates.io/crates/egui_component)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
+![egui_component dark screenshot](images/key_visual.dark.png)
+
+![egui_component light screenshot](images/key_visual.light.png)
+
 ## 🚀 简介
 
 **egui_component** 是一个专为 [egui](https://github.com/emilk/egui) 打造的现代化、非侵入式组件库。它同时提供了一套预设的组件样式和一个功能完善的样式系统，在开箱即用的同时开发者也有完全控制组件外观的能力。
