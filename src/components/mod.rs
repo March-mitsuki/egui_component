@@ -1,9 +1,16 @@
+pub mod avatar;
 pub mod button;
+pub mod card;
 pub mod dialog;
+pub mod divider;
+pub mod field;
+pub mod icon;
 pub mod icon_button;
+pub mod icon_menu_button;
 pub mod menu_button;
-pub mod panel;
 pub mod scroll_area;
 pub mod separator;
+pub mod text;
+pub mod text_edit;
 pub mod tooltip;
 pub mod utils;

@@ -12,8 +12,14 @@ repository = "https://github.com/March-mitsuki/egui_component"
 homepage = "https://github.com/March-mitsuki/egui_component"
 
 [dependencies]
+egui_component_style_macros = "0.1.0-alpha.2" # internal
+
 anyhow = "1"
-egui_component_style_macros = "0.1.0-alpha.2"
+tracing = "0.1"
+
+parking_lot = "0.12"
+dashmap = "6"
+font-kit = "0.14"
 
 egui = { version = "0.34", features = ["serde"] }
 egui_animation = "0.11"

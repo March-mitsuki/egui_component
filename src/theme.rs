@@ -1,20 +1,21 @@
 use egui::{Color32, Stroke};
 use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ButtonSize {
     Xs,
     Sm,
     Md,
     Lg,
 }
-#[derive(PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ButtonVariant {
     Solid,
     Surface,
     Outline,
     Ghost,
 }
+#[derive(Clone)]
 pub struct ButtonPalette {
     pub normal_bg: Color32,
     pub hover_bg: Color32,
@@ -23,7 +24,31 @@ pub struct ButtonPalette {
     pub stroke: Stroke,
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum TextEditSize {
+    Xs,
+    Sm,
+    Md,
+    Lg,
+}
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum TextEditVariant {
+    Subtle,
+    Outline,
+    Flushed,
+}
+#[derive(Clone)]
+pub struct TextEditPalette {
+    pub normal_bg: Color32,
+    pub hover_bg: Color32,
+    pub focus_bg: Color32,
+    pub text_color: Color32,
+    pub placeholder_color: Color32,
+    pub border_stroke: Stroke,
+    pub focus_stroke: Stroke,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum CardSize {
     Sm,
     Md,
@@ -126,10 +151,21 @@ pub struct CornerRadius {
     pub xl: f32,
 }
 
+#[derive(Clone, Copy, Deserialize, Serialize)]
+pub struct TextSize {
+    pub xxs: f32,
+    pub xs: f32,
+    pub sm: f32,
+    pub md: f32,
+    pub lg: f32,
+    pub xl: f32,
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct Theme {
     pub colors: Colors,
     pub corner_radius: CornerRadius,
+    pub text_size: TextSize,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -166,6 +202,14 @@ impl UiTheme {
             lg: 12.0,
             xl: 16.0,
         };
+        let dummy_text_size = TextSize {
+            xxs: 12.0,
+            xs: 14.0,
+            sm: 16.0,
+            md: 18.0,
+            lg: 20.0,
+            xl: 22.0,
+        };
 
         // dark mode
         let dark_colors = Colors {
@@ -182,6 +226,7 @@ impl UiTheme {
         let dark = Theme {
             colors: dark_colors,
             corner_radius: dummy_corner_radius,
+            text_size: dummy_text_size,
         };
 
         // light mode
@@ -199,6 +244,7 @@ impl UiTheme {
         let light = Theme {
             colors: light_colors,
             corner_radius: dummy_corner_radius,
+            text_size: dummy_text_size,
         };
         UiTheme { dark, light }
     }

@@ -1,26 +1,19 @@
-use egui::{CornerRadius, Frame, Ui};
+use egui::{Context, CornerRadius, Frame, Ui};
 
-use crate::theme::Theme;
+use crate::{components::utils::CardFrame, theme::Theme};
 
-use super::utils::CardFrame;
-
+#[derive(Clone)]
 pub struct Style {
     pub outer_frame: Frame,
     pub inner_frame: Frame,
 }
-
 impl Style {
     pub fn new(theme: &Theme) -> Self {
         Self {
             outer_frame: CardFrame::new(theme, crate::theme::CardSize::Md)
                 .inner_margin(egui::Margin::symmetric(4, 8))
-                .into(),
-            inner_frame: Frame::NONE.inner_margin(egui::Margin {
-                left: 4,
-                right: 12,
-                top: 4,
-                bottom: 4,
-            }),
+                .frame,
+            inner_frame: Frame::NONE.inner_margin(egui::Margin::same(4)),
         }
     }
 
@@ -58,7 +51,7 @@ pub fn render_global(
         };
         egui::ScrollArea::new(scroll_axes)
             .id_salt(id_salt)
-            .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
+            .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
             .max_height(ui.available_height())
             .auto_shrink(true)
             .show(ui, |ui| {
@@ -77,7 +70,7 @@ pub fn render(
     style: Style,
 ) {
     style.outer_frame.show(ui, |ui| {
-        let style_origin = super::utils::change_style(ui, set_style);
+        let style_origin = change_style(ui);
         let scroll_axes = match scroll_axes {
             ScrollAxes::Vertical => [false, true],
             ScrollAxes::Horizontal => [true, false],
@@ -85,7 +78,7 @@ pub fn render(
         };
         egui::ScrollArea::new(scroll_axes)
             .id_salt(id_salt)
-            .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::AlwaysVisible)
+            .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
             .max_height(ui.available_height())
             .auto_shrink(true)
             .show(ui, |ui| {
@@ -97,10 +90,29 @@ pub fn render(
     });
 }
 
+/// change style for current ui
+///
+/// ### Returns
+///
+/// the style before change. can be used to restore style
+pub fn change_style(ui: &mut Ui) -> egui::Style {
+    let style_origin = (**ui.style()).clone();
+    let mut style = style_origin.clone();
+    set_style(&mut style);
+    ui.set_style(style);
+    style_origin
+}
+
+/// mutate style for global context
+pub fn mutate_style(ctx: &Context) {
+    ctx.global_style_mut(set_style);
+}
+
 fn set_style(style: &mut egui::Style) {
+    style.spacing.scroll.floating = false;
     style.spacing.scroll.bar_width = 6.0;
     style.spacing.scroll.floating_width = 6.0;
-    style.spacing.scroll.bar_inner_margin = 0.0;
+    style.spacing.scroll.bar_inner_margin = 6.0;
     style.spacing.scroll.bar_outer_margin = 0.0;
     style.spacing.scroll.foreground_color = false;
     style.spacing.scroll.active_background_opacity = 1.0;

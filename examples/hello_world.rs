@@ -19,6 +19,7 @@ fn main() -> eframe::Result {
             Ok(Box::new(MyApp {
                 ui_theme,
                 color_mode: ColorMode::Dark,
+                test_text: String::new(),
             }))
         }),
     )
@@ -32,6 +33,7 @@ enum ColorMode {
 struct MyApp {
     ui_theme: UiTheme,
     color_mode: ColorMode,
+    test_text: String,
 }
 
 impl eframe::App for MyApp {
@@ -54,6 +56,7 @@ impl eframe::App for MyApp {
         egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(80.0);
+                ui.text_edit_singleline(&mut self.test_text);
                 ui.heading("Hello egui_component!");
                 ui.add_space(20.0);
 

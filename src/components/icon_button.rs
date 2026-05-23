@@ -5,6 +5,7 @@ use crate::theme::{ButtonPalette, ButtonSize, ButtonVariant, Color, Theme};
 use super::button::match_button_palette;
 use super::button::{BUTTON_HEIGHT_LG, BUTTON_HEIGHT_MD, BUTTON_HEIGHT_SM, BUTTON_HEIGHT_XS};
 
+#[derive(Clone)]
 pub struct Style {
     pub size: f32,
     pub icon_size: f32,
@@ -13,15 +14,41 @@ pub struct Style {
 }
 
 impl Style {
-    pub fn new(theme: &Theme, color: Option<Color>, size: ButtonSize, variant: ButtonVariant) -> Self {
+    pub fn new(
+        theme: &Theme,
+        color: Option<Color>,
+        size: ButtonSize,
+        variant: ButtonVariant,
+    ) -> Self {
         let (size, icon_size, corner_radius) = match size {
-            ButtonSize::Xs => (BUTTON_HEIGHT_XS, 10.0, CornerRadius::same(theme.corner_radius.xs as u8)),
-            ButtonSize::Sm => (BUTTON_HEIGHT_SM, 14.0, CornerRadius::same(theme.corner_radius.sm as u8)),
-            ButtonSize::Md => (BUTTON_HEIGHT_MD, 20.0, CornerRadius::same(theme.corner_radius.sm as u8)),
-            ButtonSize::Lg => (BUTTON_HEIGHT_LG, 26.0, CornerRadius::same(theme.corner_radius.md as u8)),
+            ButtonSize::Xs => (
+                BUTTON_HEIGHT_XS,
+                10.0,
+                CornerRadius::same(theme.corner_radius.xs as u8),
+            ),
+            ButtonSize::Sm => (
+                BUTTON_HEIGHT_SM,
+                14.0,
+                CornerRadius::same(theme.corner_radius.sm as u8),
+            ),
+            ButtonSize::Md => (
+                BUTTON_HEIGHT_MD,
+                20.0,
+                CornerRadius::same(theme.corner_radius.sm as u8),
+            ),
+            ButtonSize::Lg => (
+                BUTTON_HEIGHT_LG,
+                26.0,
+                CornerRadius::same(theme.corner_radius.md as u8),
+            ),
         };
         let palette = match_button_palette(theme, color, variant);
-        Self { size, icon_size, corner_radius, palette }
+        Self {
+            size,
+            icon_size,
+            corner_radius,
+            palette,
+        }
     }
 
     pub fn new_solid_xs(theme: &Theme) -> Self {
@@ -180,7 +207,9 @@ pub fn render(ui: &mut Ui, icon: egui::ImageSource, style: Style) -> egui::Respo
 
     // 绘制背景 (0.2s 渐变)
     let is_hovered = response.hovered();
-    let animation_factor = ui.ctx().animate_bool_with_time(response.id, is_hovered, 0.2);
+    let animation_factor = ui
+        .ctx()
+        .animate_bool_with_time(response.id, is_hovered, 0.2);
 
     let fill_color = if response.is_pointer_button_down_on() {
         style.palette.active_bg
@@ -191,12 +220,20 @@ pub fn render(ui: &mut Ui, icon: egui::ImageSource, style: Style) -> egui::Respo
         Color32::from(mixed_rgba)
     };
 
-    ui.painter().rect(rect, style.corner_radius, fill_color, style.palette.stroke, StrokeKind::Outside);
+    ui.painter().rect(
+        rect,
+        style.corner_radius,
+        fill_color,
+        style.palette.stroke,
+        StrokeKind::Outside,
+    );
 
     // 居中绘制图标
     let icon_size = vec2(style.icon_size, style.icon_size);
     let icon_rect = Rect::from_center_size(rect.center(), icon_size);
-    Image::new(icon).tint(style.palette.text_color).paint_at(ui, icon_rect);
+    Image::new(icon)
+        .tint(style.palette.text_color)
+        .paint_at(ui, icon_rect);
 
     response.on_hover_cursor(egui::CursorIcon::PointingHand)
 }
