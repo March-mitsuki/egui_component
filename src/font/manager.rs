@@ -18,7 +18,6 @@ pub struct FontFace {
     pub index: usize,
     pub weight: FontWeight,
     pub italic: bool,
-    pub font: font_kit::font::Font,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -65,29 +64,26 @@ impl FontManager {
     }
 
     pub fn load_from_bytes(&self, family: &str, data: &[u8], index: usize) -> anyhow::Result<()> {
-        let data: Arc<[u8]> = Arc::from(data);
+        let data_vec: Arc<Vec<u8>> = Arc::new(data.to_vec());
 
-        let font_data_vec = data.to_vec();
-        let font = font_kit::font::Font::from_bytes(Arc::new(font_data_vec), index as u32)
-            .map_err(|e| anyhow::anyhow!("Failed to create font_kit Font: {:?}", e))?;
+        let font = font_kit::font::Font::from_bytes(data_vec.clone(), index as u32)
+            .map_err(|e| anyhow::anyhow!("Failed to parse font data with font_kit: {}", e))?;
 
         let properties = font.properties();
         let weight = FontWeight::from_numeric(properties.weight.0 as u16);
-        let italic = match properties.style {
-            font_kit::properties::Style::Normal => false,
-            _ => true,
-        };
+        let italic = properties.style != font_kit::properties::Style::Normal;
+
+        let data: Arc<[u8]> = Arc::from(data);
 
         let face = FontFace {
             data,
             index,
             weight,
             italic,
-            font,
         };
 
         let key = FamilyKey::new(family);
-        let mut entry = self.families.entry(key.clone()).or_insert_with(Vec::new);
+        let mut entry = self.families.entry(key).or_insert_with(Vec::new);
         entry.push(face);
         entry.sort_by_key(|f| f.weight);
 
@@ -197,39 +193,6 @@ impl FontManager {
         *self.fallback_chain.write() = chain;
     }
 
-    pub fn get_font(
-        &self,
-        family: &str,
-        weight: FontWeight,
-    ) -> anyhow::Result<font_kit::font::Font> {
-        let key = FamilyKey::new(family);
-
-        if let Some(faces) = self.families.get(&key) {
-            if let Some(face) = Self::find_closest_weight(&faces, weight) {
-                return Ok(face.font.clone());
-            }
-        }
-
-        // Try fallbacks
-        let fallbacks = self.fallback_chain.read().clone();
-        for fallback_key in fallbacks {
-            if fallback_key == key {
-                continue;
-            }
-            if let Some(faces) = self.families.get(&fallback_key) {
-                if let Some(face) = Self::find_closest_weight(&faces, weight) {
-                    return Ok(face.font.clone());
-                }
-            }
-        }
-
-        anyhow::bail!("Font not found for family: {} weight: {:?}", family, weight)
-    }
-
-    pub fn get_font_regular(&self, family: &str) -> anyhow::Result<font_kit::font::Font> {
-        self.get_font(family, FontWeight::Regular)
-    }
-
     pub fn get_egui_font_family(&self, family: &str, weight: FontWeight) -> egui::FontFamily {
         let name = format!("{}_{}", family, weight.numeric());
         if self.registed_egui_font_families.contains(&name) {
@@ -250,7 +213,7 @@ impl FontManager {
 
         if let Some(&closest) = candidates.first() {
             let fallback_name = format!("{}_{}", family, closest.numeric());
-            tracing::debug!(
+            tracing::warn!(
                 "egui font {} not found, fallback to {}",
                 name,
                 fallback_name
@@ -259,7 +222,18 @@ impl FontManager {
         }
 
         // Fallback to default font family when no face from this family is registered.
-        tracing::debug!("egui font {} not found, fallback to default", name);
+        if family == DEFAULT_FONT_FAMILY_ALIAS {
+            tracing::warn!(
+                "egui default font {} not found, fallback to egui::FontFamily::Proportional",
+                name
+            );
+            return egui::FontFamily::Proportional;
+        }
+
+        tracing::warn!(
+            "egui font {} not found, fallback to default",
+            name
+        );
         self.default_egui_font_family()
     }
 
@@ -297,7 +271,10 @@ impl FontManager {
         ctx.request_repaint();
     }
 
-    fn find_closest_weight<'a>(faces: &'a [FontFace], target: FontWeight) -> Option<&'a FontFace> {
+    pub fn find_closest_weight<'a>(
+        faces: &'a [FontFace],
+        target: FontWeight,
+    ) -> Option<&'a FontFace> {
         if faces.is_empty() {
             return None;
         }
