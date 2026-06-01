@@ -1017,6 +1017,7 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
+ "ttf-parser",
  "wasm-bindgen-futures",
  "web-sys",
 ]

@@ -1,11 +1,9 @@
 use std::path;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::{fs::File, io::Read};
 
 use dashmap::{DashMap, DashSet};
-use font_kit::family_name::FamilyName;
-use font_kit::properties::Properties;
-use font_kit::source::SystemSource;
 use parking_lot::RwLock;
 
 use crate::consts::DEFAULT_FONT_FAMILY_ALIAS;
@@ -32,7 +30,12 @@ impl FamilyKey {
 pub struct FontManager {
     families: DashMap<FamilyKey, Vec<FontFace>>,
     fallback_chain: RwLock<Vec<FamilyKey>>,
-    registed_egui_font_families: DashSet<String>,
+    /// egui font key → registered (e.g. "noto sans_400")
+    registered_egui_font_keys: DashSet<String>,
+    /// family name → sorted list of registered weights; built once in set_egui_fonts
+    registered_weights_by_family: DashMap<String, Vec<FontWeight>>,
+    /// Guards set_egui_fonts so it only applies once
+    fonts_applied: AtomicBool,
 }
 
 impl FontManager {
@@ -40,7 +43,9 @@ impl FontManager {
         Self {
             families: DashMap::new(),
             fallback_chain: RwLock::new(Vec::new()),
-            registed_egui_font_families: DashSet::new(),
+            registered_egui_font_keys: DashSet::new(),
+            registered_weights_by_family: DashMap::new(),
+            fonts_applied: AtomicBool::new(false),
         }
     }
 
@@ -63,20 +68,29 @@ impl FontManager {
         self.load_from_bytes(family, &font_data, 0)
     }
 
+    /// Parse weight/italic from raw font bytes using ttf-parser (pure Rust, wasm32-compatible).
+    /// Returns (weight, italic).
+    ///
+    /// Uses `Face::weight()` → `ttf_parser::Weight` and `Face::is_italic()`, both available
+    /// directly on `Face` since ttf-parser 0.16+.  `Weight::to_number()` gives the numeric
+    /// OS/2 usWeightClass value (100–900).
+    fn parse_font_properties(data: &[u8], index: usize) -> anyhow::Result<(FontWeight, bool)> {
+        let face = ttf_parser::Face::parse(data, index as u32)
+            .map_err(|e| anyhow::anyhow!("Failed to parse font: {}", e))?;
+
+        let weight = FontWeight::from_numeric(face.weight().to_number());
+        let italic = face.is_italic();
+
+        Ok((weight, italic))
+    }
+
     pub fn load_from_bytes(&self, family: &str, data: &[u8], index: usize) -> anyhow::Result<()> {
-        let data_vec: Arc<Vec<u8>> = Arc::new(data.to_vec());
+        let arc_data: Arc<[u8]> = Arc::from(data);
 
-        let font = font_kit::font::Font::from_bytes(data_vec.clone(), index as u32)
-            .map_err(|e| anyhow::anyhow!("Failed to parse font data with font_kit: {}", e))?;
-
-        let properties = font.properties();
-        let weight = FontWeight::from_numeric(properties.weight.0 as u16);
-        let italic = properties.style != font_kit::properties::Style::Normal;
-
-        let data: Arc<[u8]> = Arc::from(data);
+        let (weight, italic) = Self::parse_font_properties(&arc_data, index)?;
 
         let face = FontFace {
-            data,
+            data: arc_data,
             index,
             weight,
             italic,
@@ -90,14 +104,29 @@ impl FontManager {
         Ok(())
     }
 
+    /// Enumerate and load system fonts by family name.
+    ///
+    /// Not available on wasm32 — use `load_from_bytes` with bundled font data instead:
+    /// ```rust
+    /// #[cfg(target_arch = "wasm32")]
+    /// font_manager.load_from_bytes(
+    ///     "my-font",
+    ///     include_bytes!("../assets/MyFont-Regular.ttf"),
+    ///     0,
+    /// )?;
+    /// ```
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn load_system_font_with_fallbacks(
         &self,
         alias: &str,
         families: &[&str],
     ) -> anyhow::Result<()> {
+        use font_kit::family_name::FamilyName;
+        use font_kit::properties::Properties;
+        use font_kit::source::SystemSource;
+
         let source = SystemSource::new();
 
-        // Try each candidate family in order; load ALL faces from the first one found.
         let mut loaded_count = 0usize;
         let mut found_family: Option<&str> = None;
 
@@ -156,7 +185,6 @@ impl FontManager {
             return Ok(());
         }
 
-        // Last-resort fallback: select_best_match with SansSerif generic.
         tracing::warn!(
             "None of {:?} found as full families; falling back to select_best_match",
             families
@@ -193,47 +221,44 @@ impl FontManager {
         *self.fallback_chain.write() = chain;
     }
 
+    /// Look up the egui FontFamily for a given (family, weight) pair.
+    ///
+    /// Hot-path lookup uses the pre-built `registered_weights_by_family` index instead
+    /// of iterating over `FontWeight::ALL` and calling `format!` + `DashSet::contains`
+    /// for every weight on every call. The index is populated once inside `set_egui_fonts`.
     pub fn get_egui_font_family(&self, family: &str, weight: FontWeight) -> egui::FontFamily {
-        let name = format!("{}_{}", family, weight.numeric());
-        if self.registed_egui_font_families.contains(&name) {
-            return egui::FontFamily::Name(name.into());
+        let exact_key = format!("{}_{}", family, weight.numeric());
+        if self.registered_egui_font_keys.contains(&exact_key) {
+            return egui::FontFamily::Name(exact_key.into());
         }
 
-        // Fallback: find the closest registered weight within the same family.
-        let target_num = weight.numeric() as i32;
-        let mut candidates: Vec<FontWeight> = FontWeight::ALL
-            .iter()
-            .filter(|&&w| {
-                let n = format!("{}_{}", family, w.numeric());
-                self.registed_egui_font_families.contains(&n)
-            })
-            .copied()
-            .collect();
-        candidates.sort_by_key(|w| (w.numeric() as i32 - target_num).unsigned_abs());
-
-        if let Some(&closest) = candidates.first() {
-            let fallback_name = format!("{}_{}", family, closest.numeric());
-            tracing::warn!(
-                "egui font {} not found, fallback to {}",
-                name,
-                fallback_name
-            );
-            return egui::FontFamily::Name(fallback_name.into());
+        // Closest-weight fallback: consult the pre-built per-family weight list.
+        if let Some(weights) = self.registered_weights_by_family.get(family) {
+            let target_num = weight.numeric() as i32;
+            if let Some(&closest) = weights
+                .iter()
+                .min_by_key(|w| (w.numeric() as i32 - target_num).unsigned_abs())
+            {
+                let fallback_key = format!("{}_{}", family, closest.numeric());
+                tracing::warn!(
+                    "egui font {} not found, fallback to {}",
+                    exact_key,
+                    fallback_key
+                );
+                return egui::FontFamily::Name(fallback_key.into());
+            }
         }
 
-        // Fallback to default font family when no face from this family is registered.
+        // Family not registered at all — fall back to the default alias.
         if family == DEFAULT_FONT_FAMILY_ALIAS {
             tracing::warn!(
                 "egui default font {} not found, fallback to egui::FontFamily::Proportional",
-                name
+                exact_key
             );
             return egui::FontFamily::Proportional;
         }
 
-        tracing::warn!(
-            "egui font {} not found, fallback to default",
-            name
-        );
+        tracing::warn!("egui font {} not found, fallback to default", exact_key);
         self.default_egui_font_family()
     }
 
@@ -241,7 +266,16 @@ impl FontManager {
         self.get_egui_font_family(DEFAULT_FONT_FAMILY_ALIAS, FontWeight::Regular)
     }
 
+    /// Register all loaded font faces with egui.
+    ///
+    /// Idempotent: subsequent calls are no-ops (calling `egui::Context::set_fonts`
+    /// flushes the entire glyph cache, so duplicate calls must be avoided).
     pub fn set_egui_fonts(&self, ctx: &egui::Context) {
+        if self.fonts_applied.swap(true, Ordering::SeqCst) {
+            tracing::warn!("set_egui_fonts called more than once; skipping duplicate call");
+            return;
+        }
+
         let mut font_defs = egui::FontDefinitions::default();
 
         for entry in self.families.iter() {
@@ -250,21 +284,34 @@ impl FontManager {
             for face in entry.value().iter() {
                 let egui_key = format!("{}_{}", family_name, face.weight.numeric());
 
+                // egui FontData::from_owned takes Vec<u8>; clone from our Arc<[u8]> once.
+                // The Arc itself stays alive for other uses (e.g. direct rasterisation).
                 let egui_font_data = egui::FontData::from_owned(face.data.to_vec());
 
                 font_defs
                     .font_data
-                    .insert(egui_key.clone(), std::sync::Arc::new(egui_font_data));
+                    .insert(egui_key.clone(), Arc::new(egui_font_data));
 
-                let egui_family = egui::FontFamily::Name(egui_key.clone().into());
                 font_defs
                     .families
-                    .entry(egui_family)
+                    .entry(egui::FontFamily::Name(egui_key.clone().into()))
                     .or_default()
                     .push(egui_key.clone());
 
-                self.registed_egui_font_families.insert(egui_key);
+                self.registered_egui_font_keys.insert(egui_key.clone());
+
+                // Build the per-family weight index while iterating, so
+                // get_egui_font_family never has to scan FontWeight::ALL.
+                self.registered_weights_by_family
+                    .entry(family_name.clone())
+                    .or_default()
+                    .push(face.weight);
             }
+        }
+
+        // Keep each per-family weight list sorted for min_by_key to stay predictable.
+        for mut weights in self.registered_weights_by_family.iter_mut() {
+            weights.sort_by_key(|w| w.numeric());
         }
 
         ctx.set_fonts(font_defs);

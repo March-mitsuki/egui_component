@@ -13,7 +13,11 @@ fn main() -> eframe::Result {
     let _logger_guard = logging::init_logging();
 
     FONT_MANAGER
-        .load_system_font_with_fallbacks(DEFAULT_FONT_FAMILY_ALIAS, &["MainUI", "Microsoft YaHei"])
+        .load_from_bytes(
+            DEFAULT_FONT_FAMILY_ALIAS,
+            include_bytes!("../assets/NotoSansCJK-Regular.ttc"),
+            0,
+        )
         .unwrap();
 
     // Load theme from theme.json file
@@ -30,9 +34,7 @@ fn main() -> eframe::Result {
     eframe::run_native(
         "egui_component Gallery",
         options,
-        Box::new(move |_cc| {
-            Ok(Box::new(GalleryApp::new(ui_theme)))
-        }),
+        Box::new(move |_cc| Ok(Box::new(GalleryApp::new(ui_theme)))),
     )
 }
 
@@ -40,9 +42,17 @@ fn main() -> eframe::Result {
 fn main() {
     // Redirect `log` message to `console.log` and friends:
     eframe::WebLogger::init(log::LevelFilter::Debug).ok();
-    
+
     // Web Panic Hook
     console_error_panic_hook::set_once();
+
+    FONT_MANAGER
+        .load_from_bytes(
+            DEFAULT_FONT_FAMILY_ALIAS,
+            include_bytes!("../assets/NotoSansCJK-Regular.ttc"),
+            0,
+        )
+        .unwrap();
 
     let web_options = eframe::WebOptions::default();
 
@@ -54,7 +64,7 @@ fn main() {
                 Box::new(|_cc| {
                     let ui_theme = UiTheme::from_json_bytes(include_bytes!("../theme.json"))
                         .expect("Failed to load theme.json");
-                    
+
                     Ok(Box::new(GalleryApp::new(ui_theme)))
                 }),
             )
@@ -101,6 +111,11 @@ impl GalleryApp {
 
 impl eframe::App for GalleryApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        if ui.ctx().input(|i| i.viewport().close_requested()) {
+            // prevent macOS touch bar
+            std::process::exit(0);
+        }
+
         // Set visual styles using theme state
         let _theme = match self.color_mode {
             ColorMode::Dark => {
@@ -112,7 +127,7 @@ impl eframe::App for GalleryApp {
                 &self.ui_theme.light
             }
         };
-        
+
         egui::Panel::left("nav_panel").show_inside(ui, |ui| {
             ui.heading("Components");
             ui.separator();
@@ -124,9 +139,9 @@ impl eframe::App for GalleryApp {
         egui::CentralPanel::default().show_inside(ui, |ui| {
             ui.heading("egui_component Gallery SPA");
             ui.label("This app runs both natively and on the web!");
-            
+
             ui.add_space(20.0);
-            
+
             if ui.button("Toggle Theme").clicked() {
                 self.color_mode = match self.color_mode {
                     ColorMode::Dark => ColorMode::Light,
