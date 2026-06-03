@@ -32,6 +32,7 @@ serde_json = "1"
 
 [dev-dependencies]
 eframe = "0.34"
+egui_extras = { version = "0.34", features = ["all_loaders"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter"]}
 tracing-appender = "0.2"
 wasm-bindgen-futures = "0.4.72"

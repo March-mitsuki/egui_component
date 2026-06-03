@@ -39,6 +39,7 @@ fn main() -> eframe::Result {
         options,
         Box::new(move |cc| {
             FONT_MANAGER.set_egui_fonts(&cc.egui_ctx);
+            egui_extras::install_image_loaders(&cc.egui_ctx);
             tracing::info!("eframe app init");
 
             Ok(Box::new(GalleryApp::new(ui_theme)))
@@ -254,7 +255,7 @@ impl eframe::App for GalleryApp {
                 ui.add_space(8.0);
 
                 match self.current_page {
-                    Page::Avatar => pages::avatar::show(ui),
+                    Page::Avatar => pages::avatar::show(ui, theme),
                     Page::Button => pages::button::show(ui),
                     Page::Card => pages::card::show(ui),
                     Page::Dialog => pages::dialog::show(ui),
