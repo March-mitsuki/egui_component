@@ -88,6 +88,12 @@ impl FontManager {
         let arc_data: Arc<[u8]> = Arc::from(data);
 
         let (weight, italic) = Self::parse_font_properties(&arc_data, index)?;
+        tracing::info!(
+            "font {} parsed. weight: {:#?}, italic: {}",
+            family,
+            weight,
+            italic,
+        );
 
         let face = FontFace {
             data: arc_data,
@@ -227,30 +233,31 @@ impl FontManager {
     /// of iterating over `FontWeight::ALL` and calling `format!` + `DashSet::contains`
     /// for every weight on every call. The index is populated once inside `set_egui_fonts`.
     pub fn get_egui_font_family(&self, family: &str, weight: FontWeight) -> egui::FontFamily {
-        let exact_key = format!("{}_{}", family, weight.numeric());
+        let family_lc = family.to_lowercase();
+        let exact_key = format!("{}_{}", family_lc, weight.numeric());
         if self.registered_egui_font_keys.contains(&exact_key) {
             return egui::FontFamily::Name(exact_key.into());
         }
 
         // Closest-weight fallback: consult the pre-built per-family weight list.
-        if let Some(weights) = self.registered_weights_by_family.get(family) {
+        if let Some(weights) = self.registered_weights_by_family.get(&family_lc) {
             let target_num = weight.numeric() as i32;
             if let Some(&closest) = weights
                 .iter()
                 .min_by_key(|w| (w.numeric() as i32 - target_num).unsigned_abs())
             {
-                let fallback_key = format!("{}_{}", family, closest.numeric());
-                tracing::warn!(
-                    "egui font {} not found, fallback to {}",
-                    exact_key,
-                    fallback_key
-                );
+                let fallback_key = format!("{}_{}", family_lc, closest.numeric());
+                // tracing::warn!(
+                //     "egui font {} not found, fallback to {}",
+                //     exact_key,
+                //     fallback_key
+                // );
                 return egui::FontFamily::Name(fallback_key.into());
             }
         }
 
         // Family not registered at all — fall back to the default alias.
-        if family == DEFAULT_FONT_FAMILY_ALIAS {
+        if family_lc == DEFAULT_FONT_FAMILY_ALIAS.to_lowercase() {
             tracing::warn!(
                 "egui default font {} not found, fallback to egui::FontFamily::Proportional",
                 exact_key
