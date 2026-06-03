@@ -6,7 +6,6 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ![egui_component dark screenshot](images/key_visual.dark.png)
-
 ![egui_component light screenshot](images/key_visual.light.png)
 
 ## 🚀 简介
@@ -17,10 +16,11 @@
 
 ## ✨ 特性
 
-- **🧩 非侵入式 (Non-Intrusive)**：不强制接管全局 `Visuals`，可以与原生 egui 控件完美并存。
+- **🧩 非侵入式设计**：不强制接管全局 `Visuals`，可以与原生 egui 控件完美并存。
 - **✨ 现代样式**： 开箱即用的现代组件样式，提升应用视觉质感。
 - **🎨 灵活的样式系统**：高度解耦，每个组件的视觉属性均可完全自定义。
 - **🌓 颜色模式友好**：原生支持深色/浅色模式切换。
+- **表单系统**: 自带一个可以用于原生 egui immediate mode 的表单系统。
 
 ## 📦 安装
 

@@ -6,7 +6,6 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ![egui_component dark screenshot](images/key_visual.dark.png)
-
 ![egui_component light screenshot](images/key_visual.light.png)
 
 ## 🚀 Introduction
