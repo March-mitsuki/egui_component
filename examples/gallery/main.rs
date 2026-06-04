@@ -256,7 +256,7 @@ impl eframe::App for GalleryApp {
 
                 match self.current_page {
                     Page::Avatar => pages::avatar::show(ui, theme),
-                    Page::Button => pages::button::show(ui),
+                    Page::Button => pages::button::show(ui, theme),
                     Page::Card => pages::card::show(ui),
                     Page::Dialog => pages::dialog::show(ui),
                     Page::Divider => pages::divider::show(ui),
