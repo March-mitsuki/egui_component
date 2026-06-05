@@ -10,6 +10,7 @@ pub mod icon_menu_button;
 pub mod menu_button;
 pub mod scroll_area;
 pub mod separator;
+pub mod switch;
 pub mod text;
 pub mod text_edit;
 pub mod toast;
