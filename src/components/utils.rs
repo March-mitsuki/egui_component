@@ -49,7 +49,6 @@ impl CardFrame {
 /// change style for current ui
 ///
 /// ### Returns
-///
 /// the style before change. can be used to restore style
 pub fn change_style(ui: &mut Ui, change_fn: impl FnOnce(&mut egui::Style)) -> egui::Style {
     let style_origin = (**ui.style()).clone();

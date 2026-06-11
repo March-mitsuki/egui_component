@@ -1,4 +1,4 @@
-use crate::theme::Theme;
+use crate::theme::{AvatarSize, Theme};
 use egui::{Color32, Response, Sense, Ui};
 
 pub struct Style {
@@ -9,13 +9,30 @@ pub struct Style {
 }
 
 impl Style {
-    pub fn new(theme: &Theme) -> Self {
+    pub fn new(theme: &Theme, size: AvatarSize) -> Self {
+        let size = match size {
+            AvatarSize::Sm => theme.avatar.sm.size,
+            AvatarSize::Md => theme.avatar.md.size,
+            AvatarSize::Lg => theme.avatar.lg.size,
+        };
         Self {
-            size: 32.0,
+            size,
             bg_color: theme.colors.primary.l6,
             text_color: theme.colors.fg.base,
             sense: Sense::click(),
         }
+    }
+
+    pub fn new_sm(theme: &Theme) -> Self {
+        Self::new(theme, AvatarSize::Sm)
+    }
+
+    pub fn new_md(theme: &Theme) -> Self {
+        Self::new(theme, AvatarSize::Md)
+    }
+
+    pub fn new_lg(theme: &Theme) -> Self {
+        Self::new(theme, AvatarSize::Lg)
     }
 
     pub fn size(mut self, size: f32) -> Self {

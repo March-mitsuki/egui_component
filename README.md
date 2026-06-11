@@ -66,4 +66,4 @@ See `examples/` directory for more examples.
 
 ## 📄 LICENSE
 
-This project and all its included packages are released under the **MIT License**.
+This repository and all its included packages are released under the **MIT License**.

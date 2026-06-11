@@ -19,11 +19,12 @@ pub struct Style {
     pub height: f32,
     pub corner_radius: CornerRadius,
     pub text_size: f32,
+    pub icon_size: f32,
     pub palette: ButtonPalette,
     pub icon_left: ButtonIcon,
     pub icon_right: ButtonIcon,
     /// 图标和文字之间的间距
-    pub spacing: f32,
+    pub gap: f32,
     /// 是否强制固定宽度
     pub width: Option<f32>,
     pub state: ButtonState,
@@ -35,11 +36,6 @@ pub enum ButtonIcon {
     Some(egui::ImageSource<'static>),
 }
 
-pub const BUTTON_HEIGHT_XS: f32 = 18.0;
-pub const BUTTON_HEIGHT_SM: f32 = 24.0;
-pub const BUTTON_HEIGHT_MD: f32 = 32.0;
-pub const BUTTON_HEIGHT_LG: f32 = 40.0;
-
 impl Style {
     /// color 为 None 时，使用 theme.fg （黑/白）作为按钮颜色
     pub fn new(
@@ -50,34 +46,38 @@ impl Style {
         icon_left: ButtonIcon,
         icon_right: ButtonIcon,
     ) -> Self {
-        let (height, padding_x, text_size, corner_radius, spacing) = match size {
+        let (height, padding_x, text_size, icon_size, corner_radius, gap) = match size {
             ButtonSize::Xs => (
-                BUTTON_HEIGHT_XS,
-                8.0,
-                10.0,
+                theme.button.xs.size,
+                theme.button.xs.padding,
+                theme.button.xs.text_size,
+                theme.button.xs.icon_size,
                 CornerRadius::same(theme.corner_radius.xxs as u8),
-                4.0,
+                theme.button.xs.gap,
             ),
             ButtonSize::Sm => (
-                BUTTON_HEIGHT_SM,
-                10.0,
-                12.0,
+                theme.button.sm.size,
+                theme.button.sm.padding,
+                theme.button.sm.text_size,
+                theme.button.sm.icon_size,
                 CornerRadius::same(theme.corner_radius.xs as u8),
-                6.0,
+                theme.button.sm.gap,
             ),
             ButtonSize::Md => (
-                BUTTON_HEIGHT_MD,
-                14.0,
-                14.0,
+                theme.button.md.size,
+                theme.button.md.padding,
+                theme.button.md.text_size,
+                theme.button.md.icon_size,
                 CornerRadius::same(theme.corner_radius.md as u8),
-                6.0,
+                theme.button.md.gap,
             ),
             ButtonSize::Lg => (
-                BUTTON_HEIGHT_LG,
-                18.0,
-                16.0,
+                theme.button.lg.size,
+                theme.button.lg.padding,
+                theme.button.lg.text_size,
+                theme.button.lg.icon_size,
                 CornerRadius::same(theme.corner_radius.md as u8),
-                8.0,
+                theme.button.lg.gap,
             ),
         };
         let palette = match_button_palette(theme, color, variant);
@@ -85,11 +85,12 @@ impl Style {
             height,
             padding_x,
             text_size,
+            icon_size,
             corner_radius,
             palette,
             icon_left,
             icon_right,
-            spacing,
+            gap,
             width: None,
             state: ButtonState::None,
         }
@@ -467,6 +468,11 @@ impl Style {
         self
     }
 
+    pub fn icon_size(mut self, icon_size: f32) -> Self {
+        self.icon_size = icon_size;
+        self
+    }
+
     pub fn palette(mut self, palette: ButtonPalette) -> Self {
         self.palette = palette;
         self
@@ -482,8 +488,8 @@ impl Style {
         self
     }
 
-    pub fn spacing(mut self, spacing: f32) -> Self {
-        self.spacing = spacing;
+    pub fn gap(mut self, spacing: f32) -> Self {
+        self.gap = spacing;
         self
     }
 
@@ -502,25 +508,25 @@ pub fn render(ui: &mut Ui, text: &str, style: Style) -> egui::Response {
     let mut font_id = egui::TextStyle::Button.resolve(ui.style());
     font_id.size = style.text_size;
 
-    let icon_size = (style.text_size * 1.3).round();
+    let icon_size = style.icon_size;
     let has_text = !text.is_empty();
     let is_loading = style.state == ButtonState::Loading;
 
     // 计算图标占用的宽度
     let mut icon_width = 0.0_f32;
     if is_loading {
-        icon_width += icon_size + style.spacing;
+        icon_width += icon_size + style.gap;
     }
     if let ButtonIcon::Some(_) = &style.icon_left {
         icon_width += icon_size;
         if has_text || is_loading {
-            icon_width += style.spacing;
+            icon_width += style.gap;
         }
     }
     if let ButtonIcon::Some(_) = &style.icon_right {
         icon_width += icon_size;
         if has_text || is_loading || matches!(style.icon_left, ButtonIcon::Some(_)) {
-            icon_width += style.spacing;
+            icon_width += style.gap;
         }
     }
 
@@ -576,18 +582,18 @@ pub fn render(ui: &mut Ui, text: &str, style: Style) -> egui::Response {
     // 用截断后的实际宽度计算内容总宽度
     let mut content_width = if has_text { galley.size().x } else { 0.0 };
     if is_loading {
-        content_width += icon_size + style.spacing;
+        content_width += icon_size + style.gap;
     }
     if let ButtonIcon::Some(_) = &style.icon_left {
         content_width += icon_size;
         if has_text || is_loading {
-            content_width += style.spacing;
+            content_width += style.gap;
         }
     }
     if let ButtonIcon::Some(_) = &style.icon_right {
         content_width += icon_size;
         if has_text || is_loading || matches!(style.icon_left, ButtonIcon::Some(_)) {
-            content_width += style.spacing;
+            content_width += style.gap;
         }
     }
 
@@ -659,7 +665,7 @@ pub fn render(ui: &mut Ui, text: &str, style: Style) -> egui::Response {
         ui.painter()
             .add(egui::Shape::line(points, Stroke::new(1.5, text_color)));
         ui.ctx().request_repaint();
-        cursor_x += icon_size + style.spacing;
+        cursor_x += icon_size + style.gap;
     }
 
     // 左侧图标
@@ -673,7 +679,7 @@ pub fn render(ui: &mut Ui, text: &str, style: Style) -> egui::Response {
             .paint_at(ui, icon_rect);
         cursor_x += icon_size;
         if has_text {
-            cursor_x += style.spacing;
+            cursor_x += style.gap;
         }
     }
 
@@ -687,7 +693,7 @@ pub fn render(ui: &mut Ui, text: &str, style: Style) -> egui::Response {
     // 右侧图标
     if let ButtonIcon::Some(icon) = style.icon_right {
         if has_text || is_loading || matches!(style.icon_left, ButtonIcon::Some(_)) {
-            cursor_x += style.spacing;
+            cursor_x += style.gap;
         }
         let icon_rect = egui::Rect::from_center_size(
             egui::pos2(cursor_x + icon_size / 2.0, rect.center().y),

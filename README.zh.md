@@ -24,11 +24,19 @@
 
 ## 📦 安装
 
+### 稳定版 (从 crates.io 中安装)
 将以下依赖添加到你的 `Cargo.toml` 文件中：
 
 ```toml
 [dependencies]
 egui_component = "0.1.0-alpha.2"
+```
+
+### 先行版 (直接添加我们的 dev branch)
+将以下依赖添加到你的 `Cargo.toml` 文件中：
+
+```toml
+egui_component = { git = "https://github.com/March-mitsuki/egui_component", branch = "dev" }
 ```
 
 ## 📝 快速开始
@@ -64,6 +72,12 @@ fn my_page(ui: &mut egui::Ui) {
 
 更多示例请查看 `examples/` 目录。
 
+## 🌍 谁在用 egui_component ?
+
+- [ChiyoCast](https://chiyocast.com): 为次世代直播量身定制的云原生直播软件。
+
+如果你也在用 egui_component, 欢迎提交 issue 添加你的项目到这里！
+
 ## 📄 LICENSE
 
-本项目及其包含的所有包均在 **MIT License** 下发布。
+本仓库及其包含的所有包均在 **MIT License** 下发布。

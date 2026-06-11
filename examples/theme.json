@@ -104,7 +104,42 @@
       "lg": 12,
       "xl": 16
     },
-    "text_size": { "xxs": 8, "xs": 10, "sm": 12, "md": 14, "lg": 16, "xl": 20 }
+    "text_size": { "xxs": 8, "xs": 10, "sm": 12, "md": 14, "lg": 16, "xl": 20 },
+    "avatar": {
+      "sm": { "size": 24.0 },
+      "md": { "size": 32.0 },
+      "lg": { "size": 40.0 }
+    },
+    "button": {
+      "xs": {
+        "size": 18.0,
+        "padding": 8.0,
+        "text_size": 10.0,
+        "icon_size": 10.0,
+        "gap": 4.0
+      },
+      "sm": {
+        "size": 24.0,
+        "padding": 10.0,
+        "text_size": 12.0,
+        "icon_size": 14.0,
+        "gap": 6.0
+      },
+      "md": {
+        "size": 32.0,
+        "padding": 14.0,
+        "text_size": 14.0,
+        "icon_size": 20.0,
+        "gap": 6.0
+      },
+      "lg": {
+        "size": 40.0,
+        "padding": 18.0,
+        "text_size": 16.0,
+        "icon_size": 26.0,
+        "gap": 8.0
+      }
+    }
   },
   "light": {
     "colors": {
@@ -211,6 +246,41 @@
       "lg": 12,
       "xl": 16
     },
-    "text_size": { "xxs": 8, "xs": 10, "sm": 12, "md": 14, "lg": 16, "xl": 20 }
+    "text_size": { "xxs": 8, "xs": 10, "sm": 12, "md": 14, "lg": 16, "xl": 20 },
+    "avatar": {
+      "sm": { "size": 24.0 },
+      "md": { "size": 32.0 },
+      "lg": { "size": 40.0 }
+    },
+    "button": {
+      "xs": {
+        "size": 18.0,
+        "padding": 8.0,
+        "text_size": 10.0,
+        "icon_size": 10.0,
+        "gap": 4.0
+      },
+      "sm": {
+        "size": 24.0,
+        "padding": 10.0,
+        "text_size": 12.0,
+        "icon_size": 14.0,
+        "gap": 6.0
+      },
+      "md": {
+        "size": 32.0,
+        "padding": 14.0,
+        "text_size": 14.0,
+        "icon_size": 20.0,
+        "gap": 6.0
+      },
+      "lg": {
+        "size": 40.0,
+        "padding": 18.0,
+        "text_size": 16.0,
+        "icon_size": 26.0,
+        "gap": 8.0
+      }
+    }
   }
 }

@@ -3,7 +3,6 @@ use egui::{Color32, CornerRadius, Image, Rect, Rgba, Sense, StrokeKind, Ui, vec2
 use crate::theme::{ButtonPalette, ButtonSize, ButtonVariant, Color, Theme};
 
 use super::button::match_button_palette;
-use super::button::{BUTTON_HEIGHT_LG, BUTTON_HEIGHT_MD, BUTTON_HEIGHT_SM, BUTTON_HEIGHT_XS};
 
 #[derive(Clone)]
 pub struct Style {
@@ -22,23 +21,23 @@ impl Style {
     ) -> Self {
         let (size, icon_size, corner_radius) = match size {
             ButtonSize::Xs => (
-                BUTTON_HEIGHT_XS,
-                10.0,
+                theme.button.xs.size,
+                theme.button.xs.icon_size,
                 CornerRadius::same(theme.corner_radius.xs as u8),
             ),
             ButtonSize::Sm => (
-                BUTTON_HEIGHT_SM,
-                14.0,
+                theme.button.sm.size,
+                theme.button.sm.icon_size,
                 CornerRadius::same(theme.corner_radius.sm as u8),
             ),
             ButtonSize::Md => (
-                BUTTON_HEIGHT_MD,
-                20.0,
+                theme.button.md.size,
+                theme.button.md.icon_size,
                 CornerRadius::same(theme.corner_radius.sm as u8),
             ),
             ButtonSize::Lg => (
-                BUTTON_HEIGHT_LG,
-                26.0,
+                theme.button.lg.size,
+                theme.button.lg.icon_size,
                 CornerRadius::same(theme.corner_radius.md as u8),
             ),
         };

@@ -38,6 +38,11 @@ struct MyApp {
 
 impl eframe::App for MyApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        if ui.ctx().input(|i| i.viewport().close_requested()) {
+            // prevent macOS touch bar crash report
+            std::process::exit(0);
+        }
+
         let theme = match self.color_mode {
             ColorMode::Dark => {
                 // set egui to dark mode
