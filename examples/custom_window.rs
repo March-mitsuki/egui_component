@@ -1,6 +1,5 @@
 use eframe::egui;
-use egui_component::components::{button, icon_button, text, window};
-use egui_component::icon::ICONS;
+use egui_component::components::{button, text, window};
 use egui_component::theme::UiTheme;
 
 fn main() -> eframe::Result {
@@ -46,6 +45,8 @@ impl eframe::App for MyApp {
             ui.heading("Custom Window Component Example");
             ui.add_space(8.0);
 
+            egui::Window::new("Native Window").show(ui.ctx(), |ui| ui.button("hello"));
+
             // Re-open window button if closed
             if !self.is_open {
                 // Using our own button component!
@@ -67,59 +68,25 @@ impl eframe::App for MyApp {
                 ui.ctx(),
                 window_id,
                 Some(&mut self.is_open),
-                |ui, state| {
-                    ui.horizontal(|ui| {
-                        // Custom Header closure:
-                        // 1. Collapse toggle button using our own icon_button component
-                        let collapse_icon = if state.is_collapsed {
-                            ICONS.play.clone()
-                        } else {
-                            ICONS.arrow_down.clone()
-                        };
+                |ui, _state| {
+                    // Custom Title closure:
+                    // Title Text styled using our own text component's design tokens
+                    // We extract font size, family, weight, and color from our theme via text::Style.
+                    let text_style = text::Style::new_heading(theme);
+                    let font_family = egui_component::consts::FONT_MANAGER.get_egui_font_family(
+                        &text_style.font_family,
+                        text_style.font_weight,
+                    );
 
-                        if icon_button::render(
-                            ui,
-                            collapse_icon,
-                            icon_button::Style::new_ghost_sm(theme),
-                        )
-                        .clicked()
-                        {
-                            state.is_collapsed = !state.is_collapsed;
-                        }
+                    let galley = ui.painter().layout_no_wrap(
+                        "Drag Here to Move Window".to_owned(),
+                        egui::FontId::new(text_style.size, font_family),
+                        text_style.color,
+                    );
 
-                        // 2. Title Text styled using our own text component's design tokens
-                        // We extract font size, family, weight, and color from our theme via text::Style.
-                        let text_style = text::Style::new_heading(theme);
-                        let font_family = egui_component::consts::FONT_MANAGER.get_egui_font_family(
-                            &text_style.font_family,
-                            text_style.font_weight,
-                        );
-
-                        let galley = ui.painter().layout_no_wrap(
-                            "Drag Here to Move Window".to_owned(),
-                            egui::FontId::new(text_style.size, font_family),
-                            text_style.color,
-                        );
-
-                        state.header_title_width = galley.size().x;
-
-                        // Allocate space with Sense::empty() so dragging falls through to the background drag sensor
-                        let (rect, _) = ui.allocate_at_least(galley.size(), egui::Sense::empty());
-                        ui.painter().galley(rect.min, galley, text_style.color);
-
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            // 3. Custom close button using our own icon_button component
-                            if icon_button::render(
-                                ui,
-                                ICONS.close.clone(),
-                                icon_button::Style::new_ghost_sm(theme),
-                            )
-                            .clicked()
-                            {
-                                state.is_open = false;
-                            }
-                        });
-                    });
+                    // Allocate space with Sense::empty() so dragging falls through to the background drag sensor
+                    let (rect, _) = ui.allocate_at_least(galley.size(), egui::Sense::empty());
+                    ui.painter().galley(rect.min, galley, text_style.color);
                 },
                 |ui, _state| {
                     // Custom Content closure:

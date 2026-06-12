@@ -1,3 +1,5 @@
+use crate::components::icon_button;
+use crate::icon::ICONS;
 use crate::theme::Theme;
 use egui::{Context, Ui};
 use egui_component_style_macros::FrameModifier;
@@ -24,6 +26,7 @@ impl WindowState {
 #[derive(FrameModifier, Clone)]
 pub struct Style {
     pub frame: egui::Frame,
+    pub header_frame: egui::Frame,
     pub init_pos: egui::Pos2,
     /// resize 允许的最小宽度
     /// 如果没有那么是自动计算的 header 的宽度
@@ -37,19 +40,34 @@ pub struct Style {
     pub height: Option<f32>,
     /// Header bar height
     pub header_height: f32,
+    /// Whether the window is collapsible
+    pub collapsible: bool,
+    /// Close button style
+    pub close_button_style: icon_button::Style,
 }
 
 impl Style {
     pub fn new(theme: &Theme) -> Self {
-        let card_frame = super::utils::CardFrame::new(theme, crate::theme::CardSize::Md);
+        let card_frame = super::utils::CardFrame::new(theme, crate::theme::CardSize::Md)
+            .inner_margin(egui::Margin::same(0));
+        let header_frame = super::utils::CardFrame::new(theme, crate::theme::CardSize::Md)
+            .inner_margin(egui::Margin::symmetric(4, 0))
+            .outer_margin(egui::Margin::same(4))
+            .fill(theme.colors.gray.l2)
+            .shadow(egui::Shadow::NONE)
+            .stroke(egui::Stroke::NONE)
+            .frame;
         Self {
             frame: card_frame.frame,
+            header_frame,
             init_pos: egui::pos2(150.0, 150.0),
             min_width: None,
             min_height: None,
             width: None,
             height: None,
             header_height: 36.0,
+            collapsible: true,
+            close_button_style: icon_button::Style::new_ghost_sm(theme).icon_size(20.0),
         }
     }
 
@@ -82,13 +100,28 @@ impl Style {
         self.header_height = header_height;
         self
     }
+
+    pub fn header_frame(mut self, header_frame: egui::Frame) -> Self {
+        self.header_frame = header_frame;
+        self
+    }
+
+    pub fn collapsible(mut self, collapsible: bool) -> Self {
+        self.collapsible = collapsible;
+        self
+    }
+
+    pub fn close_button_style(mut self, close_button_style: icon_button::Style) -> Self {
+        self.close_button_style = close_button_style;
+        self
+    }
 }
 
 pub fn render(
     ctx: &Context,
     id: egui::Id,
     mut open: Option<&mut bool>,
-    header: impl FnOnce(&mut Ui, &mut WindowState),
+    title: impl FnOnce(&mut Ui, &mut WindowState),
     content: impl FnOnce(&mut Ui, &mut WindowState),
     style: Style,
 ) {
@@ -113,20 +146,12 @@ pub fn render(
     }
 
     // If the window is closed, do not render the egui::Window at all.
-    // Since we don't use egui's built-in open/close (title_bar is false),
-    // there is no fade-out animation to worry about.
     if !state.is_open {
         state.store(ctx, id);
         return;
     }
 
     // 2. Prepare Window Builder
-    // NOTE: We intentionally do NOT call window.open() here.
-    // egui's Window wraps content in a CollapsingState that is marked .closable(),
-    // which means ui.close() from within the content would close the Collapsible
-    // (not the Window), leaving a residual empty frame on screen.
-    // Instead, we manage close state entirely through WindowState.is_open,
-    // which the header closure can set to false directly.
     let mut window = egui::Window::new("")
         .id(id)
         .title_bar(false)
@@ -157,7 +182,7 @@ pub fn render(
 
     if state.is_collapsed {
         window = window
-            .resizable([resizable_x, false])
+            .resizable(false)
             .min_size([min_w, min_h])
             .max_size([max_w, max_h]);
     } else {
@@ -185,24 +210,71 @@ pub fn render(
         // 3. Draw the background and buttons ON TOP of the drag detector
         let mut header_ui = ui.new_child(egui::UiBuilder::new().max_rect(header_rect));
 
-        header(&mut header_ui, &mut state);
+        style.header_frame.show(&mut header_ui, |ui| {
+            ui.horizontal(|ui| {
+                let outer_magin_y =
+                    style.header_frame.outer_margin.bottom + style.header_frame.outer_margin.top;
+                ui.set_height(style.header_height - outer_magin_y as f32);
 
-        let mut next_min_w = state.header_title_width + 80.0;
+                // 1. Collapse Toggle Button
+                if style.collapsible {
+                    let (collapse_rect, collapse_response) =
+                        ui.allocate_exact_size(egui::vec2(14.0, 14.0), egui::Sense::click());
+
+                    if collapse_response.clicked() {
+                        state.is_collapsed = !state.is_collapsed;
+                    }
+                    collapse_response.on_hover_cursor(egui::CursorIcon::PointingHand);
+
+                    // Animate the collapse icon rotation
+                    let openness = ui
+                        .ctx()
+                        .animate_bool_responsive(id.with("collapse_anim"), !state.is_collapsed);
+                    let angle = (openness - 1.0) * std::f32::consts::FRAC_PI_2;
+                    let tint = style.close_button_style.palette.text_color;
+
+                    egui::Image::new(ICONS.arrow_down.clone())
+                        .tint(tint)
+                        .rotate(angle, egui::vec2(0.5, 0.5))
+                        .paint_at(ui, collapse_rect);
+                }
+
+                // 2. Title closure
+                let start_x = ui.cursor().min.x;
+                title(ui, &mut state);
+                let end_x = ui.cursor().min.x;
+                state.header_title_width = (end_x - start_x).max(0.0);
+
+                // 3. Close Button
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if icon_button::render(
+                        ui,
+                        ICONS.close.clone(),
+                        style.close_button_style.clone(),
+                    )
+                    .clicked()
+                    {
+                        state.is_open = false;
+                    }
+                });
+            });
+        });
+
+        let item_spacing = ctx.global_style().spacing.item_spacing;
+
+        let mut next_min_w = state.header_title_width + 80.0 + item_spacing.x;
         let mut next_min_h = style.header_height;
 
         // Render Window Body only if not collapsed
         if !state.is_collapsed {
-            ui.separator();
-            next_min_h += 8.0; // height of separator and spacing
-
             let scroll_output = egui::ScrollArea::vertical()
                 .auto_shrink(false)
                 .show(ui, |ui| {
                     content(ui, &mut state);
                 });
 
-            // Height should fit the header + separator + body content
-            next_min_h += scroll_output.content_size.y;
+            // Height should fit the header + item_spacing + body content
+            next_min_h += item_spacing.y + scroll_output.content_size.y;
         }
 
         // Apply style constraints on computed minimum size
