@@ -1358,7 +1358,7 @@ pub fn render(ui: &mut Ui, text: &mut String, style: Style) -> egui::Response {
                     egui::pos2(text_x + px, underline_y),
                     egui::pos2(text_x + ex, underline_y),
                 ],
-                Stroke::new(1.5, style.palette.text_color),
+                Stroke::new(1.5_f32, style.palette.text_color),
             );
         }
 
@@ -1392,7 +1392,7 @@ pub fn render(ui: &mut Ui, text: &mut String, style: Style) -> egui::Response {
                         egui::pos2(screen_cx, text_y),
                         egui::pos2(screen_cx, text_y + text_height),
                     ],
-                    Stroke::new(1.5, style.palette.text_color),
+                    Stroke::new(1.5_f32, style.palette.text_color),
                 );
             }
         }
@@ -1477,8 +1477,8 @@ pub fn match_text_edit_palette(
                 focus_bg: theme.colors.fg.base.gamma_multiply(0.06),
                 text_color: theme.colors.fg.base,
                 placeholder_color: theme.colors.fg.base.gamma_multiply(0.35),
-                border_stroke: Stroke::new(1.0, Color32::TRANSPARENT),
-                focus_stroke: Stroke::new(1.5, focus_color),
+                border_stroke: Stroke::new(1.0_f32, Color32::TRANSPARENT),
+                focus_stroke: Stroke::new(1.5_f32, focus_color),
             }
         }
         TextEditVariant::Outline => {
@@ -1489,8 +1489,8 @@ pub fn match_text_edit_palette(
                 focus_bg: Color32::TRANSPARENT,
                 text_color: theme.colors.fg.base,
                 placeholder_color: theme.colors.fg.base.gamma_multiply(0.35),
-                border_stroke: Stroke::new(1.0, theme.colors.fg.base.gamma_multiply(0.25)),
-                focus_stroke: Stroke::new(1.5, focus_color),
+                border_stroke: Stroke::new(1.0_f32, theme.colors.fg.base.gamma_multiply(0.25)),
+                focus_stroke: Stroke::new(1.5_f32, focus_color),
             }
         }
         TextEditVariant::Flushed => {
@@ -1501,8 +1501,8 @@ pub fn match_text_edit_palette(
                 focus_bg: Color32::TRANSPARENT,
                 text_color: theme.colors.fg.base,
                 placeholder_color: theme.colors.fg.base.gamma_multiply(0.35),
-                border_stroke: Stroke::new(1.0, theme.colors.fg.base.gamma_multiply(0.25)),
-                focus_stroke: Stroke::new(2.0, focus_color),
+                border_stroke: Stroke::new(1.0_f32, theme.colors.fg.base.gamma_multiply(0.25)),
+                focus_stroke: Stroke::new(2.0_f32, focus_color),
             }
         }
     }

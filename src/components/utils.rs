@@ -37,7 +37,7 @@ impl CardFrame {
                     color: Color32::from_black_alpha(60),
                 })
                 .fill(theme.colors.bg.base)
-                .stroke(Stroke::new(1.0, theme.colors.gray.border())),
+                .stroke(Stroke::new(1.0_f32, theme.colors.gray.border())),
         }
     }
 

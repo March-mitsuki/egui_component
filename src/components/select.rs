@@ -69,7 +69,7 @@ impl Style {
             None => theme.colors.primary.normal(),
         };
 
-        let active_border_stroke = Stroke::new(1.5, focus_color);
+        let active_border_stroke = Stroke::new(1.5_f32, focus_color);
 
         Self {
             height,
@@ -93,15 +93,15 @@ impl Style {
             placeholder_color: theme.colors.fg.base.gamma_multiply(0.35),
             disabled_text_color: theme.colors.fg.base.gamma_multiply(0.3),
 
-            border_stroke: Stroke::new(1.0, theme.colors.fg.base.gamma_multiply(0.15)),
-            hover_border_stroke: Stroke::new(1.0, theme.colors.fg.base.gamma_multiply(0.25)),
+            border_stroke: Stroke::new(1.0_f32, theme.colors.fg.base.gamma_multiply(0.15)),
+            hover_border_stroke: Stroke::new(1.0_f32, theme.colors.fg.base.gamma_multiply(0.25)),
             active_border_stroke,
-            disabled_border_stroke: Stroke::new(1.0, theme.colors.fg.base.gamma_multiply(0.05)),
+            disabled_border_stroke: Stroke::new(1.0_f32, theme.colors.fg.base.gamma_multiply(0.05)),
 
             // Invalid state strokes
-            invalid_border_stroke: Stroke::new(1.0, theme.colors.red.normal()),
-            invalid_hover_border_stroke: Stroke::new(1.0, theme.colors.red.hover()),
-            invalid_active_border_stroke: Stroke::new(1.5, theme.colors.red.active()),
+            invalid_border_stroke: Stroke::new(1.0_f32, theme.colors.red.normal()),
+            invalid_hover_border_stroke: Stroke::new(1.0_f32, theme.colors.red.hover()),
+            invalid_active_border_stroke: Stroke::new(1.5_f32, theme.colors.red.active()),
 
             // Icon
             arrow_icon_size: 12.0,
@@ -290,7 +290,7 @@ pub fn render(
     let p1 = arrow_center + rotate_point(egui::vec2(0.0, arrow_size / 4.0));
     let p2 = arrow_center + rotate_point(egui::vec2(arrow_size / 2.0, -arrow_size / 4.0));
 
-    let arrow_stroke = Stroke::new(1.5, arrow_color);
+    let arrow_stroke = Stroke::new(1.5_f32, arrow_color);
     ui.painter().line_segment([p0, p1], arrow_stroke);
     ui.painter().line_segment([p1, p2], arrow_stroke);
 
@@ -373,7 +373,7 @@ pub fn render_item(
             rect.right() - style.padding_x,
             rect.center().y,
         );
-        let check_stroke = Stroke::new(1.8, style.active_border_stroke.color);
+        let check_stroke = Stroke::new(1.8_f32, style.active_border_stroke.color);
         ui.painter().line_segment(
             [
                 checkmark_center + egui::vec2(-4.0, 0.0),

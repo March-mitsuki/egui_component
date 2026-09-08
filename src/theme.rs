@@ -106,14 +106,14 @@ impl Color {
                 text_color: self.normal(),
                 hover_bg: self.l1,
                 active_bg: self.l2,
-                stroke: Stroke::new(1.0, self.l1),
+                stroke: Stroke::new(1.0_f32, self.l1),
             },
             ButtonVariant::Outline => ButtonPalette {
                 normal_bg: Color32::TRANSPARENT,
                 text_color: self.normal(),
                 hover_bg: self.l0,
                 active_bg: self.l1,
-                stroke: Stroke::new(1.0, self.normal()),
+                stroke: Stroke::new(1.0_f32, self.normal()),
             },
             ButtonVariant::Ghost => ButtonPalette {
                 normal_bg: Color32::TRANSPARENT,

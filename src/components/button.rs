@@ -663,7 +663,7 @@ pub fn render(ui: &mut Ui, text: &str, style: Style) -> egui::Response {
             })
             .collect();
         ui.painter()
-            .add(egui::Shape::line(points, Stroke::new(1.5, text_color)));
+            .add(egui::Shape::line(points, Stroke::new(1.5_f32, text_color)));
         ui.ctx().request_repaint();
         cursor_x += icon_size + style.gap;
     }
@@ -730,14 +730,14 @@ pub fn match_button_palette(
                 hover_bg: theme.colors.fg.base.gamma_multiply(0.6),
                 active_bg: theme.colors.fg.base.gamma_multiply(0.8),
                 text_color: theme.colors.bg.base,
-                stroke: Stroke::new(1.0, theme.colors.fg.base.gamma_multiply(0.6)),
+                stroke: Stroke::new(1.0_f32, theme.colors.fg.base.gamma_multiply(0.6)),
             },
             ButtonVariant::Outline => ButtonPalette {
                 normal_bg: Color32::TRANSPARENT,
                 hover_bg: theme.colors.fg.base.gamma_multiply(0.1),
                 active_bg: theme.colors.fg.base.gamma_multiply(0.2),
                 text_color: theme.colors.fg.base,
-                stroke: Stroke::new(1.0, theme.colors.fg.base.gamma_multiply(0.4)),
+                stroke: Stroke::new(1.0_f32, theme.colors.fg.base.gamma_multiply(0.4)),
             },
             ButtonVariant::Ghost => ButtonPalette {
                 normal_bg: Color32::TRANSPARENT,
