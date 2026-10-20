@@ -1,6 +1,8 @@
+#[cfg(not(target_arch = "wasm32"))]
 use std::path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+#[cfg(not(target_arch = "wasm32"))]
 use std::{fs::File, io::Read};
 
 use dashmap::{DashMap, DashSet};
@@ -9,6 +11,7 @@ use parking_lot::RwLock;
 use crate::consts::DEFAULT_FONT_FAMILY_ALIAS;
 use crate::font::weight::FontWeight;
 
+#[cfg(not(target_arch = "wasm32"))]
 static MAX_FONT_FILE_SIZE: u64 = 50 * 1024 * 1024; // 50MB
 
 pub struct FontFace {
@@ -49,6 +52,7 @@ impl FontManager {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn load_from_file(&self, family: &str, path: impl AsRef<path::Path>) -> anyhow::Result<()> {
         let path_obj = path.as_ref();
         if !path_obj.is_absolute() {
@@ -293,7 +297,8 @@ impl FontManager {
 
                 // egui FontData::from_owned takes Vec<u8>; clone from our Arc<[u8]> once.
                 // The Arc itself stays alive for other uses (e.g. direct rasterisation).
-                let egui_font_data = egui::FontData::from_owned(face.data.to_vec());
+                let mut egui_font_data = egui::FontData::from_owned(face.data.to_vec());
+                egui_font_data.index = face.index as u32;
 
                 font_defs
                     .font_data

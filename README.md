@@ -64,6 +64,22 @@ fn my_page(ui: &mut egui::Ui) {
 
 See `examples/` directory for more examples.
 
+### Gallery in a browser
+
+Install the WASM target and [Trunk](https://github.com/trunk-rs/trunk), then run from the repository root:
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install trunk --locked
+trunk serve
+```
+
+Open <http://127.0.0.1:8080>. `trunk build --release` produces a static website in `dist/`.
+The Web gallery uses WebGL and embeds its CJK font at compile time; it does not need access to local fonts at runtime. The bundled font adds approximately 19 MB before compression.
+Native gallery: `cargo run --example gallery`.
+
+For your own app, use egui's default fonts or call `FONT_MANAGER.load_from_bytes` with bundled font bytes before `FONT_MANAGER.set_egui_fonts(&cc.egui_ctx)`. File and system font loading are native-only; theme JSON can be loaded on both platforms with `UiTheme::from_json_bytes`.
+
 ## 📄 LICENSE
 
 This repository and all its included packages are released under the **MIT License**.

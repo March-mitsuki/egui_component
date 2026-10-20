@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(not(target_arch = "wasm32"))]
 use eframe::egui;
 
 use egui_component::consts::{DEFAULT_FONT_FAMILY_ALIAS, FONT_MANAGER};
@@ -51,6 +52,7 @@ fn main() -> eframe::Result {
 
 #[cfg(target_arch = "wasm32")]
 fn main() {
+    use wasm_bindgen::JsCast as _;
     // Redirect `log` message to `console.log` and friends:
     eframe::WebLogger::init(log::LevelFilter::Debug).ok();
 
@@ -66,13 +68,21 @@ fn main() {
         .unwrap();
 
     let web_options = eframe::WebOptions::default();
+    let canvas = web_sys::window()
+        .and_then(|window| window.document())
+        .and_then(|document| document.get_element_by_id("the_canvas_id"))
+        .expect("Gallery canvas is missing")
+        .dyn_into::<web_sys::HtmlCanvasElement>()
+        .expect("Gallery element must be a canvas");
 
     wasm_bindgen_futures::spawn_local(async {
         let start_result = eframe::WebRunner::new()
             .start(
-                "the_canvas_id",
+                canvas,
                 web_options,
-                Box::new(|_cc| {
+                Box::new(|cc| {
+                    FONT_MANAGER.set_egui_fonts(&cc.egui_ctx);
+                    egui_extras::install_image_loaders(&cc.egui_ctx);
                     let ui_theme = UiTheme::from_json_bytes(include_bytes!("../theme.json"))
                         .expect("Failed to load theme.json");
 
@@ -91,9 +101,9 @@ fn main() {
                     loading_text.remove();
                 }
                 Err(e) => {
-                    loading_text.set_inner_html(
-                        &format!("<p> The app has crashed. See the developer console for details. </p><p>{}</p>", e)
-                    );
+                    loading_text.set_text_content(Some(&format!(
+                        "The app has crashed. See the developer console for details. {e:?}"
+                    )));
                 }
             }
         }

@@ -72,6 +72,22 @@ fn my_page(ui: &mut egui::Ui) {
 
 更多示例请查看 `examples/` 目录。
 
+### 在浏览器中运行 Gallery
+
+安装 WASM target 和 [Trunk](https://github.com/trunk-rs/trunk)，然后在仓库根目录运行：
+
+```sh
+rustup target add wasm32-unknown-unknown
+cargo install trunk --locked
+trunk serve
+```
+
+打开 <http://127.0.0.1:8080>。运行 `trunk build --release` 可在 `dist/` 生成静态网站。
+Web Gallery 使用 WebGL，中文字体在编译时内嵌，运行时无需读取本地字体。内嵌字体在压缩前约为 19 MB。
+桌面版本使用 `cargo run --example gallery` 运行。
+
+应用可以直接使用 egui 默认字体，也可以先通过 `FONT_MANAGER.load_from_bytes` 加载内嵌字体，再调用 `FONT_MANAGER.set_egui_fonts(&cc.egui_ctx)`。文件和系统字体加载仅供原生平台使用；主题 JSON 可在两个平台上通过 `UiTheme::from_json_bytes` 加载。
+
 ## 🌍 谁在用 egui_component ?
 
 - [ChiyoCast](https://chiyocast.com): 为次世代直播量身定制的云原生直播软件。

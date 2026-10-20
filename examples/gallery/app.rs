@@ -81,6 +81,7 @@ impl GalleryApp {
 
 impl eframe::App for GalleryApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        #[cfg(not(target_arch = "wasm32"))]
         if ui.ctx().input(|i| i.viewport().close_requested()) {
             // prevent macOS touch bar
             std::process::exit(0);
@@ -135,19 +136,21 @@ impl eframe::App for GalleryApp {
                     Page::Tooltip,
                 ];
 
-                for page in pages {
-                    let label = page.name();
-                    let is_selected = self.current_page == page;
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    for page in pages {
+                        let label = page.name();
+                        let is_selected = self.current_page == page;
 
-                    let nav_btn_style = if is_selected {
-                        button::Style::new_solid_md(theme).width(Some(ui.available_width()))
-                    } else {
-                        button::Style::new_ghost_md(theme).width(Some(ui.available_width()))
-                    };
-                    if button::render(ui, label, nav_btn_style).clicked() {
-                        self.current_page = page;
+                        let nav_btn_style = if is_selected {
+                            button::Style::new_solid_md(theme).width(Some(ui.available_width()))
+                        } else {
+                            button::Style::new_ghost_md(theme).width(Some(ui.available_width()))
+                        };
+                        if button::render(ui, label, nav_btn_style).clicked() {
+                            self.current_page = page;
+                        }
                     }
-                }
+                });
             });
 
         egui::CentralPanel::default()
@@ -193,9 +196,10 @@ impl eframe::App for GalleryApp {
                     Page::Switch => pages::switch::show(ui, theme),
                     Page::Text => pages::text::show(ui),
                     Page::TextEdit => pages::text_edit::show(ui),
-                    Page::Toast => pages::toast::show(ui),
+                    Page::Toast => pages::toast::show(ui, theme),
                     Page::Tooltip => pages::tooltip::show(ui),
                 }
             });
+        egui_component::toast::renderer(ui, theme);
     }
 }

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::OnceLock;
-use std::time::{Duration, Instant};
+use web_time::{Duration, Instant};
 
 use egui::{Align2, Area, Frame, Id, Order, RichText, Ui, Vec2};
 use parking_lot::Mutex;

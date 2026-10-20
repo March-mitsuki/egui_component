@@ -332,6 +332,7 @@ impl UiTheme {
         UiTheme { dark, light }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn from_json(path: impl AsRef<std::path::Path>) -> anyhow::Result<Self> {
         let json = std::fs::read_to_string(path)?;
         serde_json::from_str(&json).map_err(anyhow::Error::from)
