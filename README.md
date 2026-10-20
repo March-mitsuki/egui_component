@@ -108,6 +108,8 @@ Family lookup methods now take `&egui::Context` as their first argument and must
 
 Open the Gallery's **Text** page to switch fonts, toggle CJK fallback, remove the primary family, and try an invalid font at runtime.
 
+The same page accepts a direct HTTP(S) font URL and downloads it asynchronously with `ehttp`. It includes Google Fonts Black Ops One as the default URL: paste a font URL and click **Load font**. The Gallery converts WOFF2 to OpenType with `wuff` before calling `replace_family`; these dependencies are confined to the example. TTF/OTF/TTC bytes are passed directly. Failed downloads or invalid fonts preserve the current font, and selecting another font or canceling discards late results. Web downloads require the font server to allow CORS. Google Fonts URLs may contain only a character subset; missing characters still use the configured fallback chain.
+
 ## 📄 LICENSE
 
 This repository and all its included packages are released under the **MIT License**.

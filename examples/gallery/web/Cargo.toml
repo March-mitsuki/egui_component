@@ -9,6 +9,8 @@ name = "gallery-web"
 path = "../main.rs"
 
 [dependencies]
+ehttp = "0.7"
+wuff = { version = "0.2.9", default-features = false, features = ["brotli"] }
 egui_component = { path = "../../.." }
 egui_extras = { version = "0.34", features = ["syntect", "all_loaders"] }
 log = "0.4"

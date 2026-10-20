@@ -13,7 +13,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme) {
     ui.add_space(12.0);
 
     egui::ScrollArea::both().show(ui, |ui| {
-        ui.label("Rust");
+        text::render(ui, "Rust", text::Style::new(theme));
         code::render(
             ui,
             r#"// Display a highlighted code snippet
@@ -25,7 +25,7 @@ fn main() {
             code::Style::new(theme),
         );
         ui.add_space(20.0);
-        ui.label("JSON");
+        text::render(ui, "JSON", text::Style::new(theme));
         code::render(
             ui,
             r#"{

@@ -21,7 +21,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme) {
         let default_style = select::Style::new(theme, None, select::SelectSize::Md);
 
         ui.horizontal(|ui| {
-            ui.label("Choose Option:");
+            text::render(ui, "Choose Option:", text::Style::new(theme));
             select::render(
                 ui,
                 select_id,
@@ -41,7 +41,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme) {
                 },
             );
             ui.add_space(12.0);
-            ui.label(format!("Selected: {}", selected));
+            text::render(ui, &format!("Selected: {}", selected), text::Style::new(theme));
         });
 
         ui.add_space(24.0);

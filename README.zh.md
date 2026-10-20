@@ -116,6 +116,8 @@ let family = FONT_MANAGER.get_egui_font_family(ctx, DEFAULT_FONT_FAMILY_ALIAS, F
 
 Gallery 的 **Text** 页面可以运行时切换字体、开关中文 fallback、删除主字体，以及尝试加载错误字体。
 
+该页面也支持输入 HTTP(S) 字体文件直链，通过 `ehttp` 异步下载。默认使用 Google Fonts 的 Black Ops One Latin 字体地址：粘贴字体 URL，再点击 **Load font**。Gallery 使用 `wuff` 将 WOFF2 解压为 OpenType，再调用 `replace_family`；这些依赖仅用于示例。TTF/OTF/TTC 字节直接交给管理器。下载或解析失败时保留当前字体；取消或切换其他字体后，迟到的下载结果不会覆盖新选择。Web 下载需要字体服务器允许 CORS。Google Fonts 的链接可能只包含部分字符，缺少的字符仍会使用配置的 fallback 链。
+
 ## 🌍 谁在用 egui_component ?
 
 - [ChiyoCast](https://chiyocast.com): 为次世代直播量身定制的云原生直播软件。

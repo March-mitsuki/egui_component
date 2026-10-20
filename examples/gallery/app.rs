@@ -83,6 +83,7 @@ impl GalleryApp {
 
 impl eframe::App for GalleryApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        self.text_page.poll_download(ui.ctx());
         egui_component::consts::FONT_MANAGER.apply(ui.ctx());
         #[cfg(not(target_arch = "wasm32"))]
         if ui.ctx().input(|i| i.viewport().close_requested()) {
@@ -183,24 +184,24 @@ impl eframe::App for GalleryApp {
                 match self.current_page {
                     Page::Avatar => pages::avatar::show(ui, theme),
                     Page::Button => pages::button::show(ui, theme),
-                    Page::Card => pages::card::show(ui),
+                    Page::Card => pages::card::show(ui, theme),
                     Page::Code => pages::code::show(ui, theme),
-                    Page::Dialog => pages::dialog::show(ui),
-                    Page::Divider => pages::divider::show(ui),
-                    Page::Field => pages::field::show(ui),
+                    Page::Dialog => pages::dialog::show(ui, theme),
+                    Page::Divider => pages::divider::show(ui, theme),
+                    Page::Field => pages::field::show(ui, theme),
                     Page::Form => self.form_page.show(ui, theme),
                     Page::Icon => pages::icon::show(ui, theme),
-                    Page::IconButton => pages::icon_button::show(ui),
-                    Page::IconMenuButton => pages::icon_menu_button::show(ui),
-                    Page::MenuButton => pages::menu_button::show(ui),
-                    Page::ScrollArea => pages::scroll_area::show(ui),
+                    Page::IconButton => pages::icon_button::show(ui, theme),
+                    Page::IconMenuButton => pages::icon_menu_button::show(ui, theme),
+                    Page::MenuButton => pages::menu_button::show(ui, theme),
+                    Page::ScrollArea => pages::scroll_area::show(ui, theme),
                     Page::Select => pages::select::show(ui, theme),
-                    Page::Separator => pages::separator::show(ui),
+                    Page::Separator => pages::separator::show(ui, theme),
                     Page::Switch => pages::switch::show(ui, theme),
                     Page::Text => self.text_page.show(ui, theme),
-                    Page::TextEdit => pages::text_edit::show(ui),
+                    Page::TextEdit => pages::text_edit::show(ui, theme),
                     Page::Toast => pages::toast::show(ui, theme),
-                    Page::Tooltip => pages::tooltip::show(ui),
+                    Page::Tooltip => pages::tooltip::show(ui, theme),
                 }
             });
         egui_component::toast::renderer(ui, theme);

@@ -1,9 +1,17 @@
 use eframe::egui;
-use egui_component::{components::button, theme::Theme, toast};
+use egui_component::{
+    components::{button, text},
+    theme::Theme,
+    toast,
+};
 
 pub fn show(ui: &mut egui::Ui, theme: &Theme) {
-    ui.heading("Toast");
-    ui.label("Click to show a notification. Notifications disappear after three seconds.");
+    text::render(ui, "Toast", text::Style::new_heading(theme));
+    text::render(
+        ui,
+        "Click to show a notification. Notifications disappear after three seconds.",
+        text::Style::new(theme),
+    );
     ui.horizontal(|ui| {
         for (label, kind) in [
             ("Info", toast::ToastKind::Info),
