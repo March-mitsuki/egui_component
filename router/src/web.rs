@@ -1,4 +1,4 @@
-use super::NavigationError;
+use super::{Location, NavigationError, Route, SearchParams};
 use wasm_bindgen::{JsCast, JsValue, closure::Closure};
 
 fn error(value: JsValue) -> NavigationError {
@@ -7,8 +7,12 @@ fn error(value: JsValue) -> NavigationError {
 fn window() -> Result<web_sys::Window, NavigationError> {
     web_sys::window().ok_or_else(|| NavigationError("Browser window is unavailable".into()))
 }
-pub(super) fn path() -> Result<String, NavigationError> {
-    window()?.location().pathname().map_err(error)
+pub(super) fn location<R: Route>() -> Result<Location<R>, NavigationError> {
+    let location = window()?.location();
+    Ok(Location::new(
+        R::from_path(&location.pathname().map_err(error)?),
+        SearchParams::parse(&location.search().map_err(error)?),
+    ))
 }
 
 pub(super) struct Browser {

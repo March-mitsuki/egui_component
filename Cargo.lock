@@ -1120,6 +1120,8 @@ dependencies = [
 name = "egui_component_router"
 version = "0.1.0"
 dependencies = [
+ "form_urlencoded",
+ "percent-encoding",
  "wasm-bindgen",
  "web-sys",
 ]

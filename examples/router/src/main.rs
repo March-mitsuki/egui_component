@@ -3,13 +3,14 @@ use egui_component::{
     components::{button, separator, text},
     theme::UiTheme,
 };
-use egui_component_router::{Route, Router};
+use egui_component_router::{HistoryMode, PathPattern, Route, Router, SearchParams};
 
 #[derive(Clone, Debug, PartialEq)]
 enum Page {
     Home,
     Docs,
     Component,
+    ComponentDetail { name: String },
     NotFound(String),
 }
 impl Route for Page {
@@ -18,11 +19,26 @@ impl Route for Page {
             "/" => Self::Home,
             "/docs" => Self::Docs,
             "/component" => Self::Component,
-            other => Self::NotFound(other.into()),
+            other => {
+                let pattern = PathPattern::new("/component/:name").expect("valid pattern");
+                match pattern.match_path(other) {
+                    Some(params) => Self::ComponentDetail {
+                        name: params.get("name").unwrap().into(),
+                    },
+                    None => Self::NotFound(other.into()),
+                }
+            }
         }
     }
     fn to_path(&self) -> String {
+        if let Self::ComponentDetail { name } = self {
+            return PathPattern::new("/component/:name")
+                .unwrap()
+                .build(&[("name", name)])
+                .expect("valid component name");
+        }
         match self {
+            Self::ComponentDetail { .. } => unreachable!(),
             Self::Home => "/",
             Self::Docs => "/docs",
             Self::Component => "/component",
@@ -68,7 +84,9 @@ impl eframe::App for App {
                     (Page::Docs, "Docs"),
                     (Page::Component, "Component"),
                 ] {
-                    let style = if self.router.current() == page {
+                    let selected = self.router.current() == page ||
+                        (page == Page::Component && matches!(self.router.current(), Page::ComponentDetail { .. }));
+                    let style = if selected {
                         button::Style::new_solid_md(theme)
                     } else {
                         button::Style::new_ghost_md(theme)
@@ -93,6 +111,10 @@ impl eframe::App for App {
                     "Component",
                     "This header and page use egui_component buttons, text and separators.",
                 ),
+                Page::ComponentDetail { .. } => (
+                    "Component details",
+                    "The component name is decoded from the path; the active tab is stored in search params.",
+                ),
                 Page::NotFound(_) => (
                     "404 — Page not found",
                     "Choose a page from the header to continue.",
@@ -104,9 +126,49 @@ impl eframe::App for App {
             ui.add_space(24.0);
             text::render(
                 ui,
-                &format!("Route: {}", self.router.current().to_path()),
+                &format!("URL: {}", self.router.location().to_url()),
                 text::Style::new(theme),
             );
+            if matches!(self.router.current(), Page::Component | Page::ComponentDetail { .. }) {
+                ui.add_space(16.0);
+                ui.horizontal_wrapped(|ui| {
+                    for name in ["button", "text edit", "a/b"] {
+                        if button::render(ui, name, button::Style::new_outline_md(theme)).clicked() {
+                            self.error = self.router.navigate_with_search(
+                                Page::ComponentDetail { name: name.into() },
+                                SearchParams::parse("tab=preview"),
+                            ).err().map(|e| e.to_string());
+                        }
+                    }
+                });
+                if let Page::ComponentDetail { name } = self.router.current() {
+                    text::render(ui, &format!("Path param — name: {name}"), text::Style::new(theme));
+                    let params = self.router.search_params();
+                    let tab = params.get("tab").unwrap_or("preview");
+                    text::render(ui, &format!("Search param — tab: {tab}"), text::Style::new(theme));
+                    text::render(ui, if tab == "code" { "Code tab content" } else { "Preview tab content" }, text::Style::new(theme));
+                    ui.horizontal_wrapped(|ui| {
+                        for tab in ["preview", "code"] {
+                            if button::render(ui, tab, button::Style::new_outline_md(theme)).clicked() {
+                                let mut params = self.router.search_params();
+                                params.set("tab", tab);
+                                self.error = self.router.set_search_params(params, HistoryMode::Push).err().map(|e| e.to_string());
+                            }
+                        }
+                        if button::render(ui, "Replace with code", button::Style::new_outline_md(theme)).clicked() {
+                            let mut params = self.router.search_params();
+                            params.set("tab", "code");
+                            self.error = self.router.set_search_params(params, HistoryMode::Replace).err().map(|e| e.to_string());
+                        }
+                        if button::render(ui, "Clear tab", button::Style::new_outline_md(theme)).clicked() {
+                            let mut params = self.router.search_params();
+                            params.remove("tab");
+                            self.error = self.router.set_search_params(params, HistoryMode::Push).err().map(|e| e.to_string());
+                        }
+                    });
+                }
+                ui.add_space(16.0);
+            }
             ui.horizontal(|ui| {
                 if button::render(ui, "Back", button::Style::new_outline_md(theme)).clicked() {
                     self.error = self.router.back().err().map(|e| e.to_string());
@@ -163,6 +225,21 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn detail_routes_decode_and_generate_encoded_paths() {
+        for name in ["button", "text edit", "你好/世界", "a?b#c+%"] {
+            let route = Page::ComponentDetail { name: name.into() };
+            assert_eq!(Page::from_path(&route.to_path()), route);
+        }
+        assert!(matches!(
+            Page::from_path("/component/%FF"),
+            Page::NotFound(_)
+        ));
+        assert!(matches!(
+            Page::from_path("/component/a/b"),
+            Page::NotFound(_)
+        ));
+    }
     #[test]
     fn unknown_paths_use_not_found_fallback() {
         assert_eq!(

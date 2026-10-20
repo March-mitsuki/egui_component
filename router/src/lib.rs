@@ -8,6 +8,9 @@ use std::{cell::RefCell, rc::Rc};
 #[cfg(target_arch = "wasm32")]
 mod web;
 
+mod params;
+pub use params::{PathParams, PathPattern, SearchParams};
+
 /// Application-defined route. Paths must be same-origin absolute pathnames (no query or hash) and round-trip through
 /// `from_path`. Use an application route variant to represent unknown paths.
 pub trait Route: Clone + PartialEq + 'static {
@@ -36,13 +39,49 @@ fn validate_path(path: &str) -> Result<(), NavigationError> {
             "Routes must use same-origin absolute pathnames without a query or hash".into(),
         ));
     }
+    if path.split('/').any(|segment| {
+        percent_encoding::percent_decode_str(segment)
+            .decode_utf8()
+            .is_ok_and(|value| value == "." || value == "..")
+    }) {
+        return Err(NavigationError(
+            "Dot path segments are not supported".into(),
+        ));
+    }
     Ok(())
 }
 
+/// One complete navigation entry shared by native and Web.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Location<R> {
+    pub route: R,
+    pub search: SearchParams,
+}
+impl<R: Route> Location<R> {
+    pub fn new(route: R, search: SearchParams) -> Self {
+        Self { route, search }
+    }
+    pub fn to_url(&self) -> String {
+        let path = self.route.to_path();
+        if self.search.is_empty() {
+            path
+        } else {
+            format!("{path}?{}", self.search)
+        }
+    }
+}
+
+/// Whether a search-only update adds a history entry or replaces the current one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HistoryMode {
+    Push,
+    Replace,
+}
+
 pub struct Router<R: Route> {
-    current: Rc<RefCell<R>>,
+    current: Rc<RefCell<Location<R>>>,
     #[cfg(not(target_arch = "wasm32"))]
-    history: Vec<R>,
+    history: Vec<Location<R>>,
     #[cfg(not(target_arch = "wasm32"))]
     index: usize,
     #[cfg(target_arch = "wasm32")]
@@ -50,12 +89,20 @@ pub struct Router<R: Route> {
 }
 
 impl<R: Route> Router<R> {
-    /// Native starts at `initial`; Web reads the URL pathname.
-    /// `on_change` should request an egui repaint when browser navigation occurs.
-    /// Native UI-driven navigation already runs within the application's frame.
+    /// Native starts at `initial` with no search params; Web reads pathname and search.
+    /// Pass an egui repaint callback for browser history events.
     pub fn new(initial: R, on_change: impl Fn() + 'static) -> Result<Self, NavigationError> {
+        Self::with_location(Location::new(initial, SearchParams::new()), on_change)
+    }
+
+    /// Like `new`, with initial native search params. Web always reads the URL.
+    pub fn with_location(
+        initial: Location<R>,
+        on_change: impl Fn() + 'static,
+    ) -> Result<Self, NavigationError> {
         #[cfg(not(target_arch = "wasm32"))]
         {
+            validate_path(&initial.route.to_path())?;
             let _ = on_change;
             Ok(Self {
                 current: Rc::new(RefCell::new(initial.clone())),
@@ -66,54 +113,79 @@ impl<R: Route> Router<R> {
         #[cfg(target_arch = "wasm32")]
         {
             let _ = initial;
-            let current = Rc::new(RefCell::new(R::from_path(&web::path()?)));
+            let current = Rc::new(RefCell::new(web::location::<R>()?));
             let target = current.clone();
             let browser = web::Browser::new(move || {
-                if let Ok(path) = web::path() {
-                    *target.borrow_mut() = R::from_path(&path);
+                if let Ok(location) = web::location::<R>() {
+                    *target.borrow_mut() = location;
                     on_change();
                 }
             })?;
             Ok(Self { current, browser })
         }
     }
-
     pub fn current(&self) -> R {
+        self.current.borrow().route.clone()
+    }
+    pub fn location(&self) -> Location<R> {
         self.current.borrow().clone()
     }
+    pub fn search_params(&self) -> SearchParams {
+        self.current.borrow().search.clone()
+    }
 
-    /// Push a route; navigating to the current route is a no-op.
+    /// Push a route with empty search params. An identical location is a no-op.
     pub fn navigate(&mut self, route: R) -> Result<(), NavigationError> {
-        validate_path(&route.to_path())?;
-        if self.current() == route {
+        self.navigate_with_search(route, SearchParams::new())
+    }
+    pub fn navigate_with_search(
+        &mut self,
+        route: R,
+        search: SearchParams,
+    ) -> Result<(), NavigationError> {
+        self.commit(Location::new(route, search), HistoryMode::Push)
+    }
+    /// Replace the current entry, clearing search params.
+    pub fn replace(&mut self, route: R) -> Result<(), NavigationError> {
+        self.replace_with_search(route, SearchParams::new())
+    }
+    pub fn replace_with_search(
+        &mut self,
+        route: R,
+        search: SearchParams,
+    ) -> Result<(), NavigationError> {
+        self.commit(Location::new(route, search), HistoryMode::Replace)
+    }
+    /// Update search params on the current route. Read a copy with `search_params`,
+    /// mutate it, then pass it here. Both path and search are restored by history.
+    pub fn set_search_params(
+        &mut self,
+        search: SearchParams,
+        mode: HistoryMode,
+    ) -> Result<(), NavigationError> {
+        self.commit(Location::new(self.current(), search), mode)
+    }
+    fn commit(&mut self, location: Location<R>, mode: HistoryMode) -> Result<(), NavigationError> {
+        validate_path(&location.route.to_path())?;
+        if mode == HistoryMode::Push && self.location() == location {
             return Ok(());
         }
         #[cfg(target_arch = "wasm32")]
-        self.browser.write(&route.to_path(), false)?;
+        self.browser
+            .write(&location.to_url(), mode == HistoryMode::Replace)?;
         #[cfg(not(target_arch = "wasm32"))]
-        {
-            self.history.truncate(self.index + 1);
-            self.history.push(route.clone());
-            self.index += 1;
+        match mode {
+            HistoryMode::Push => {
+                self.history.truncate(self.index + 1);
+                self.history.push(location.clone());
+                self.index += 1;
+            }
+            HistoryMode::Replace => self.history[self.index] = location.clone(),
         }
-        *self.current.borrow_mut() = route;
+        *self.current.borrow_mut() = location;
         Ok(())
     }
-
-    /// Replace the current entry without adding a back-button step.
-    pub fn replace(&mut self, route: R) -> Result<(), NavigationError> {
-        validate_path(&route.to_path())?;
-        #[cfg(target_arch = "wasm32")]
-        self.browser.write(&route.to_path(), true)?;
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            self.history[self.index] = route.clone();
-        }
-        *self.current.borrow_mut() = route;
-        Ok(())
-    }
-
-    /// Web traverses browser history asynchronously, potentially leaving the app.
+    /// Web traverses browser history asynchronously and may leave the app.
     /// Native does nothing at the beginning of its history.
     pub fn back(&mut self) -> Result<(), NavigationError> {
         #[cfg(target_arch = "wasm32")]
@@ -125,7 +197,6 @@ impl<R: Route> Router<R> {
         }
         Ok(())
     }
-
     /// Web traverses browser history asynchronously; native stops at the end.
     pub fn forward(&mut self) -> Result<(), NavigationError> {
         #[cfg(target_arch = "wasm32")]
@@ -182,6 +253,8 @@ mod tests {
             "/docs#section",
             "/docs?q=1",
             "/\\other",
+            "/docs/..",
+            "/docs/%2e%2e",
         ] {
             assert!(r.navigate(page(path)).is_err());
             assert!(r.replace(page(path)).is_err());
@@ -189,6 +262,67 @@ mod tests {
         }
         r.forward().unwrap();
         assert_eq!(r.current(), page("/"));
+    }
+
+    #[test]
+    fn initial_search_and_full_location_replacement() {
+        let mut r = Router::with_location(
+            Location::new(page("/docs"), SearchParams::parse("q=hello")),
+            || {},
+        )
+        .unwrap();
+        assert_eq!(r.search_params().get("q"), Some("hello"));
+        r.navigate_with_search(
+            page("/component/button"),
+            SearchParams::parse("tab=preview"),
+        )
+        .unwrap();
+        r.replace_with_search(page("/component/card"), SearchParams::parse("tab=code"))
+            .unwrap();
+        r.back().unwrap();
+        assert_eq!(r.location().to_url(), "/docs?q=hello");
+        r.forward().unwrap();
+        assert_eq!(r.location().to_url(), "/component/card?tab=code");
+        r.replace(page("/docs")).unwrap();
+        assert!(r.search_params().is_empty());
+    }
+
+    #[test]
+    fn search_history_push_replace_and_route_navigation() {
+        let mut r = Router::new(page("/"), || {}).unwrap();
+        r.navigate_with_search(
+            page("/component/button"),
+            SearchParams::parse("tab=preview&tag=a&tag=b"),
+        )
+        .unwrap();
+        r.set_search_params(SearchParams::parse("tab=code"), HistoryMode::Push)
+            .unwrap();
+        r.set_search_params(
+            SearchParams::parse("tab=code&q=hello+world"),
+            HistoryMode::Replace,
+        )
+        .unwrap();
+        assert_eq!(
+            r.location().to_url(),
+            "/component/button?tab=code&q=hello+world"
+        );
+        r.back().unwrap();
+        assert_eq!(
+            r.search_params().get_all("tag").collect::<Vec<_>>(),
+            ["a", "b"]
+        );
+        assert_eq!(r.search_params().get("tab"), Some("preview"));
+        r.forward().unwrap();
+        assert_eq!(r.search_params().get("q"), Some("hello world"));
+        r.navigate(page("/docs")).unwrap();
+        assert!(r.search_params().is_empty());
+        r.back().unwrap();
+        assert_eq!(r.search_params().get("tab"), Some("code"));
+        r.back().unwrap();
+        r.set_search_params(SearchParams::parse("tab=new"), HistoryMode::Push)
+            .unwrap();
+        r.forward().unwrap();
+        assert_eq!(r.search_params().get("tab"), Some("new"));
     }
 
     #[test]
