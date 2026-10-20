@@ -1053,7 +1053,7 @@ fn handle_events(
 // ────────────────────────────────────────────────────────────────────────────────
 
 pub fn render(ui: &mut Ui, text: &mut String, style: Style) -> egui::Response {
-    let font_family = FONT_MANAGER.default_egui_font_family();
+    let font_family = FONT_MANAGER.default_egui_font_family(ui.ctx());
     let font_id = egui::FontId::new(style.text_size, font_family);
 
     // 总宽度：指定宽度或占满可用宽度

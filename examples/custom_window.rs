@@ -74,6 +74,7 @@ impl eframe::App for MyApp {
                     // We extract font size, family, weight, and color from our theme via text::Style.
                     let text_style = text::Style::new_heading(theme);
                     let font_family = egui_component::consts::FONT_MANAGER.get_egui_font_family(
+                        ui.ctx(),
                         &text_style.font_family,
                         text_style.font_weight,
                     );

@@ -251,7 +251,7 @@ pub fn render(
     };
 
     // Layout text
-    let font_family = crate::consts::FONT_MANAGER.default_egui_font_family();
+    let font_family = crate::consts::FONT_MANAGER.default_egui_font_family(ui.ctx());
     let font_id = egui::FontId::new(style.text_size, font_family);
     let galley = ui.painter().layout_no_wrap(display_text.to_string(), font_id, text_color);
 
@@ -357,7 +357,7 @@ pub fn render_item(
         style.text_color
     };
 
-    let font_family = crate::consts::FONT_MANAGER.default_egui_font_family();
+    let font_family = crate::consts::FONT_MANAGER.default_egui_font_family(ui.ctx());
     let font_id = egui::FontId::new(style.text_size, font_family);
     let galley = ui.painter().layout_no_wrap(text.to_string(), font_id, text_color);
 

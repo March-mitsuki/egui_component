@@ -1,19 +1,21 @@
+use std::{
+    collections::BTreeMap,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
+};
 #[cfg(not(target_arch = "wasm32"))]
-use std::path;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-#[cfg(not(target_arch = "wasm32"))]
-use std::{fs::File, io::Read};
+use std::{fs::File, io::Read, path};
 
-use dashmap::{DashMap, DashSet};
 use parking_lot::RwLock;
 
-use crate::consts::DEFAULT_FONT_FAMILY_ALIAS;
-use crate::font::weight::FontWeight;
+use crate::{consts::DEFAULT_FONT_FAMILY_ALIAS, font::weight::FontWeight};
 
-#[cfg(not(target_arch = "wasm32"))]
-static MAX_FONT_FILE_SIZE: u64 = 50 * 1024 * 1024; // 50MB
+const MAX_FONT_FILE_SIZE: usize = 50 * 1024 * 1024;
+static NEXT_MANAGER_ID: AtomicUsize = AtomicUsize::new(1);
 
+#[derive(Clone)]
 pub struct FontFace {
     pub data: Arc<[u8]>,
     pub index: usize,
@@ -21,97 +23,227 @@ pub struct FontFace {
     pub italic: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg(test)]
+#[path = "manager_tests.rs"]
+mod tests;
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct FamilyKey(String);
 
 impl FamilyKey {
     pub fn new(name: &str) -> Self {
-        Self(name.to_lowercase())
+        Self(name.trim().to_lowercase())
     }
 }
 
+#[derive(Clone)]
+struct RegisteredFace {
+    face: FontFace,
+    // Prepared on ingestion, then shared across revisions and contexts.
+    egui_data: Arc<egui::FontData>,
+}
+
+struct FontState {
+    revision: u64,
+    families: BTreeMap<FamilyKey, Vec<RegisteredFace>>,
+    fallback_chain: Vec<FamilyKey>,
+    base: egui::FontDefinitions,
+    snapshot: Option<Arc<FontSnapshot>>,
+}
+
+impl FontState {
+    fn changed(&mut self) {
+        self.revision += 1;
+        self.snapshot = None;
+    }
+}
+
+struct FontSnapshot {
+    revision: u64,
+    definitions: egui::FontDefinitions,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+struct SubmittedFonts {
+    manager_id: usize,
+    revision: u64,
+}
+
+/// Mutable font catalog. Call [`Self::apply`] before rendering each frame.
+///
+/// Updates are atomic; egui activates submitted definitions on its next pass.
+/// One manager may serve multiple contexts. A context has one font catalog owner:
+/// supply application fonts through [`Self::set_base_fonts`] rather than calling
+/// `Context::set_fonts` independently after applying this manager.
 pub struct FontManager {
-    families: DashMap<FamilyKey, Vec<FontFace>>,
-    fallback_chain: RwLock<Vec<FamilyKey>>,
-    /// egui font key → registered (e.g. "noto sans_400")
-    registered_egui_font_keys: DashSet<String>,
-    /// family name → sorted list of registered weights; built once in set_egui_fonts
-    registered_weights_by_family: DashMap<String, Vec<FontWeight>>,
-    /// Guards set_egui_fonts so it only applies once
-    fonts_applied: AtomicBool,
+    id: usize,
+    state: RwLock<FontState>,
+}
+
+impl Default for FontManager {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl FontManager {
     pub fn new() -> Self {
+        Self::with_base_fonts(egui::FontDefinitions::default())
+    }
+
+    /// Preserve application font definitions, including proportional/monospace families.
+    pub fn with_base_fonts(base: egui::FontDefinitions) -> Self {
         Self {
-            families: DashMap::new(),
-            fallback_chain: RwLock::new(Vec::new()),
-            registered_egui_font_keys: DashSet::new(),
-            registered_weights_by_family: DashMap::new(),
-            fonts_applied: AtomicBool::new(false),
+            id: NEXT_MANAGER_ID.fetch_add(1, Ordering::Relaxed),
+            state: RwLock::new(FontState {
+                revision: 0,
+                families: BTreeMap::new(),
+                fallback_chain: Vec::new(),
+                base,
+                snapshot: None,
+            }),
+        }
+    }
+
+    pub fn set_base_fonts(&self, base: egui::FontDefinitions) {
+        let mut state = self.state.write();
+        if state.base != base {
+            state.base = base;
+            state.changed();
         }
     }
 
     #[cfg(not(target_arch = "wasm32"))]
     pub fn load_from_file(&self, family: &str, path: impl AsRef<path::Path>) -> anyhow::Result<()> {
-        let path_obj = path.as_ref();
-        if !path_obj.is_absolute() {
-            anyhow::bail!("Font path must be absolute: {}", path_obj.display());
-        }
-
-        let mut file = File::open(path_obj)?;
-
-        let metadata = file.metadata()?;
-        if metadata.len() > MAX_FONT_FILE_SIZE {
-            anyhow::bail!("Font file is too large (>50MB): {}", path_obj.display());
-        }
-
-        let mut font_data = Vec::new();
-        file.read_to_end(&mut font_data)?;
-
-        self.load_from_bytes(family, &font_data, 0)
-    }
-
-    /// Parse weight/italic from raw font bytes using ttf-parser (pure Rust, wasm32-compatible).
-    /// Returns (weight, italic).
-    ///
-    /// Uses `Face::weight()` → `ttf_parser::Weight` and `Face::is_italic()`, both available
-    /// directly on `Face` since ttf-parser 0.16+.  `Weight::to_number()` gives the numeric
-    /// OS/2 usWeightClass value (100–900).
-    fn parse_font_properties(data: &[u8], index: usize) -> anyhow::Result<(FontWeight, bool)> {
-        let face = ttf_parser::Face::parse(data, index as u32)
-            .map_err(|e| anyhow::anyhow!("Failed to parse font: {}", e))?;
-
-        let weight = FontWeight::from_numeric(face.weight().to_number());
-        let italic = face.is_italic();
-
-        Ok((weight, italic))
-    }
-
-    pub fn load_from_bytes(&self, family: &str, data: &[u8], index: usize) -> anyhow::Result<()> {
-        let arc_data: Arc<[u8]> = Arc::from(data);
-
-        let (weight, italic) = Self::parse_font_properties(&arc_data, index)?;
-        tracing::info!(
-            "font {} parsed. weight: {:#?}, italic: {}",
-            family,
-            weight,
-            italic,
+        let path = path.as_ref();
+        anyhow::ensure!(
+            path.is_absolute(),
+            "Font path must be absolute: {}",
+            path.display()
         );
+        let mut file = File::open(path)?;
+        anyhow::ensure!(
+            file.metadata()?.len() <= MAX_FONT_FILE_SIZE as u64,
+            "Font file is too large (>50MB)"
+        );
+        let mut data = Vec::new();
+        file.read_to_end(&mut data)?;
+        self.load_from_bytes(family, &data, 0)
+    }
 
+    fn parse_face(data: &[u8], index: usize) -> anyhow::Result<RegisteredFace> {
+        anyhow::ensure!(
+            data.len() <= MAX_FONT_FILE_SIZE,
+            "Font file is too large (>50MB)"
+        );
+        let index_u32 = u32::try_from(index)?;
+        let parsed = ttf_parser::Face::parse(data, index_u32)
+            .map_err(|e| anyhow::anyhow!("Failed to parse font: {e}"))?;
         let face = FontFace {
-            data: arc_data,
+            data: Arc::from(data),
             index,
-            weight,
-            italic,
+            weight: FontWeight::from_numeric(parsed.weight().to_number()),
+            italic: parsed.is_italic(),
         };
+        let mut egui_data = egui::FontData::from_owned(data.to_vec());
+        egui_data.index = index_u32;
+        Ok(RegisteredFace {
+            face,
+            egui_data: Arc::new(egui_data),
+        })
+    }
 
+    fn family_key(family: &str) -> anyhow::Result<FamilyKey> {
         let key = FamilyKey::new(family);
-        let mut entry = self.families.entry(key).or_insert_with(Vec::new);
-        entry.push(face);
-        entry.sort_by_key(|f| f.weight);
+        anyhow::ensure!(!key.0.is_empty(), "Font family must not be empty");
+        Ok(key)
+    }
 
+    /// Insert or replace the face with this family, parsed weight and italic style.
+    /// Invalid data leaves the catalog unchanged. Call `apply` to submit changes.
+    pub fn load_from_bytes(&self, family: &str, data: &[u8], index: usize) -> anyhow::Result<()> {
+        let key = Self::family_key(family)?;
+        let face = Self::parse_face(data, index)?;
+        let mut state = self.state.write();
+        let faces = state.families.entry(key).or_default();
+        if let Some(existing) = faces
+            .iter_mut()
+            .find(|f| f.face.weight == face.face.weight && f.face.italic == face.face.italic)
+        {
+            if existing.egui_data == face.egui_data {
+                return Ok(());
+            }
+            *existing = face;
+        } else {
+            faces.push(face);
+        }
+        faces.sort_by_key(|f| (f.face.weight, f.face.italic));
+        state.changed();
         Ok(())
+    }
+
+    /// Atomically replace a complete family with `(font bytes, collection index)` pairs.
+    /// All faces are validated before committing. Empty input and duplicate weight/style
+    /// slots are errors; use `remove_family` to remove a family.
+    pub fn replace_family(&self, family: &str, sources: &[(&[u8], usize)]) -> anyhow::Result<()> {
+        let key = Self::family_key(family)?;
+        anyhow::ensure!(
+            !sources.is_empty(),
+            "A font family must contain at least one face"
+        );
+        let mut faces = sources
+            .iter()
+            .map(|(data, index)| Self::parse_face(data, *index))
+            .collect::<anyhow::Result<Vec<_>>>()?;
+        faces.sort_by_key(|f| (f.face.weight, f.face.italic));
+        anyhow::ensure!(
+            !faces
+                .windows(2)
+                .any(|pair| pair[0].face.weight == pair[1].face.weight
+                    && pair[0].face.italic == pair[1].face.italic),
+            "Duplicate weight/style in font family"
+        );
+        let mut state = self.state.write();
+        if state.families.get(&key).is_some_and(|old| {
+            old.len() == faces.len()
+                && old
+                    .iter()
+                    .zip(&faces)
+                    .all(|(a, b)| a.egui_data == b.egui_data)
+        }) {
+            return Ok(());
+        }
+        state.families.insert(key, faces);
+        state.changed();
+        Ok(())
+    }
+
+    pub fn remove_family(&self, family: &str) -> bool {
+        let mut state = self.state.write();
+        if state.families.remove(&FamilyKey::new(family)).is_some() {
+            state.changed();
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn remove_face(&self, family: &str, weight: FontWeight, italic: bool) -> bool {
+        let mut state = self.state.write();
+        let key = FamilyKey::new(family);
+        let Some(faces) = state.families.get_mut(&key) else {
+            return false;
+        };
+        let len = faces.len();
+        faces.retain(|f| f.face.weight != weight || f.face.italic != italic);
+        if faces.len() == len {
+            return false;
+        }
+        if faces.is_empty() {
+            state.families.remove(&key);
+        }
+        state.changed();
+        true
     }
 
     /// Enumerate and load system fonts by family name.
@@ -226,137 +358,188 @@ impl FontManager {
         Ok(())
     }
 
+    /// Glyph fallback order for managed families. Missing families are skipped until loaded.
+    /// Each family contributes its closest weight, followed by the base proportional fonts.
     pub fn set_fallback_chain(&self, families: &[&str]) {
-        let chain: Vec<FamilyKey> = families.iter().map(|&f| FamilyKey::new(f)).collect();
-        *self.fallback_chain.write() = chain;
-    }
-
-    /// Look up the egui FontFamily for a given (family, weight) pair.
-    ///
-    /// Hot-path lookup uses the pre-built `registered_weights_by_family` index instead
-    /// of iterating over `FontWeight::ALL` and calling `format!` + `DashSet::contains`
-    /// for every weight on every call. The index is populated once inside `set_egui_fonts`.
-    pub fn get_egui_font_family(&self, family: &str, weight: FontWeight) -> egui::FontFamily {
-        let family_lc = family.to_lowercase();
-        let exact_key = format!("{}_{}", family_lc, weight.numeric());
-        if self.registered_egui_font_keys.contains(&exact_key) {
-            return egui::FontFamily::Name(exact_key.into());
-        }
-
-        // Closest-weight fallback: consult the pre-built per-family weight list.
-        if let Some(weights) = self.registered_weights_by_family.get(&family_lc) {
-            let target_num = weight.numeric() as i32;
-            if let Some(&closest) = weights
-                .iter()
-                .min_by_key(|w| (w.numeric() as i32 - target_num).unsigned_abs())
-            {
-                let fallback_key = format!("{}_{}", family_lc, closest.numeric());
-                // tracing::warn!(
-                //     "egui font {} not found, fallback to {}",
-                //     exact_key,
-                //     fallback_key
-                // );
-                return egui::FontFamily::Name(fallback_key.into());
+        let mut chain = Vec::new();
+        for family in families {
+            let key = FamilyKey::new(family);
+            if !key.0.is_empty() && !chain.contains(&key) {
+                chain.push(key);
             }
         }
-
-        // Family not registered at all — fall back to the default alias.
-        if family_lc == DEFAULT_FONT_FAMILY_ALIAS.to_lowercase() {
-            tracing::warn!(
-                "egui default font {} not found, fallback to egui::FontFamily::Proportional",
-                exact_key
-            );
-            return egui::FontFamily::Proportional;
+        let mut state = self.state.write();
+        if state.fallback_chain != chain {
+            state.fallback_chain = chain;
+            state.changed();
         }
-
-        tracing::warn!("egui font {} not found, fallback to default", exact_key);
-        self.default_egui_font_family()
     }
 
-    pub fn default_egui_font_family(&self) -> egui::FontFamily {
-        self.get_egui_font_family(DEFAULT_FONT_FAMILY_ALIAS, FontWeight::Regular)
+    fn font_key(&self, family: &FamilyKey, weight: FontWeight, italic: bool) -> String {
+        format!(
+            "egui_component/{}/{}/{}_{}",
+            self.id,
+            family.0,
+            weight.numeric(),
+            if italic { "italic" } else { "normal" }
+        )
     }
 
-    /// Register all loaded font faces with egui.
-    ///
-    /// Idempotent: subsequent calls are no-ops (calling `egui::Context::set_fonts`
-    /// flushes the entire glyph cache, so duplicate calls must be avoided).
-    pub fn set_egui_fonts(&self, ctx: &egui::Context) {
-        if self.fonts_applied.swap(true, Ordering::SeqCst) {
-            tracing::warn!("set_egui_fonts called more than once; skipping duplicate call");
-            return;
-        }
+    fn closest(
+        faces: &[RegisteredFace],
+        weight: FontWeight,
+        italic: bool,
+    ) -> Option<&RegisteredFace> {
+        faces.iter().min_by_key(|f| {
+            (
+                f.face.weight.numeric().abs_diff(weight.numeric()),
+                f.face.italic != italic,
+            )
+        })
+    }
 
-        let mut font_defs = egui::FontDefinitions::default();
-
-        for entry in self.families.iter() {
-            let family_name = &entry.key().0;
-
-            for face in entry.value().iter() {
-                let egui_key = format!("{}_{}", family_name, face.weight.numeric());
-
-                // egui FontData::from_owned takes Vec<u8>; clone from our Arc<[u8]> once.
-                // The Arc itself stays alive for other uses (e.g. direct rasterisation).
-                let mut egui_font_data = egui::FontData::from_owned(face.data.to_vec());
-                egui_font_data.index = face.index as u32;
-
-                font_defs
-                    .font_data
-                    .insert(egui_key.clone(), Arc::new(egui_font_data));
-
-                font_defs
-                    .families
-                    .entry(egui::FontFamily::Name(egui_key.clone().into()))
-                    .or_default()
-                    .push(egui_key.clone());
-
-                self.registered_egui_font_keys.insert(egui_key.clone());
-
-                // Build the per-family weight index while iterating, so
-                // get_egui_font_family never has to scan FontWeight::ALL.
-                self.registered_weights_by_family
-                    .entry(family_name.clone())
-                    .or_default()
-                    .push(face.weight);
+    fn build_definitions(&self, state: &FontState) -> egui::FontDefinitions {
+        let mut definitions = state.base.clone();
+        // egui compares against active definitions, not an already queued update.
+        // A revision stamp makes A -> B -> A within one pass replace the pending B
+        // too. The reserved, unused family carries no font bytes or glyphs.
+        definitions.families.insert(
+            egui::FontFamily::Name(
+                format!("egui_component/{}/revision/{}", self.id, state.revision).into(),
+            ),
+            Vec::new(),
+        );
+        for (family, faces) in &state.families {
+            for registered in faces {
+                let face = &registered.face;
+                definitions.font_data.insert(
+                    self.font_key(family, face.weight, face.italic),
+                    registered.egui_data.clone(),
+                );
             }
         }
-
-        // Keep each per-family weight list sorted for min_by_key to stay predictable.
-        for mut weights in self.registered_weights_by_family.iter_mut() {
-            weights.sort_by_key(|w| w.numeric());
+        let mut families: Vec<_> = state.families.keys().cloned().collect();
+        let default = FamilyKey::new(DEFAULT_FONT_FAMILY_ALIAS);
+        if !families.contains(&default) {
+            families.push(default);
         }
+        for family in families {
+            for weight in FontWeight::ALL {
+                for italic in [false, true] {
+                    let mut chain = Vec::new();
+                    for fallback in std::iter::once(&family).chain(&state.fallback_chain) {
+                        if let Some(face) = state
+                            .families
+                            .get(fallback)
+                            .and_then(|faces| Self::closest(faces, weight, italic))
+                        {
+                            let key = self.font_key(fallback, face.face.weight, face.face.italic);
+                            if !chain.contains(&key) {
+                                chain.push(key);
+                            }
+                        }
+                    }
+                    if let Some(base) = state.base.families.get(&egui::FontFamily::Proportional) {
+                        for key in base {
+                            if !chain.contains(key) {
+                                chain.push(key.clone());
+                            }
+                        }
+                    }
+                    definitions.families.insert(
+                        egui::FontFamily::Name(self.font_key(&family, weight, italic).into()),
+                        chain,
+                    );
+                }
+            }
+        }
+        definitions
+    }
 
-        ctx.set_fonts(font_defs);
+    fn snapshot(&self) -> Arc<FontSnapshot> {
+        if let Some(snapshot) = &self.state.read().snapshot {
+            return snapshot.clone();
+        }
+        let mut state = self.state.write();
+        if let Some(snapshot) = &state.snapshot {
+            return snapshot.clone();
+        }
+        let snapshot = Arc::new(FontSnapshot {
+            revision: state.revision,
+            definitions: self.build_definitions(&state),
+        });
+        state.snapshot = Some(snapshot.clone());
+        snapshot
+    }
+
+    /// Submit changed fonts once per context/version. Safe to call every frame.
+    /// Returns true when a new catalog was queued. egui activates it next pass;
+    /// queries below keep using the currently active definitions in the meantime.
+    pub fn apply(&self, ctx: &egui::Context) -> bool {
+        let snapshot = self.snapshot();
+        let submitted = SubmittedFonts {
+            manager_id: self.id,
+            revision: snapshot.revision,
+        };
+        let id = egui::Id::new("egui_component/font_catalog");
+        if ctx.data(|data| data.get_temp::<SubmittedFonts>(id)) == Some(submitted) {
+            return false;
+        }
+        ctx.set_fonts(snapshot.definitions.clone());
+        ctx.data_mut(|data| data.insert_temp(id, submitted));
         ctx.request_repaint();
+        true
     }
 
-    pub fn find_closest_weight<'a>(
-        faces: &'a [FontFace],
-        target: FontWeight,
-    ) -> Option<&'a FontFace> {
-        if faces.is_empty() {
-            return None;
-        }
+    /// Compatibility entry point; now applies revisions instead of running only once.
+    pub fn set_egui_fonts(&self, ctx: &egui::Context) {
+        self.apply(ctx);
+    }
 
-        if let Some(face) = faces.iter().find(|f| f.weight == target && !f.italic) {
-            return Some(face);
-        }
+    /// Resolve a family against this context's active fonts. Call during an egui pass.
+    pub fn get_egui_font_family(
+        &self,
+        ctx: &egui::Context,
+        family: &str,
+        weight: FontWeight,
+    ) -> egui::FontFamily {
+        self.get_egui_font_family_with_style(ctx, family, weight, false)
+    }
 
-        if let Some(face) = faces.iter().find(|f| f.weight == target) {
-            return Some(face);
-        }
-
-        let target_num = target.numeric();
-        let mut best: Option<&FontFace> = None;
-        let mut best_dist = u16::MAX;
-
-        for face in faces {
-            let dist = (face.weight.numeric() as i32 - target_num as i32).unsigned_abs() as u16;
-            if dist < best_dist {
-                best_dist = dist;
-                best = Some(face);
+    pub fn get_egui_font_family_with_style(
+        &self,
+        ctx: &egui::Context,
+        family: &str,
+        weight: FontWeight,
+        italic: bool,
+    ) -> egui::FontFamily {
+        let requested = egui::FontFamily::Name(
+            self.font_key(&FamilyKey::new(family), weight, italic)
+                .into(),
+        );
+        let default = egui::FontFamily::Name(
+            self.font_key(&FamilyKey::new(DEFAULT_FONT_FAMILY_ALIAS), weight, italic)
+                .into(),
+        );
+        ctx.fonts(|fonts| {
+            let families = &fonts.definitions().families;
+            if families.contains_key(&requested) {
+                requested
+            } else if families.contains_key(&default) {
+                default
+            } else {
+                egui::FontFamily::Proportional
             }
-        }
-        best
+        })
+    }
+
+    pub fn default_egui_font_family(&self, ctx: &egui::Context) -> egui::FontFamily {
+        self.get_egui_font_family(ctx, DEFAULT_FONT_FAMILY_ALIAS, FontWeight::Regular)
+    }
+
+    pub fn find_closest_weight(faces: &[FontFace], target: FontWeight) -> Option<&FontFace> {
+        faces
+            .iter()
+            .min_by_key(|f| (f.weight.numeric().abs_diff(target.numeric()), f.italic))
     }
 }

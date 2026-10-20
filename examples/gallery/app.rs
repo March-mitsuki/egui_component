@@ -66,6 +66,7 @@ pub(crate) struct GalleryApp {
     color_mode: ColorMode,
     current_page: Page,
     form_page: pages::form::FormPage,
+    text_page: pages::text::FontDemo,
 }
 
 impl GalleryApp {
@@ -75,12 +76,14 @@ impl GalleryApp {
             color_mode: ColorMode::Dark,
             current_page: Page::Button,
             form_page: Default::default(),
+            text_page: Default::default(),
         }
     }
 }
 
 impl eframe::App for GalleryApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        egui_component::consts::FONT_MANAGER.apply(ui.ctx());
         #[cfg(not(target_arch = "wasm32"))]
         if ui.ctx().input(|i| i.viewport().close_requested()) {
             // prevent macOS touch bar
@@ -194,7 +197,7 @@ impl eframe::App for GalleryApp {
                     Page::Select => pages::select::show(ui, theme),
                     Page::Separator => pages::separator::show(ui),
                     Page::Switch => pages::switch::show(ui, theme),
-                    Page::Text => pages::text::show(ui),
+                    Page::Text => self.text_page.show(ui, theme),
                     Page::TextEdit => pages::text_edit::show(ui),
                     Page::Toast => pages::toast::show(ui, theme),
                     Page::Tooltip => pages::tooltip::show(ui),

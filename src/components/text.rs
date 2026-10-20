@@ -72,7 +72,11 @@ impl Style {
 pub fn render(ui: &mut Ui, text: &str, style: Style) -> Response {
     let mut label = Label::new(
         RichText::new(text)
-            .family(FONT_MANAGER.get_egui_font_family(&style.font_family, style.font_weight))
+            .family(FONT_MANAGER.get_egui_font_family(
+                ui.ctx(),
+                &style.font_family,
+                style.font_weight,
+            ))
             .color(style.color)
             .size(style.size),
     )

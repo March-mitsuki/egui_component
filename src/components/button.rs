@@ -542,7 +542,7 @@ pub fn render(ui: &mut Ui, text: &str, style: Style) -> egui::Response {
     };
 
     let galley = {
-        let font_family = FONT_MANAGER.default_egui_font_family();
+        let font_family = FONT_MANAGER.default_egui_font_family(ui.ctx());
         let font_id = egui::FontId::new(style.text_size, font_family);
 
         let full_galley =

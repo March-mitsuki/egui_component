@@ -88,6 +88,34 @@ Web Gallery 使用 WebGL，中文字体在编译时内嵌，运行时无需读�
 
 应用可以直接使用 egui 默认字体，也可以先通过 `FONT_MANAGER.load_from_bytes` 加载内嵌字体，再调用 `FONT_MANAGER.set_egui_fonts(&cc.egui_ctx)`。文件和系统字体加载仅供原生平台使用；主题 JSON 可在两个平台上通过 `UiTheme::from_json_bytes` 加载。
 
+### 动态字体
+
+每帧渲染组件前调用 `FONT_MANAGER.apply(ui.ctx())`。未变化的版本会按 Context 分别跳过，`set_egui_fonts` 也可继续用于提交更新。egui 在下一次 pass 启用新字体；查询始终使用当前 Context 已生效的字体，避免引用尚未注册的字体名称。
+
+```rust,ignore
+use egui_component::consts::{DEFAULT_FONT_FAMILY_ALIAS, FONT_MANAGER};
+use egui_component::font::weight::FontWeight;
+
+// 应用完成下载或读取字体后，将字节交给管理器：
+FONT_MANAGER.replace_family(DEFAULT_FONT_FAMILY_ALIAS, &[
+    (regular_bytes.as_slice(), 0),
+    (bold_bytes.as_slice(), 0),
+])?;
+FONT_MANAGER.load_from_bytes("cjk", &cjk_bytes, 0)?;
+FONT_MANAGER.set_fallback_chain(&["cjk"]);
+ctx.request_repaint(); // 异步加载完成后唤醒空闲的应用。
+
+// 在 UI pass 中，渲染组件之前：
+FONT_MANAGER.apply(ctx);
+let family = FONT_MANAGER.get_egui_font_family(ctx, DEFAULT_FONT_FAMILY_ALIAS, FontWeight::Bold);
+```
+
+`load_from_bytes` 替换同一 family、字重及斜体样式的 face。`replace_family` 验证整组字体后一次性替换；解析失败、空批次、重复字重/样式都不会修改旧字体。通过 `remove_face`、`remove_family` 删除的字体会在下次 `apply` 时提交。缺字时依次使用 fallback 链中各 family 的相近字重，最后使用基础比例字体。常规体与斜体分别存储，`get_egui_font_family_with_style` 可选择样式。
+
+字体查询方法现在需要以 `&egui::Context` 为第一个参数，并在 egui pass 中调用。独立的 `FontManager` 可以通过自己的查询方法服务多个 Context；组件使用全局 `FONT_MANAGER`。每个 Context 应由一个字体管理器负责；应用自定义字体可通过 `FontManager::with_base_fonts(definitions)` 或 `set_base_fonts` 提供，之后不要再独立覆盖 Context 的字体。管理器不会修改基础 `Proportional`、`Monospace` 字体链。
+
+Gallery 的 **Text** 页面可以运行时切换字体、开关中文 fallback、删除主字体，以及尝试加载错误字体。
+
 ## 🌍 谁在用 egui_component ?
 
 - [ChiyoCast](https://chiyocast.com): 为次世代直播量身定制的云原生直播软件。
