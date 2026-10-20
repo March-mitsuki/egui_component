@@ -1,6 +1,9 @@
 use std::sync::LazyLock;
 
 pub struct Icons {
+    /// Multicolor brand marks: render with a white tint to preserve their colors.
+    pub logo_light: egui::ImageSource<'static>,
+    pub logo_dark: egui::ImageSource<'static>,
     pub no_img: egui::ImageSource<'static>,
 
     pub play: egui::ImageSource<'static>,
@@ -21,6 +24,10 @@ pub struct Icons {
 }
 
 pub static ICONS: LazyLock<Icons> = LazyLock::new(|| Icons {
+    logo_light: egui::include_image!(
+        "../assets/icons/egui_component-icon-256-light-transparent.svg"
+    ),
+    logo_dark: egui::include_image!("../assets/icons/egui_component-icon-256-dark-transparent.svg"),
     no_img: egui::include_image!("../assets/icons/no_img.svg"),
 
     play: egui::include_image!("../assets/icons/play.svg"),

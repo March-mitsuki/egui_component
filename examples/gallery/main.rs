@@ -36,7 +36,13 @@ fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1360.0, 880.0])
-            .with_title("egui_component"),
+            .with_title("egui_component")
+            .with_icon(
+                eframe::icon_data::from_png_bytes(include_bytes!(
+                    "../../assets/icons/egui_component-icon-256-light.png"
+                ))
+                .expect("valid gallery logo"),
+            ),
         ..Default::default()
     };
 

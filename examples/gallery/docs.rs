@@ -83,6 +83,15 @@ pub fn sections(doc: Doc) -> &'static [Section] {
                 )),
             },
             Section {
+                id: "brand-colors",
+                title: "Our brand palette",
+                body: "The gallery uses #6B65F5 on white with #202124 text in light mode, and #8B85FF on #101318 with #F6F7FB text in dark mode. Configure these in examples/theme.json. The optional foreground on a color scale controls text and icons on solid colored buttons; old theme files keep their existing behavior.",
+                code: Some((
+                    "rs",
+                    "use egui::Color32;\n\nlet theme = &mut ui_theme.light;\ntheme.colors.primary.l6 = Color32::from_rgb(107, 101, 245);\ntheme.colors.bg.base = Color32::WHITE;\ntheme.colors.fg.base = Color32::from_rgb(32, 33, 36);\ntheme.colors.primary.foreground = Some(Color32::WHITE);",
+                )),
+            },
+            Section {
                 id: "color-mode",
                 title: "Light and dark",
                 body: "UiTheme contains both modes. Select the active theme when rendering. This website's header switches modes for the entire application, including every live demo.",

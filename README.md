@@ -123,3 +123,19 @@ The same page accepts a direct HTTP(S) font URL and downloads it asynchronously 
 ## 📄 LICENSE
 
 This repository and all its included packages are released under the **MIT License**.
+
+
+### Brand theme colors
+
+`examples/theme.json` configures the gallery and examples with separate light and
+dark palettes. `colors.primary.l6` is the brand accent, `colors.bg.base` the page
+background, and `colors.fg.base` the main text color. Colors are RGBA byte arrays.
+The gallery uses `#6B65F5` / `#8B85FF` accents, white / `#101318` backgrounds,
+and `#202124` / `#F6F7FB` text.
+
+A color scale can optionally include `foreground` to choose text/icons on solid
+colored buttons (and the primary switch thumb). Omit it to preserve the previous
+behavior using the theme's main foreground. For example, the light primary scale
+uses `"foreground": [255, 255, 255, 255]`; the dark primary uses `[16, 19, 24, 255]`.
+The provided multicolor SVG logos are available as `ICONS.logo_light` and
+`ICONS.logo_dark`; use a white tint with the icon component to preserve their colors.

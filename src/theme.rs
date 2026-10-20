@@ -64,6 +64,10 @@ pub enum CardSize {
 
 #[derive(Clone, Copy, Deserialize, Serialize)]
 pub struct Color {
+    /// Text/icon color on solid surfaces. If omitted, preserves the theme's
+    /// foreground color for compatibility with existing theme files.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub foreground: Option<Color32>,
     pub l0: Color32,
     pub l1: Color32,
     pub l2: Color32,
@@ -96,7 +100,7 @@ impl Color {
         match variant {
             ButtonVariant::Solid => ButtonPalette {
                 normal_bg: self.normal(),
-                text_color: theme.colors.fg.base,
+                text_color: self.foreground.unwrap_or(theme.colors.fg.base),
                 hover_bg: self.hover(),
                 active_bg: self.active(),
                 stroke: Stroke::NONE,
@@ -222,6 +226,7 @@ impl UiTheme {
     #[cfg(debug_assertions)]
     pub fn dummy() -> Self {
         let dummy_color = Color {
+            foreground: None,
             l0: Color32::from_hex("#f4f7e9").unwrap(),
             l1: Color32::from_hex("#e2ebca").unwrap(),
             l2: Color32::from_hex("#cbde9b").unwrap(),
@@ -344,5 +349,57 @@ impl UiTheme {
 
     pub fn to_json(&self) -> String {
         serde_json::to_string(self).unwrap()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn brand_theme() -> UiTheme {
+        UiTheme::from_json_bytes(include_bytes!("../examples/theme.json")).unwrap()
+    }
+    #[test]
+    fn brand_colors_and_solid_foregrounds_follow_each_mode() {
+        let ui = brand_theme();
+        for (theme, primary, bg, fg, on_primary) in [
+            (&ui.light, "#6B65F5", "#FFFFFF", "#202124", "#FFFFFF"),
+            (&ui.dark, "#8B85FF", "#101318", "#F6F7FB", "#101318"),
+        ] {
+            assert_eq!(
+                theme.colors.primary.normal(),
+                Color32::from_hex(primary).unwrap()
+            );
+            assert_eq!(theme.colors.bg.base, Color32::from_hex(bg).unwrap());
+            assert_eq!(theme.colors.fg.base, Color32::from_hex(fg).unwrap());
+            let palette = theme
+                .colors
+                .primary
+                .to_button_palette(theme, ButtonVariant::Solid);
+            assert_eq!(palette.text_color, Color32::from_hex(on_primary).unwrap());
+            assert_eq!(
+                crate::components::switch::Style::new(theme).knob_color,
+                palette.text_color
+            );
+        }
+    }
+    #[test]
+    fn legacy_color_json_keeps_its_previous_foreground() {
+        let theme = brand_theme().light;
+        let mut json = serde_json::to_value(theme.colors.primary).unwrap();
+        json.as_object_mut().unwrap().remove("foreground");
+        let color: Color = serde_json::from_value(json).unwrap();
+        assert_eq!(color.foreground, None);
+        assert_eq!(
+            color
+                .to_button_palette(&theme, ButtonVariant::Solid)
+                .text_color,
+            theme.colors.fg.base
+        );
+        assert!(
+            serde_json::to_value(color)
+                .unwrap()
+                .get("foreground")
+                .is_none()
+        );
     }
 }

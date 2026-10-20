@@ -19,7 +19,7 @@ impl Style {
             width: 36.0,
             on_bg_color: theme.colors.primary.l6,
             off_bg_color: theme.colors.gray.l3,
-            knob_color: Color32::WHITE,
+            knob_color: theme.colors.primary.foreground.unwrap_or(Color32::WHITE),
             disabled: false,
         }
     }
@@ -30,7 +30,7 @@ impl Style {
             width: 28.0,
             on_bg_color: theme.colors.primary.l6,
             off_bg_color: theme.colors.gray.l3,
-            knob_color: Color32::WHITE,
+            knob_color: theme.colors.primary.foreground.unwrap_or(Color32::WHITE),
             disabled: false,
         }
     }
@@ -45,7 +45,7 @@ impl Style {
             width: 44.0,
             on_bg_color: theme.colors.primary.l6,
             off_bg_color: theme.colors.gray.l3,
-            knob_color: Color32::WHITE,
+            knob_color: theme.colors.primary.foreground.unwrap_or(Color32::WHITE),
             disabled: false,
         }
     }
@@ -56,7 +56,7 @@ impl Style {
             width: 28.0,
             on_bg_color: color.l6,
             off_bg_color: theme.colors.gray.l3,
-            knob_color: Color32::WHITE,
+            knob_color: color.foreground.unwrap_or(Color32::WHITE),
             disabled: false,
         }
     }
@@ -67,7 +67,7 @@ impl Style {
             width: 36.0,
             on_bg_color: color.l6,
             off_bg_color: theme.colors.gray.l3,
-            knob_color: Color32::WHITE,
+            knob_color: color.foreground.unwrap_or(Color32::WHITE),
             disabled: false,
         }
     }
@@ -78,7 +78,7 @@ impl Style {
             width: 44.0,
             on_bg_color: color.l6,
             off_bg_color: theme.colors.gray.l3,
-            knob_color: Color32::WHITE,
+            knob_color: color.foreground.unwrap_or(Color32::WHITE),
             disabled: false,
         }
     }
@@ -162,7 +162,8 @@ pub fn render(ui: &mut Ui, on: &mut bool, style: Style) -> Response {
     // Knob shadow
     if !style.disabled {
         let shadow_center = knob_center + egui::vec2(0.0, 1.0);
-        ui.painter().circle_filled(shadow_center, r, Color32::from_black_alpha(35));
+        ui.painter()
+            .circle_filled(shadow_center, r, Color32::from_black_alpha(35));
     }
 
     ui.painter().circle_filled(knob_center, r, knob_color);

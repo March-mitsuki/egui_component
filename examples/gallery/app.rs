@@ -4,7 +4,7 @@ use crate::{
 };
 use eframe::egui::{self, Margin, Stroke};
 use egui_component::{
-    components::{button, card, code, navigation, scroll_area, switch, text, text_edit},
+    components::{button, card, code, icon, navigation, scroll_area, switch, text, text_edit},
     theme::{Theme, UiTheme},
 };
 use egui_component_router::{HistoryMode, Router};
@@ -102,13 +102,7 @@ impl GalleryApp {
             .show_inside(ui, |ui| {
                 let narrow = ui.available_width() < 580.0;
                 ui.horizontal(|ui| {
-                    if button::render(
-                        ui,
-                        "e",
-                        button::Style::new_solid_md_color(theme, theme.colors.primary),
-                    )
-                    .clicked()
-                    {
+                    if self.logo(ui, theme, 44.0, true).clicked() {
                         self.go(Page::Home);
                     }
                     text::render(
@@ -145,6 +139,27 @@ impl GalleryApp {
                 }
             });
     }
+    fn logo(&self, ui: &mut egui::Ui, theme: &Theme, size: f32, clickable: bool) -> egui::Response {
+        let source = if self.dark {
+            egui_component::icon::ICONS.logo_dark.clone()
+        } else {
+            egui_component::icon::ICONS.logo_light.clone()
+        };
+        icon::render(
+            ui,
+            source,
+            icon::Style::new(theme)
+                .box_size(size)
+                .icon_size(size)
+                .color(egui::Color32::WHITE)
+                .sense(if clickable {
+                    egui::Sense::click()
+                } else {
+                    egui::Sense::hover()
+                }),
+        )
+        .on_hover_text("egui_component")
+    }
     fn top_links(&mut self, ui: &mut egui::Ui, theme: &Theme) {
         let current = self.router.current();
         for (page, name, selected) in [
@@ -161,9 +176,11 @@ impl GalleryApp {
             ),
         ] {
             let mut style = button::Style::new_ghost_md(theme);
+            style.palette.hover_bg = theme.colors.primary.l0;
+            style.palette.active_bg = theme.colors.primary.l1;
             if selected {
-                style.palette.normal_bg = theme.colors.bg.accent;
-                style.palette.text_color = theme.colors.fg.accent;
+                style.palette.normal_bg = theme.colors.primary.l0;
+                style.palette.text_color = theme.colors.primary.l6;
             }
             if button::render(ui, name, style).clicked() {
                 self.go(page);
@@ -442,7 +459,7 @@ impl GalleryApp {
                     ui.horizontal(|ui| { if offset > 0.0 { ui.add_space((offset - ui.spacing().item_spacing.x).max(0.0)); } ui.vertical(|ui| {
                         ui.set_width(max);
                         ui.add_space(if max > 700.0 { 52.0 } else { 24.0 });
-                        eyebrow(ui, "A SMALL LIBRARY. ROOM FOR BIG IDEAS.", theme);
+                        eyebrow(ui, "SMALL PIECES. ENDLESS POSSIBILITIES.", theme);
                         ui.add_space(22.0);
                         if max > 850.0 {
                             ui.columns(2, |columns| {
@@ -464,20 +481,20 @@ impl GalleryApp {
                             muted(ui, "MIT licensed", theme);
                         });
                         ui.add_space(42.0);
-                        text::render(ui, "Your interface. Your rules.", text::Style::new_heading(theme).size(30.0));
+                        text::render(ui, "Made to fit together.", text::Style::new_heading(theme).size(30.0));
                         ui.add_space(10.0);
                         paragraph(ui, "Thoughtful defaults, flexible building blocks. Start small and make something that feels like you.", theme);
                         ui.add_space(24.0);
                         if max > 700.0 {
                             ui.columns(3, |columns| {
                                 feature(&mut columns[0], "01 / COMPOSE", "Fits your application", "Render directly into your egui Ui. Keep your architecture, state, and layout.", theme);
-                                feature(&mut columns[1], "02 / CUSTOMIZE", "A style of your own", "Start with a preset, then shape every color, corner, and interaction.", theme);
+                                feature(&mut columns[1], "02 / CUSTOMIZE", "Distinctly yours", "Start with a preset, then shape every color, corner, and interaction.", theme);
                                 feature(&mut columns[2], "03 / SHIP", "Go where Rust goes", "Build for desktop and Web with the same components and typed navigation.", theme);
                             });
                         } else {
                             feature(ui, "01 / COMPOSE", "Fits your application", "Render directly into your egui Ui. Keep your architecture, state, and layout.", theme);
                             ui.add_space(12.0);
-                            feature(ui, "02 / CUSTOMIZE", "A style of your own", "Start with a preset, then shape every color, corner, and interaction.", theme);
+                            feature(ui, "02 / CUSTOMIZE", "Distinctly yours", "Start with a preset, then shape every color, corner, and interaction.", theme);
                             ui.add_space(12.0);
                             feature(ui, "03 / SHIP", "Go where Rust goes", "Build for desktop and Web with the same components and typed navigation.", theme);
                         }
@@ -501,10 +518,18 @@ impl GalleryApp {
             });
     }
     fn hero(&mut self, ui: &mut egui::Ui, theme: &Theme, width: f32) {
+        let size = if width > 850.0 { 48.0 } else { 36.0 };
         text::render(
             ui,
-            "Build interfaces.\nKeep your freedom.",
-            text::Style::new_heading(theme).size(if width > 850.0 { 48.0 } else { 38.0 }),
+            "Small pieces.",
+            text::Style::new_heading(theme).size(size),
+        );
+        text::render(
+            ui,
+            "Remarkable interfaces.",
+            text::Style::new_heading(theme)
+                .size(size)
+                .color(theme.colors.primary.l6),
         );
         ui.add_space(20.0);
         paragraph(
@@ -514,7 +539,13 @@ impl GalleryApp {
         );
         ui.add_space(24.0);
         ui.horizontal_wrapped(|ui| {
-            if button::render(ui, "Get started →", button::Style::new_solid_lg(theme)).clicked() {
+            if button::render(
+                ui,
+                "Get started →",
+                button::Style::new_solid_lg_color(theme, theme.colors.primary),
+            )
+            .clicked()
+            {
                 self.go(Page::Docs(Doc::GettingStarted));
             }
             if button::render(
@@ -539,11 +570,21 @@ impl GalleryApp {
             ui,
             |ui| {
                 ui.set_min_width((ui.available_width() - 2.0).max(0.0));
-                eyebrow(ui, "LIVE / MADE WITH EGUI_COMPONENT", theme);
-                ui.add_space(22.0);
+                ui.horizontal(|ui| {
+                    self.logo(ui, theme, 44.0, false);
+                    ui.vertical(|ui| {
+                        text::render(
+                            ui,
+                            "Your workspace",
+                            text::Style::new_heading(theme).size(16.0),
+                        );
+                        muted(ui, "A live composition of our components", theme);
+                    });
+                });
+                ui.add_space(18.0);
                 text::render(
                     ui,
-                    "A little space to create.",
+                    "Make room for your next idea.",
                     text::Style::new_heading(theme).size(23.0),
                 );
                 ui.add_space(8.0);
@@ -593,7 +634,9 @@ impl GalleryApp {
                     );
                 });
             },
-            surface(theme).inner_margin(Margin::same(26)),
+            surface(theme)
+                .fill(theme.colors.bg.subtle)
+                .inner_margin(Margin::same(26)),
         );
     }
 }
@@ -731,9 +774,9 @@ mod layout_tests {
             frame(events.clone(), &mut app);
         }
         for (pos, expected) in [
-            (egui::pos2(341.0, 29.0), Page::Docs(Doc::GettingStarted)),
-            (egui::pos2(432.0, 29.0), Page::Component(Component::Button)),
-            (egui::pos2(270.0, 29.0), Page::Home),
+            (egui::pos2(349.0, 34.0), Page::Docs(Doc::GettingStarted)),
+            (egui::pos2(440.0, 34.0), Page::Component(Component::Button)),
+            (egui::pos2(278.0, 34.0), Page::Home),
         ] {
             for pressed in [true, false] {
                 events = vec![

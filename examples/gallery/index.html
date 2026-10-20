@@ -7,6 +7,10 @@
 
 <head>
     <link data-trunk rel="rust" href="web/Cargo.toml" data-bin="gallery-web" />
+    <link data-trunk rel="icon" type="image/svg+xml" href="../../assets/icons/egui_component-icon-256-light.svg" media="(prefers-color-scheme: light)">
+    <link data-trunk rel="icon" type="image/svg+xml" href="../../assets/icons/egui_component-icon-256-dark.svg" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#101318" media="(prefers-color-scheme: dark)">
     <title>egui_component — Composable UI for Rust</title>
     <meta name="description" content="Composable components for egui. Explore live examples, documentation, and flexible styling for native and Web applications.">
     <style>
@@ -18,13 +22,15 @@
         body {
             /* Light mode background color for what is not covered by the egui canvas,
             or where the egui canvas is translucent. */
-            background: #fafafa;
+            background: #FFFFFF;
+            color: #202124;
         }
 
         @media (prefers-color-scheme: dark) {
             body {
                 /* Dark mode background color */
-                background: #fafafa;
+                background: #101318;
+                color: #F6F7FB;
             }
         }
 
