@@ -1,16 +1,20 @@
 use crate::{
-    docs, pages,
-    routes::{Component, Doc, Page},
+    docs,
+    i18n::Locale,
+    pages,
+    routes::{Component, ComponentGroup, Doc, GalleryRoute, Page},
 };
 use eframe::egui::{self, Margin, Stroke};
 use egui_component::{
-    components::{button, card, code, icon, navigation, scroll_area, switch, text, text_edit},
+    components::{
+        button, card, code, icon, menu_button, navigation, scroll_area, switch, text, text_edit,
+    },
     theme::{Theme, UiTheme},
 };
 use egui_component_router::{HistoryMode, Router};
 
 pub(crate) struct GalleryApp {
-    router: Router<Page>,
+    router: Router<GalleryRoute>,
     ui_theme: UiTheme,
     dark: bool,
     filter: String,
@@ -35,7 +39,9 @@ impl GalleryApp {
     ) -> Result<Self, egui_component_router::NavigationError> {
         let ctx = ctx.clone();
         Ok(Self {
-            router: Router::new(Page::Home, move || ctx.request_repaint())?,
+            router: Router::new(GalleryRoute::new(Locale::En, Page::Home), move || {
+                ctx.request_repaint()
+            })?,
             ui_theme,
             dark: false,
             filter: String::new(),
@@ -53,8 +59,51 @@ impl GalleryApp {
             saved: false,
         })
     }
+    fn locale(&self) -> Locale {
+        self.router.current().locale
+    }
+    fn language_menu(&mut self, ui: &mut egui::Ui, theme: &Theme) {
+        let current = self.locale();
+        let mut chosen = current;
+        menu_button::render(
+            ui,
+            ui.make_persistent_id("gallery-language"),
+            |ui| {
+                let mut style = button::Style::new_ghost_sm(theme);
+                style.icon_left =
+                    button::ButtonIcon::Some(egui_component::icon::ICONS.language.clone());
+                button::render(ui, current.name(), style)
+            },
+            |ui| {
+                for locale in Locale::ALL {
+                    let mut style = button::Style::new_ghost_sm(theme);
+                    if locale == current {
+                        style.palette.normal_bg = theme.colors.primary.l0;
+                    }
+                    if button::render(ui, locale.name(), style).clicked() {
+                        chosen = locale;
+                    }
+                }
+            },
+            menu_button::Style::new(theme).align(egui::RectAlign::BOTTOM_END),
+        );
+        if chosen != current {
+            let mut route = self.router.current();
+            route.locale = chosen;
+            self.error = self
+                .router
+                .navigate_with_search(route, self.router.search_params())
+                .err()
+                .map(|e| e.to_string());
+            ui.ctx().request_repaint();
+        }
+    }
     fn go(&mut self, page: Page) {
-        self.error = self.router.navigate(page).err().map(|e| e.to_string());
+        self.error = self
+            .router
+            .navigate(GalleryRoute::new(self.locale(), page))
+            .err()
+            .map(|e| e.to_string());
         self.mobile_nav = false;
         self.filter.clear();
     }
@@ -86,9 +135,12 @@ impl GalleryApp {
         ui.add_space(12.0);
     }
     fn header(&mut self, ui: &mut egui::Ui, theme: &Theme) {
+        let locale = self.locale();
         egui::Panel::top("site-header")
             .show_separator_line(false)
-            .exact_size(if ui.available_width() < 620.0 {
+            .exact_size(if ui.available_width() < 480.0 {
+                154.0
+            } else if ui.available_width() < 820.0 {
                 106.0
             } else {
                 68.0
@@ -100,7 +152,8 @@ impl GalleryApp {
                     .inner_margin(Margin::symmetric(20, 12)),
             )
             .show_inside(ui, |ui| {
-                let narrow = ui.available_width() < 580.0;
+                let narrow = ui.available_width() < 780.0;
+                let compact = ui.available_width() < 440.0;
                 ui.horizontal(|ui| {
                     if self.logo(ui, theme, 44.0, true).clicked() {
                         self.go(Page::Home);
@@ -115,9 +168,16 @@ impl GalleryApp {
                         self.top_links(ui, theme);
                     }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if !compact {
+                            self.language_menu(ui, theme);
+                        }
                         if button::render(
                             ui,
-                            if self.dark { "Light" } else { "Dark" },
+                            if self.dark {
+                                locale.text("common:light")
+                            } else {
+                                locale.text("common:dark")
+                            },
                             button::Style::new_ghost_sm(theme),
                         )
                         .clicked()
@@ -136,6 +196,9 @@ impl GalleryApp {
                 });
                 if narrow {
                     ui.horizontal(|ui| self.top_links(ui, theme));
+                }
+                if compact {
+                    ui.horizontal(|ui| self.language_menu(ui, theme));
                 }
             });
     }
@@ -161,21 +224,26 @@ impl GalleryApp {
         .on_hover_text("egui_component")
     }
     fn top_links(&mut self, ui: &mut egui::Ui, theme: &Theme) {
-        let current = self.router.current();
+        let locale = self.locale();
+        let current = self.router.current().page;
         for (page, name, selected) in [
-            (Page::Home, "Home", current == Page::Home),
+            (Page::Home, locale.text("nav:home"), current == Page::Home),
             (
                 Page::Docs(Doc::GettingStarted),
-                "Docs",
+                locale.text("nav:docs"),
                 matches!(current, Page::Docs(_)),
             ),
             (
                 Page::Component(Component::Button),
-                "Components",
+                locale.text("nav:components"),
                 matches!(current, Page::Component(_)),
             ),
         ] {
-            let mut style = button::Style::new_ghost_md(theme);
+            let mut style = if ui.available_width() < 440.0 {
+                button::Style::new_ghost_sm(theme)
+            } else {
+                button::Style::new_ghost_md(theme)
+            };
             style.palette.hover_bg = theme.colors.primary.l0;
             style.palette.active_bg = theme.colors.primary.l1;
             if selected {
@@ -188,13 +256,14 @@ impl GalleryApp {
         }
     }
     fn sidebar(&mut self, ui: &mut egui::Ui, theme: &Theme, page: &Page) {
+        let locale = self.locale();
         ui.add_space(12.0);
         eyebrow(
             ui,
             if matches!(page, Page::Docs(_)) {
-                "DOCUMENTATION"
+                locale.text("common:documentation")
             } else {
-                "THE COMPONENTS"
+                locale.text("common:componentLibrary")
             },
             theme,
         );
@@ -203,30 +272,35 @@ impl GalleryApp {
             text_edit::render(
                 ui,
                 &mut self.filter,
-                text_edit::Style::new_outline_sm(theme).placeholder("Find a component…"),
+                text_edit::Style::new_outline_sm(theme)
+                    .placeholder(locale.text("common:findComponent")),
             );
             ui.add_space(16.0);
             let filter = self.filter.to_lowercase();
             let mut found = false;
-            for group in [
-                "Actions", "Inputs", "Layout", "Content", "Identity", "Feedback",
-            ] {
+            for group in ComponentGroup::ALL {
                 let items: Vec<_> = Component::ALL
                     .iter()
                     .copied()
-                    .filter(|c| c.group() == group && c.name().to_lowercase().contains(&filter))
+                    .filter(|c| {
+                        c.group() == group
+                            && (c.slug().contains(&filter)
+                                || Locale::ALL
+                                    .into_iter()
+                                    .any(|lang| c.name(lang).to_lowercase().contains(&filter)))
+                    })
                     .collect();
                 if items.is_empty() {
                     continue;
                 }
                 found = true;
                 ui.add_space(12.0);
-                muted(ui, group, theme);
+                muted(ui, group.label(locale), theme);
                 ui.add_space(4.0);
                 for item in items {
                     if navigation::render(
                         ui,
-                        item.name(),
+                        item.name(locale),
                         *page == Page::Component(item),
                         navigation::Style::new(theme),
                     )
@@ -237,13 +311,13 @@ impl GalleryApp {
                 }
             }
             if !found {
-                muted(ui, "No components found.", theme);
+                muted(ui, locale.text("common:noComponents"), theme);
             }
         } else {
             for doc in Doc::ALL {
                 if navigation::render(
                     ui,
-                    doc.title(),
+                    doc.title(locale),
                     *page == Page::Docs(*doc),
                     navigation::Style::new(theme),
                 )
@@ -253,11 +327,11 @@ impl GalleryApp {
                 }
             }
             ui.add_space(28.0);
-            eyebrow(ui, "EXPLORE", theme);
+            eyebrow(ui, locale.text("common:explore"), theme);
             ui.add_space(8.0);
             if navigation::render(
                 ui,
-                "Component library ↗",
+                locale.text("common:libraryLink"),
                 false,
                 navigation::Style::new(theme),
             )
@@ -267,26 +341,31 @@ impl GalleryApp {
             }
         }
         ui.add_space(28.0);
-        muted(ui, "Built with egui_component.", theme);
+        muted(ui, locale.text("common:builtWith"), theme);
     }
-    fn outline(page: &Page) -> Vec<(&'static str, &'static str)> {
-        let mut result = vec![("overview", "Overview")];
+    fn outline(page: &Page, locale: Locale) -> Vec<(&'static str, &'static str)> {
+        let mut result = vec![("overview", locale.text("common:overview"))];
         match page {
-            Page::Docs(doc) => result.extend(docs::sections(*doc).iter().map(|s| (s.id, s.title))),
+            Page::Docs(doc) => result.extend(
+                docs::sections(*doc)
+                    .iter()
+                    .map(|s| (s.id, locale.text(s.title))),
+            ),
             Page::Component(_) => result.extend([
-                ("preview", "Live preview"),
-                ("usage", "Source & usage"),
-                ("customization", "Customization"),
+                ("preview", locale.text("common:livePreview")),
+                ("usage", locale.text("common:sourceUsage")),
+                ("customization", locale.text("common:customization")),
             ]),
             _ => {}
         }
         result
     }
     fn toc(&mut self, ui: &mut egui::Ui, theme: &Theme, page: &Page) {
+        let locale = self.locale();
         ui.add_space(14.0);
-        eyebrow(ui, "ON THIS PAGE", theme);
+        eyebrow(ui, locale.text("common:onThisPage"), theme);
         ui.add_space(12.0);
-        for (id, title) in Self::outline(page) {
+        for (id, title) in Self::outline(page, locale) {
             let mut style = navigation::Style::new(theme);
             style.text.size = 13.0;
             if navigation::render(ui, title, self.active_section == id, style).clicked() {
@@ -295,15 +374,22 @@ impl GalleryApp {
         }
         ui.add_space(26.0);
         ui.add_space(18.0);
-        muted(ui, "Made for immediate mode.", theme);
+        muted(ui, locale.text("common:immediateMode"), theme);
         ui.add_space(10.0);
-        if button::render(ui, "View on GitHub ↗", button::Style::new_ghost_sm(theme)).clicked() {
+        if button::render(
+            ui,
+            locale.text("common:github"),
+            button::Style::new_ghost_sm(theme),
+        )
+        .clicked()
+        {
             ui.ctx().open_url(egui::OpenUrl::new_tab(
                 "https://github.com/March-mitsuki/egui_component",
             ));
         }
     }
     fn document(&mut self, ui: &mut egui::Ui, theme: &Theme, page: Page) {
+        let locale = self.locale();
         let width = ui.available_width();
         let wide = width >= 1100.0;
         let sidebar = width >= 760.0;
@@ -325,223 +411,447 @@ impl GalleryApp {
                     )
                 });
         }
-        egui::CentralPanel::default().frame(egui::Frame::NONE.fill(theme.colors.bg.base))
+        egui::CentralPanel::default()
+            .frame(egui::Frame::NONE.fill(theme.colors.bg.base))
             .show_inside(ui, |ui| {
                 if !sidebar {
-                    egui::Frame::NONE.inner_margin(Margin::symmetric(18, 12)).show(ui, |ui| {
-                    ui.horizontal(|ui| {
-                        if button::render(ui, if self.mobile_nav { "Close navigation" } else { "Browse pages" }, button::Style::new_outline_sm(theme)).clicked() { self.mobile_nav = !self.mobile_nav; }
-                        muted(ui, "Docs / Components", theme);
-                    });
-                    if self.mobile_nav {
-                        scroll_area::render(ui, "mobile-nav", scroll_area::ScrollAxes::Vertical, |ui| self.sidebar(ui, theme, &page), scroll_area::Style::new_no_frame().max_height(260.0));
-                    }
-                    });
+                    egui::Frame::NONE
+                        .inner_margin(Margin::symmetric(18, 12))
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                if button::render(
+                                    ui,
+                                    if self.mobile_nav {
+                                        locale.text("common:closeNavigation")
+                                    } else {
+                                        locale.text("common:browsePages")
+                                    },
+                                    button::Style::new_outline_sm(theme),
+                                )
+                                .clicked()
+                                {
+                                    self.mobile_nav = !self.mobile_nav;
+                                }
+                                muted(ui, locale.text("common:docsComponents"), theme);
+                            });
+                            if self.mobile_nav {
+                                scroll_area::render(
+                                    ui,
+                                    "mobile-nav",
+                                    scroll_area::ScrollAxes::Vertical,
+                                    |ui| self.sidebar(ui, theme, &page),
+                                    scroll_area::Style::new_no_frame().max_height(260.0),
+                                );
+                            }
+                        });
                 }
                 let body_rect = ui.available_rect_before_wrap();
                 let outline_width = if wide { 210.0 } else { 0.0 };
-                main_scroll(ui, self.reset_main_scroll, |ui| {
-                    let main_width = (ui.available_width() - outline_width).max(0.0);
-                    let content_width = main_width.min(820.0);
-                    let inset = ((main_width - content_width) / 2.0).max(0.0);
-                    ui.horizontal(|ui| {
-                    if inset > 0.0 { ui.add_space((inset - ui.spacing().item_spacing.x).max(0.0)); }
-                    ui.vertical(|ui| {
-                    ui.set_width(content_width);
-                    let (label, title, description) = match page {
-                        Page::Docs(doc) => ("DOCUMENTATION", doc.title(), doc.description()),
-                        Page::Component(c) => ("COMPONENTS", c.name(), c.description()),
-                        _ => unreachable!(),
-                    };
-                    eyebrow(ui, label, theme);
-                    self.heading(ui, "overview", title, theme);
-                    // A larger page title while keeping section headings compact.
-                    paragraph(ui, description, theme);
-                    ui.add_space(20.0);
-                    if !wide {
-                        ui.horizontal_wrapped(|ui| {
-                            for (id, title) in Self::outline(&page) {
-                                if button::render(ui, title, button::Style::new_ghost_sm(theme)).clicked() { self.jump(id); }
+                main_scroll(
+                    ui,
+                    self.reset_main_scroll,
+                    |ui| {
+                        let main_width = (ui.available_width() - outline_width).max(0.0);
+                        let content_width = main_width.min(820.0);
+                        let inset = ((main_width - content_width) / 2.0).max(0.0);
+                        ui.horizontal(|ui| {
+                            if inset > 0.0 {
+                                ui.add_space((inset - ui.spacing().item_spacing.x).max(0.0));
                             }
-                        });
-                        ui.add_space(12.0);
-                    }
-                    match page {
-                        Page::Docs(doc) => {
-                            for section in docs::sections(doc) {
-                                self.heading(ui, section.id, section.title, theme);
-                                paragraph(ui, section.body, theme);
-                                if let Some((language, source)) = section.code { ui.add_space(16.0); code_block(ui, source, language, theme, section.id, 360.0); }
-                            }
-                            ui.add_space(32.0);
-                            if button::render(ui, "Explore components →", button::Style::new_solid_md(theme)).clicked() { self.go(Page::Component(Component::Button)); }
-                        }
-                        Page::Component(component) => {
-                            self.heading(ui, "preview", "Live preview", theme);
-                            muted(ui, "Real components. Try them out.", theme);
-                            ui.add_space(14.0);
-                            card::render(ui, |ui| {
-                                ui.set_min_width((ui.available_width() - 2.0).max(0.0));
-                                ui.push_id(component, |ui| {
-                                    scroll_area::render(ui, "demo-viewport", scroll_area::ScrollAxes::Both,
-                                        |ui| self.demo(ui, theme, component), scroll_area::Style::new_no_frame().min_height(240.0).max_height(360.0));
-                                });
-                            }, surface(theme));
-                            self.heading(ui, "usage", "Source & usage", theme);
-                            paragraph(ui, "This is the source of the live example above. Copy it into your application and adapt the style to your needs.", theme);
-                            ui.add_space(16.0);
-                            code_block(ui, component.source(), "rs", theme, component.slug(), 300.0);
-                            self.heading(ui, "customization", "Make it yours", theme);
-                            paragraph(ui, "Use the theme-aware presets as a starting point. Public style fields and builder methods let you adjust spacing, colors, typography, and shape without changing your application's layout.", theme);
-                            ui.add_space(16.0);
-                            if button::render(ui, "Read the styling guide →", button::Style::new_outline_md(theme)).clicked() { self.go(Page::Docs(Doc::Styling)); }
-                            ui.add_space(32.0);
-                            let index = Component::ALL.iter().position(|c| *c == component).unwrap();
-                            ui.horizontal_wrapped(|ui| {
-                                if index > 0 && button::render(ui, &format!("← {}", Component::ALL[index-1].name()), button::Style::new_ghost_md(theme)).clicked() { self.go(Page::Component(Component::ALL[index-1])); }
-                                if index+1 < Component::ALL.len() && button::render(ui, &format!("{} →", Component::ALL[index+1].name()), button::Style::new_ghost_md(theme)).clicked() { self.go(Page::Component(Component::ALL[index+1])); }
-                            });
-                        }
-                        _ => {}
-                    }
-                    ui.add_space(48.0);
+                            ui.vertical(|ui| {
+                                ui.set_width(content_width);
+                                let (label, title, description) = match page {
+                                    Page::Docs(doc) => (
+                                        locale.text("common:documentation"),
+                                        doc.title(locale),
+                                        doc.description(locale),
+                                    ),
+                                    Page::Component(c) => (
+                                        locale.text("common:components"),
+                                        c.name(locale),
+                                        c.description(locale),
+                                    ),
+                                    _ => unreachable!(),
+                                };
+                                eyebrow(ui, label, theme);
+                                self.heading(ui, "overview", title, theme);
+                                // A larger page title while keeping section headings compact.
+                                paragraph(ui, description, theme);
+                                ui.add_space(20.0);
+                                if !wide {
+                                    ui.horizontal_wrapped(|ui| {
+                                        for (id, title) in Self::outline(&page, locale) {
+                                            if button::render(
+                                                ui,
+                                                title,
+                                                button::Style::new_ghost_sm(theme),
+                                            )
+                                            .clicked()
+                                            {
+                                                self.jump(id);
+                                            }
+                                        }
+                                    });
+                                    ui.add_space(12.0);
+                                }
+                                match page {
+                                    Page::Docs(doc) => {
+                                        for section in docs::sections(doc) {
+                                            self.heading(
+                                                ui,
+                                                section.id,
+                                                locale.text(section.title),
+                                                theme,
+                                            );
+                                            paragraph(ui, locale.text(section.body), theme);
+                                            if let Some((language, source)) = section.code {
+                                                ui.add_space(16.0);
+                                                code_block(
+                                                    ui, source, language, theme, section.id, 360.0,
+                                                );
+                                            }
+                                        }
+                                        ui.add_space(32.0);
+                                        if button::render(
+                                            ui,
+                                            locale.text("common:exploreComponents"),
+                                            button::Style::new_solid_md(theme),
+                                        )
+                                        .clicked()
+                                        {
+                                            self.go(Page::Component(Component::Button));
+                                        }
+                                    }
+                                    Page::Component(component) => {
+                                        self.heading(
+                                            ui,
+                                            "preview",
+                                            locale.text("common:livePreview"),
+                                            theme,
+                                        );
+                                        muted(ui, locale.text("common:tryComponents"), theme);
+                                        ui.add_space(14.0);
+                                        card::render(
+                                            ui,
+                                            |ui| {
+                                                ui.set_min_width(
+                                                    (ui.available_width() - 2.0).max(0.0),
+                                                );
+                                                ui.push_id(component, |ui| {
+                                                    scroll_area::render(
+                                                        ui,
+                                                        "demo-viewport",
+                                                        scroll_area::ScrollAxes::Both,
+                                                        |ui| self.demo(ui, theme, component),
+                                                        scroll_area::Style::new_no_frame()
+                                                            .min_height(240.0)
+                                                            .max_height(360.0),
+                                                    );
+                                                });
+                                            },
+                                            surface(theme),
+                                        );
+                                        self.heading(
+                                            ui,
+                                            "usage",
+                                            locale.text("common:sourceUsage"),
+                                            theme,
+                                        );
+                                        paragraph(
+                                            ui,
+                                            locale.text("common:sourceDescription"),
+                                            theme,
+                                        );
+                                        ui.add_space(16.0);
+                                        code_block(
+                                            ui,
+                                            component.source(),
+                                            "rs",
+                                            theme,
+                                            component.slug(),
+                                            300.0,
+                                        );
+                                        self.heading(
+                                            ui,
+                                            "customization",
+                                            locale.text("common:makeYours"),
+                                            theme,
+                                        );
+                                        paragraph(
+                                            ui,
+                                            locale.text("common:customizeDescription"),
+                                            theme,
+                                        );
+                                        ui.add_space(16.0);
+                                        if button::render(
+                                            ui,
+                                            locale.text("common:stylingGuide"),
+                                            button::Style::new_outline_md(theme),
+                                        )
+                                        .clicked()
+                                        {
+                                            self.go(Page::Docs(Doc::Styling));
+                                        }
+                                        ui.add_space(32.0);
+                                        let index = Component::ALL
+                                            .iter()
+                                            .position(|c| *c == component)
+                                            .unwrap();
+                                        ui.horizontal_wrapped(|ui| {
+                                            if index > 0
+                                                && button::render(
+                                                    ui,
+                                                    &format!(
+                                                        "← {}",
+                                                        Component::ALL[index - 1].name(locale)
+                                                    ),
+                                                    button::Style::new_ghost_md(theme),
+                                                )
+                                                .clicked()
+                                            {
+                                                self.go(Page::Component(Component::ALL[index - 1]));
+                                            }
+                                            if index + 1 < Component::ALL.len()
+                                                && button::render(
+                                                    ui,
+                                                    &format!(
+                                                        "{} →",
+                                                        Component::ALL[index + 1].name(locale)
+                                                    ),
+                                                    button::Style::new_ghost_md(theme),
+                                                )
+                                                .clicked()
+                                            {
+                                                self.go(Page::Component(Component::ALL[index + 1]));
+                                            }
+                                        });
+                                    }
+                                    _ => {}
+                                }
+                                ui.add_space(48.0);
                                 ui.add_space(18.0);
-                    muted(ui, "egui_component  /  Open source. Made with Rust.", theme);
-                    ui.add_space(48.0);
-                    });
-                    });
-                }, scroll_area::Style::new_no_frame()
-                    .auto_shrink([false, false])
-                    .padding(Margin::same(if sidebar { 32 } else { 18 })));
+                                muted(ui, locale.text("common:footer"), theme);
+                                ui.add_space(48.0);
+                            });
+                        });
+                    },
+                    scroll_area::Style::new_no_frame()
+                        .auto_shrink([false, false])
+                        .padding(Margin::same(if sidebar { 32 } else { 18 })),
+                );
                 if wide {
                     let rect = egui::Rect::from_min_max(
                         egui::pos2(body_rect.right() - 210.0, body_rect.top() + 32.0),
                         egui::pos2(body_rect.right() - 24.0, body_rect.bottom()),
                     );
-                    let mut outline_ui = ui.new_child(egui::UiBuilder::new()
-                        .id_salt("page-outline").max_rect(rect));
+                    let mut outline_ui = ui.new_child(
+                        egui::UiBuilder::new()
+                            .id_salt("page-outline")
+                            .max_rect(rect),
+                    );
                     outline_ui.set_clip_rect(rect.intersect(ui.clip_rect()));
                     self.toc(&mut outline_ui, theme, &page);
                 }
             });
     }
     fn demo(&mut self, ui: &mut egui::Ui, theme: &Theme, component: Component) {
+        let locale = self.locale();
         match component {
             Component::Avatar => pages::avatar::show(ui, theme),
-            Component::Button => pages::button::show(ui, theme),
-            Component::Card => pages::card::show(ui, theme),
-            Component::Code => pages::code::show(ui, theme),
-            Component::Dialog => pages::dialog::show(ui, theme),
-            Component::Divider => pages::divider::show(ui, theme),
-            Component::Field => pages::field::show(ui, theme),
-            Component::Form => self.form_page.show(ui, theme),
-            Component::Icon => pages::icon::show(ui, theme),
-            Component::IconButton => pages::icon_button::show(ui, theme),
-            Component::IconMenuButton => pages::icon_menu_button::show(ui, theme),
-            Component::MenuButton => pages::menu_button::show(ui, theme),
-            Component::Navigation => pages::navigation::show(ui, theme),
-            Component::ScrollArea => pages::scroll_area::show(ui, theme),
-            Component::Select => pages::select::show(ui, theme),
-            Component::Separator => pages::separator::show(ui, theme),
-            Component::Switch => pages::switch::show(ui, theme),
-            Component::Text => self.text_page.show(ui, theme),
-            Component::TextEdit => pages::text_edit::show(ui, theme),
-            Component::Toast => pages::toast::show(ui, theme),
-            Component::Tooltip => pages::tooltip::show(ui, theme),
+            Component::Button => pages::button::show(ui, theme, locale),
+            Component::Card => pages::card::show(ui, theme, locale),
+            Component::Code => pages::code::show(ui, theme, locale),
+            Component::Dialog => pages::dialog::show(ui, theme, locale),
+            Component::Divider => pages::divider::show(ui, theme, locale),
+            Component::Field => pages::field::show(ui, theme, locale),
+            Component::Form => self.form_page.show(ui, theme, locale),
+            Component::Icon => pages::icon::show(ui, theme, locale),
+            Component::IconButton => pages::icon_button::show(ui, theme, locale),
+            Component::IconMenuButton => pages::icon_menu_button::show(ui, theme, locale),
+            Component::MenuButton => pages::menu_button::show(ui, theme, locale),
+            Component::Navigation => pages::navigation::show(ui, theme, locale),
+            Component::ScrollArea => pages::scroll_area::show(ui, theme, locale),
+            Component::Select => pages::select::show(ui, theme, locale),
+            Component::Separator => pages::separator::show(ui, theme, locale),
+            Component::Switch => pages::switch::show(ui, theme, locale),
+            Component::Text => self.text_page.show(ui, theme, locale),
+            Component::TextEdit => pages::text_edit::show(ui, theme, locale),
+            Component::Toast => pages::toast::show(ui, theme, locale),
+            Component::Tooltip => pages::tooltip::show(ui, theme, locale),
         }
     }
     fn home(&mut self, ui: &mut egui::Ui, theme: &Theme) {
-        egui::CentralPanel::default().frame(egui::Frame::NONE.fill(theme.colors.bg.base))
+        let locale = self.locale();
+        egui::CentralPanel::default()
+            .frame(egui::Frame::NONE.fill(theme.colors.bg.base))
             .show_inside(ui, |ui| {
-                main_scroll(ui, self.reset_main_scroll, |ui| {
-                    let max = 1120.0_f32.min(ui.available_width());
-                    let offset = ((ui.available_width() - max) / 2.0).max(0.0);
-                    ui.horizontal(|ui| { if offset > 0.0 { ui.add_space((offset - ui.spacing().item_spacing.x).max(0.0)); } ui.vertical(|ui| {
-                        ui.set_width(max);
-                        ui.add_space(if max > 700.0 { 52.0 } else { 24.0 });
-                        eyebrow(ui, "SMALL PIECES. ENDLESS POSSIBILITIES.", theme);
-                        ui.add_space(22.0);
-                        if max > 850.0 {
-                            ui.columns(2, |columns| {
-                                self.hero(&mut columns[0], theme, max);
-                                columns[1].add_space(8.0);
-                                self.showcase(&mut columns[1], theme);
-                            });
-                        } else {
-                            self.hero(ui, theme, max);
-                            ui.add_space(28.0);
-                            self.showcase(ui, theme);
-                        }
-                        ui.add_space(44.0);
-                                        ui.add_space(26.0);
-                        ui.horizontal_wrapped(|ui| {
-                            eyebrow(ui, "RUST AT HEART", theme); ui.add_space(22.0);
-                            muted(ui, "Native + Web", theme); ui.add_space(22.0);
-                            muted(ui, "Light + dark", theme); ui.add_space(22.0);
-                            muted(ui, "MIT licensed", theme);
-                        });
-                        ui.add_space(42.0);
-                        text::render(ui, "Made to fit together.", text::Style::new_heading(theme).size(30.0));
-                        ui.add_space(10.0);
-                        paragraph(ui, "Thoughtful defaults, flexible building blocks. Start small and make something that feels like you.", theme);
-                        ui.add_space(24.0);
-                        if max > 700.0 {
-                            ui.columns(3, |columns| {
-                                feature(&mut columns[0], "01 / COMPOSE", "Fits your application", "Render directly into your egui Ui. Keep your architecture, state, and layout.", theme);
-                                feature(&mut columns[1], "02 / CUSTOMIZE", "Distinctly yours", "Start with a preset, then shape every color, corner, and interaction.", theme);
-                                feature(&mut columns[2], "03 / SHIP", "Go where Rust goes", "Build for desktop and Web with the same components and typed navigation.", theme);
-                            });
-                        } else {
-                            feature(ui, "01 / COMPOSE", "Fits your application", "Render directly into your egui Ui. Keep your architecture, state, and layout.", theme);
-                            ui.add_space(12.0);
-                            feature(ui, "02 / CUSTOMIZE", "Distinctly yours", "Start with a preset, then shape every color, corner, and interaction.", theme);
-                            ui.add_space(12.0);
-                            feature(ui, "03 / SHIP", "Go where Rust goes", "Build for desktop and Web with the same components and typed navigation.", theme);
-                        }
-                        ui.add_space(48.0);
-                        ui.horizontal_wrapped(|ui| {
-                            text::render(ui, "A few building blocks", text::Style::new_heading(theme).size(26.0));
-                            if button::render(ui, "Explore the library →", button::Style::new_ghost_md(theme)).clicked() { self.go(Page::Component(Component::Button)); }
-                        });
-                        ui.add_space(18.0);
-                        ui.horizontal_wrapped(|ui| {
-                            for c in [Component::Button, Component::Form, Component::Select, Component::Code, Component::Switch] {
-                                if button::render(ui, c.name(), button::Style::new_outline_md(theme)).clicked() { self.go(Page::Component(c)); }
+                main_scroll(
+                    ui,
+                    self.reset_main_scroll,
+                    |ui| {
+                        let max = 1120.0_f32.min(ui.available_width());
+                        let offset = ((ui.available_width() - max) / 2.0).max(0.0);
+                        ui.horizontal(|ui| {
+                            if offset > 0.0 {
+                                ui.add_space((offset - ui.spacing().item_spacing.x).max(0.0));
                             }
+                            ui.vertical(|ui| {
+                                ui.set_width(max);
+                                ui.add_space(if max > 700.0 { 52.0 } else { 24.0 });
+                                eyebrow(ui, locale.text("home:eyebrow"), theme);
+                                ui.add_space(22.0);
+                                if max > 850.0 {
+                                    ui.columns(2, |columns| {
+                                        self.hero(&mut columns[0], theme, max);
+                                        columns[1].add_space(8.0);
+                                        self.showcase(&mut columns[1], theme);
+                                    });
+                                } else {
+                                    self.hero(ui, theme, max);
+                                    ui.add_space(28.0);
+                                    self.showcase(ui, theme);
+                                }
+                                ui.add_space(44.0);
+                                ui.add_space(26.0);
+                                ui.horizontal_wrapped(|ui| {
+                                    eyebrow(ui, locale.text("home:rust"), theme);
+                                    ui.add_space(22.0);
+                                    muted(ui, locale.text("home:platforms"), theme);
+                                    ui.add_space(22.0);
+                                    muted(ui, locale.text("home:themes"), theme);
+                                    ui.add_space(22.0);
+                                    muted(ui, locale.text("home:license"), theme);
+                                });
+                                ui.add_space(42.0);
+                                text::render(
+                                    ui,
+                                    locale.text("home:fitTitle"),
+                                    text::Style::new_heading(theme).size(30.0),
+                                );
+                                ui.add_space(10.0);
+                                paragraph(ui, locale.text("home:fitBody"), theme);
+                                ui.add_space(24.0);
+                                if max > 700.0 {
+                                    ui.columns(3, |columns| {
+                                        feature(
+                                            &mut columns[0],
+                                            locale.text("home:compose"),
+                                            locale.text("home:composeTitle"),
+                                            locale.text("home:composeBody"),
+                                            theme,
+                                        );
+                                        feature(
+                                            &mut columns[1],
+                                            locale.text("home:customize"),
+                                            locale.text("home:customizeTitle"),
+                                            locale.text("home:customizeBody"),
+                                            theme,
+                                        );
+                                        feature(
+                                            &mut columns[2],
+                                            locale.text("home:ship"),
+                                            locale.text("home:shipTitle"),
+                                            locale.text("home:shipBody"),
+                                            theme,
+                                        );
+                                    });
+                                } else {
+                                    feature(
+                                        ui,
+                                        locale.text("home:compose"),
+                                        locale.text("home:composeTitle"),
+                                        locale.text("home:composeBody"),
+                                        theme,
+                                    );
+                                    ui.add_space(12.0);
+                                    feature(
+                                        ui,
+                                        locale.text("home:customize"),
+                                        locale.text("home:customizeTitle"),
+                                        locale.text("home:customizeBody"),
+                                        theme,
+                                    );
+                                    ui.add_space(12.0);
+                                    feature(
+                                        ui,
+                                        locale.text("home:ship"),
+                                        locale.text("home:shipTitle"),
+                                        locale.text("home:shipBody"),
+                                        theme,
+                                    );
+                                }
+                                ui.add_space(48.0);
+                                ui.horizontal_wrapped(|ui| {
+                                    text::render(
+                                        ui,
+                                        locale.text("home:blocks"),
+                                        text::Style::new_heading(theme).size(26.0),
+                                    );
+                                    if button::render(
+                                        ui,
+                                        locale.text("home:exploreLibrary"),
+                                        button::Style::new_ghost_md(theme),
+                                    )
+                                    .clicked()
+                                    {
+                                        self.go(Page::Component(Component::Button));
+                                    }
+                                });
+                                ui.add_space(18.0);
+                                ui.horizontal_wrapped(|ui| {
+                                    for c in [
+                                        Component::Button,
+                                        Component::Form,
+                                        Component::Select,
+                                        Component::Code,
+                                        Component::Switch,
+                                    ] {
+                                        if button::render(
+                                            ui,
+                                            c.name(locale),
+                                            button::Style::new_outline_md(theme),
+                                        )
+                                        .clicked()
+                                        {
+                                            self.go(Page::Component(c));
+                                        }
+                                    }
+                                });
+                                ui.add_space(52.0);
+                                ui.add_space(24.0);
+                                muted(ui, locale.text("home:footer"), theme);
+                                ui.add_space(26.0);
+                            });
                         });
-                        ui.add_space(52.0);
-                                        ui.add_space(24.0);
-                        muted(ui, "egui_component · Built with its own components · MIT license", theme);
-                        ui.add_space(26.0);
-                    }); });
-                }, scroll_area::Style::new_no_frame().auto_shrink([false, false]).padding(Margin::same(24)));
+                    },
+                    scroll_area::Style::new_no_frame()
+                        .auto_shrink([false, false])
+                        .padding(Margin::same(24)),
+                );
             });
     }
     fn hero(&mut self, ui: &mut egui::Ui, theme: &Theme, width: f32) {
+        let locale = self.locale();
         let size = if width > 850.0 { 48.0 } else { 36.0 };
         text::render(
             ui,
-            "Small pieces.",
+            locale.text("home:heroFirst"),
             text::Style::new_heading(theme).size(size),
         );
         text::render(
             ui,
-            "Remarkable interfaces.",
+            locale.text("home:heroSecond"),
             text::Style::new_heading(theme)
                 .size(size)
                 .color(theme.colors.primary.l6),
         );
         ui.add_space(20.0);
-        paragraph(
-            ui,
-            "Composable components for egui. Beautiful defaults, precise styling, and no framework standing between you and your next idea.",
-            theme,
-        );
+        paragraph(ui, locale.text("home:heroBody"), theme);
         ui.add_space(24.0);
         ui.horizontal_wrapped(|ui| {
             if button::render(
                 ui,
-                "Get started →",
+                locale.text("home:getStarted"),
                 button::Style::new_solid_lg_color(theme, theme.colors.primary),
             )
             .clicked()
@@ -550,7 +860,7 @@ impl GalleryApp {
             }
             if button::render(
                 ui,
-                "Browse components",
+                locale.text("home:browseComponents"),
                 button::Style::new_outline_lg(theme),
             )
             .clicked()
@@ -559,13 +869,10 @@ impl GalleryApp {
             }
         });
         ui.add_space(20.0);
-        muted(
-            ui,
-            "v0.1.0-alpha.2   /   Open source, from the start.",
-            theme,
-        );
+        muted(ui, locale.text("home:version"), theme);
     }
     fn showcase(&mut self, ui: &mut egui::Ui, theme: &Theme) {
+        let locale = self.locale();
         card::render(
             ui,
             |ui| {
@@ -575,22 +882,26 @@ impl GalleryApp {
                     ui.vertical(|ui| {
                         text::render(
                             ui,
-                            "Your workspace",
+                            locale.text("home:workspace"),
                             text::Style::new_heading(theme).size(16.0),
                         );
-                        muted(ui, "A live composition of our components", theme);
+                        muted(ui, locale.text("home:composition"), theme);
                     });
                 });
                 ui.add_space(18.0);
                 text::render(
                     ui,
-                    "Make room for your next idea.",
+                    locale.text("home:ideaTitle"),
                     text::Style::new_heading(theme).size(23.0),
                 );
                 ui.add_space(8.0);
-                muted(ui, "Try the controls. This is the real thing.", theme);
+                muted(ui, locale.text("home:tryControls"), theme);
                 ui.add_space(24.0);
-                text::render(ui, "Project name", text::Style::new(theme).size(13.0));
+                text::render(
+                    ui,
+                    locale.text("common:projectName"),
+                    text::Style::new(theme).size(13.0),
+                );
                 text_edit::render(
                     ui,
                     &mut self.demo_name,
@@ -600,7 +911,7 @@ impl GalleryApp {
                 ui.horizontal(|ui| {
                     text::render(
                         ui,
-                        "Keep me in the loop",
+                        locale.text("home:notifications"),
                         text::Style::new(theme).size(14.0),
                     );
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -613,9 +924,9 @@ impl GalleryApp {
                     if button::render(
                         ui,
                         if self.saved {
-                            "Created ✓"
+                            locale.text("home:created")
                         } else {
-                            "Create project"
+                            locale.text("common:createProject")
                         },
                         button::Style::new_solid_md_color(theme, theme.colors.primary),
                     )
@@ -626,9 +937,9 @@ impl GalleryApp {
                     muted(
                         ui,
                         if self.saved {
-                            "Your idea has a home."
+                            locale.text("home:ideaHome")
                         } else {
-                            "One idea. Endless possibilities."
+                            locale.text("home:possibilities")
                         },
                         theme,
                     );
@@ -643,6 +954,7 @@ impl GalleryApp {
 
 impl GalleryApp {
     fn render(&mut self, ui: &mut egui::Ui) {
+        let locale = self.locale();
         #[cfg(not(target_arch = "wasm32"))]
         if ui.ctx().input(|i| i.viewport().close_requested()) {
             // prevent macOS touch bar crash report
@@ -665,7 +977,16 @@ impl GalleryApp {
         visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0_f32, theme.colors.gray.l1);
         ui.ctx().set_visuals(visuals);
         ui.spacing_mut().item_spacing = egui::vec2(8.0, 8.0);
-        let page = self.router.current();
+        // Canonicalize old unprefixed URLs without adding a history entry.
+        let route = self.router.current();
+        if self.last_url.is_empty() {
+            self.error = self
+                .router
+                .replace_with_search(route.clone(), self.router.search_params())
+                .err()
+                .map(|e| e.to_string());
+        }
+        let page = route.page;
         self.reset_main_scroll = self.last_page.as_ref() != Some(&page);
         self.last_page = Some(page.clone());
         let url = self.router.location().to_url();
@@ -676,7 +997,9 @@ impl GalleryApp {
                 .get("section")
                 .map(str::to_owned);
             self.last_url = url;
-            self.active_section = "overview".into();
+            if self.reset_main_scroll {
+                self.active_section = "overview".into();
+            }
         }
         let previous_section = self.active_section.clone();
         self.header(ui, &theme);
@@ -692,21 +1015,25 @@ impl GalleryApp {
                     )
                     .show_inside(ui, |ui| {
                         ui.add_space(60.0);
-                        eyebrow(ui, "404 / A SMALL DETOUR", &theme);
+                        eyebrow(ui, locale.text("error:eyebrow"), &theme);
                         ui.add_space(18.0);
                         text::render(
                             ui,
-                            "This page isn't here.",
+                            locale.text("error:title"),
                             text::Style::new_heading(&theme).size(38.0),
                         );
                         paragraph(
                             ui,
-                            &format!("We couldn't find {path}. Let's get you back to building."),
+                            &locale.format("error:notFound", &[("path", &path)]),
                             &theme,
                         );
                         ui.add_space(24.0);
-                        if button::render(ui, "Back to home →", button::Style::new_solid_md(&theme))
-                            .clicked()
+                        if button::render(
+                            ui,
+                            locale.text("error:backHome"),
+                            button::Style::new_solid_md(&theme),
+                        )
+                        .clicked()
                         {
                             self.go(Page::Home);
                         }
@@ -714,9 +1041,11 @@ impl GalleryApp {
             }
         }
         if let Some(error) = &self.error {
-            egui::Window::new("Navigation error").show(ui.ctx(), |ui| {
-                text::render(ui, error, text::Style::new(&theme));
-            });
+            egui::Window::new(locale.text("error:navigation"))
+                .id(egui::Id::new("navigation-error"))
+                .show(ui.ctx(), |ui| {
+                    text::render(ui, error, text::Style::new(&theme));
+                });
         }
         if self.active_section != previous_section {
             ui.ctx().request_repaint();
@@ -797,7 +1126,7 @@ mod layout_tests {
                 );
             }
             let output = frame(Vec::new(), &mut app);
-            assert_eq!(app.router.current(), expected);
+            assert_eq!(app.router.current().page, expected);
             assert!(red_rects(&output.shapes).is_empty());
         }
     }

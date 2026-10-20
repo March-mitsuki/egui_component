@@ -1,3 +1,4 @@
+use crate::i18n::Locale;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 
 use eframe::egui;
@@ -19,7 +20,7 @@ struct Download {
 pub struct FontDemo {
     primary: &'static str,
     cjk_fallback: bool,
-    status: String,
+    status: FontStatus,
     font_url: String,
     download: Option<Download>,
 }
@@ -27,9 +28,9 @@ pub struct FontDemo {
 impl Default for FontDemo {
     fn default() -> Self {
         Self {
-            primary: "CJK fallback",
+            primary: "demo.text:fallback",
             cjk_fallback: true,
-            status: "Choose a font to update the running application.".into(),
+            status: FontStatus::new("demo.text:initial"),
             font_url: GOOGLE_FONT_URL.into(),
             download: None,
         }
@@ -51,12 +52,11 @@ impl FontDemo {
         self.download = None;
         match result.and_then(|response| apply_download(&FONT_MANAGER, response)) {
             Ok(downloaded_bytes) => {
-                self.primary = "Downloaded font";
-                self.status = format!("Loaded {downloaded_bytes} bytes. Font applied to Gallery.");
+                self.primary = "demo.text:downloaded";
+                self.status =
+                    FontStatus::with("demo.text:loaded", "bytes", downloaded_bytes.to_string());
             }
-            Err(error) => {
-                self.status = format!("Could not load font: {error}. Previous font preserved.")
-            }
+            Err(error) => self.status = FontStatus::with("demo.text:failed", "error", error),
         }
         ctx.request_repaint();
     }
@@ -64,12 +64,12 @@ impl FontDemo {
     fn start_download(&mut self, ctx: &egui::Context) {
         let url = self.font_url.trim().to_owned();
         if !(url.starts_with("https://") || url.starts_with("http://")) {
-            self.status = "Enter a direct HTTP or HTTPS font URL.".into();
+            self.status = FontStatus::new("demo.text:invalidUrl");
             return;
         }
         let (sender, response) = mpsc::channel();
         self.download = Some(Download { response });
-        self.status = "Downloading font…".into();
+        self.status = FontStatus::new("demo.text:downloading");
         let ctx = ctx.clone();
         let request =
             ehttp::Request::get(url).with_timeout(Some(std::time::Duration::from_secs(30)));
@@ -79,16 +79,25 @@ impl FontDemo {
         });
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui, theme: &Theme) {
-        text::render(ui, "Dynamic fonts", text::Style::new_heading(theme));
+    pub fn show(&mut self, ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         text::render(
             ui,
-            "Switch the Gallery font at runtime. Text and inputs use our components.",
+            locale.text("demo.text:heading"),
+            text::Style::new_heading(theme),
+        );
+        text::render(
+            ui,
+            locale.text("demo.text:description"),
             text::Style::new(theme),
         );
         ui.horizontal(|ui| {
-            for (label, font_name) in [("Sans", "Ubuntu-Light"), ("Monospace", "Hack")] {
-                if button::render(ui, label, button::Style::new_outline_sm(theme)).clicked() {
+            for (label, font_name) in [
+                ("demo.text:sans", "Ubuntu-Light"),
+                ("demo.text:monospace", "Hack"),
+            ] {
+                if button::render(ui, locale.text(label), button::Style::new_outline_sm(theme))
+                    .clicked()
+                {
                     // These bytes could also come from an asynchronous download.
                     let fonts = egui::FontDefinitions::default();
                     let data = &fonts.font_data[font_name];
@@ -99,32 +108,45 @@ impl FontDemo {
                         Ok(()) => {
                             self.primary = label;
                             self.status =
-                                format!("Queued {label}; egui activates fonts on the next pass.");
+                                FontStatus::with("demo.text:queued", "label", label.into());
                         }
-                        Err(error) => self.status = error.to_string(),
+                        Err(error) => {
+                            self.status =
+                                FontStatus::with("demo.text:failed", "error", error.to_string())
+                        }
                     }
                     ui.ctx().request_repaint();
                 }
             }
-            if button::render(ui, "Clear primary", button::Style::new_outline_sm(theme)).clicked() {
+            if button::render(
+                ui,
+                locale.text("demo.text:clear"),
+                button::Style::new_outline_sm(theme),
+            )
+            .clicked()
+            {
                 self.download = None;
                 FONT_MANAGER.remove_family(DEFAULT_FONT_FAMILY_ALIAS);
-                self.primary = "CJK fallback";
-                self.status = "Primary removed; the fallback chain is used.".into();
+                self.primary = "demo.text:fallback";
+                self.status = FontStatus::new("demo.text:removed");
                 ui.ctx().request_repaint();
             }
-            if button::render(ui, "Try invalid font", button::Style::new_outline_sm(theme))
-                .clicked()
+            if button::render(
+                ui,
+                locale.text("demo.text:invalid"),
+                button::Style::new_outline_sm(theme),
+            )
+            .clicked()
             {
                 let error = FONT_MANAGER
                     .replace_family(DEFAULT_FONT_FAMILY_ALIAS, &[(b"invalid font", 0)])
                     .expect_err("Invalid data must be rejected");
-                self.status = format!("Rejected: {error}. Previous font preserved.");
+                self.status = FontStatus::with("demo.text:rejected", "error", error.to_string());
                 ui.ctx().request_repaint();
             }
         });
         ui.add_space(8.0);
-        text::render(ui, "Font URL", text::Style::new(theme));
+        text::render(ui, locale.text("demo.text:url"), text::Style::new(theme));
         let loading = self.download.is_some();
         let submit = ui
             .horizontal(|ui| {
@@ -136,7 +158,7 @@ impl FontDemo {
                     };
                     let clicked = button::render(
                         ui,
-                        "Load font",
+                        locale.text("demo.text:load"),
                         button::Style::new_solid_sm(theme).state(state),
                     )
                     .clicked();
@@ -161,19 +183,25 @@ impl FontDemo {
         if submit {
             self.start_download(ui.ctx());
         }
-        text::render(
-            ui,
-            "Direct TTF, OTF, TTC or WOFF2 URL. Browser downloads require CORS permission from the font server.",
-            text::Style::new(theme),
-        );
+        text::render(ui, locale.text("demo.text:help"), text::Style::new(theme));
         if self.download.is_some() {
             ui.horizontal(|ui| {
                 ui.spinner();
-                text::render(ui, "Downloading font…", text::Style::new(theme));
-                if button::render(ui, "Cancel", button::Style::new_outline_sm(theme)).clicked() {
+                text::render(
+                    ui,
+                    locale.text("demo.text:downloading"),
+                    text::Style::new(theme),
+                );
+                if button::render(
+                    ui,
+                    locale.text("common:cancel"),
+                    button::Style::new_outline_sm(theme),
+                )
+                .clicked()
+                {
                     // Dropping the receiver prevents a late response from changing the font.
                     self.download = None;
-                    self.status = "Download canceled. Current font preserved.".into();
+                    self.status = FontStatus::new("demo.text:canceled");
                 }
             });
         }
@@ -186,20 +214,31 @@ impl FontDemo {
                 });
                 ui.ctx().request_repaint();
             }
-            text::render(ui, "Enable CJK glyph fallback", text::Style::new(theme));
+            text::render(
+                ui,
+                locale.text("demo.text:fallbackToggle"),
+                text::Style::new(theme),
+            );
         });
         text::render(
             ui,
-            &format!("Primary: {}", self.primary),
+            &locale.format(
+                "demo.text:primary",
+                &[("primary", locale.text(self.primary))],
+            ),
             text::Style::new(theme),
         );
-        text::render(ui, &self.status, text::Style::new(theme).truncate(true));
+        text::render(
+            ui,
+            &self.status.render(locale),
+            text::Style::new(theme).truncate(true),
+        );
         ui.add_space(16.0);
         text::render(ui, "BLACK OPS ONE", text::Style::new(theme).size(32.0));
         ui.add_space(8.0);
         for (label, weight) in [
-            ("Regular", FontWeight::Regular),
-            ("Bold (nearest available weight)", FontWeight::Bold),
+            (locale.text("demo.text:regular"), FontWeight::Regular),
+            (locale.text("demo.text:bold"), FontWeight::Bold),
         ] {
             text::render(ui, label, text::Style::new(theme));
             text::render(
@@ -211,7 +250,7 @@ impl FontDemo {
         ui.add_space(12.0);
         text::render(
             ui,
-            "Sans / Monospace do not contain CJK glyphs: toggle fallback to compare.",
+            locale.text("demo.text:fallbackHelp"),
             text::Style::new(theme),
         );
     }
@@ -318,5 +357,32 @@ mod tests {
         bytes[..4].copy_from_slice(b"wOF2");
         bytes[16..20].copy_from_slice(&((MAX_FONT_BYTES + 1) as u32).to_be_bytes());
         assert!(decode_font(bytes).unwrap_err().contains("size limit"));
+    }
+}
+
+/// Store semantic messages so a language change also updates existing feedback.
+struct FontStatus {
+    key: &'static str,
+    argument: Option<(&'static str, String)>,
+}
+impl FontStatus {
+    fn new(key: &'static str) -> Self {
+        Self {
+            key,
+            argument: None,
+        }
+    }
+    fn with(key: &'static str, name: &'static str, value: String) -> Self {
+        Self {
+            key,
+            argument: Some((name, value)),
+        }
+    }
+    fn render(&self, locale: Locale) -> String {
+        match &self.argument {
+            Some(("label", key)) => locale.format(self.key, &[("label", locale.text(key))]),
+            Some((name, value)) => locale.format(self.key, &[(name, value)]),
+            None => locale.text(self.key).into(),
+        }
     }
 }

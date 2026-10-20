@@ -1,11 +1,12 @@
+use crate::i18n::Locale;
 use eframe::egui;
 use egui_component::{components::switch, components::text, theme::Theme};
 
-pub fn show(ui: &mut egui::Ui, theme: &Theme) {
+pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
     let title_style = text::Style::new_heading(theme).size(16.0);
 
     ui.vertical(|ui| {
-        text::render(ui, "Sizes / 尺寸", title_style.clone());
+        text::render(ui, locale.text("common:sizes"), title_style.clone());
         ui.add_space(8.0);
         ui.horizontal(|ui| {
             render_interactive_switch(ui, "switch_size_sm", false, switch::Style::new_sm(theme));
@@ -17,7 +18,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme) {
 
         ui.add_space(24.0);
 
-        text::render(ui, "Colors / 颜色", title_style.clone());
+        text::render(ui, locale.text("common:colors"), title_style.clone());
         ui.add_space(8.0);
         ui.horizontal(|ui| {
             render_interactive_switch(
@@ -51,7 +52,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme) {
 
         ui.add_space(24.0);
 
-        text::render(ui, "Disabled / 禁用", title_style);
+        text::render(ui, locale.text("common:disabledHeading"), title_style);
         ui.add_space(8.0);
         ui.horizontal(|ui| {
             render_interactive_switch(

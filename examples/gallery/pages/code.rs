@@ -1,13 +1,14 @@
+use crate::i18n::Locale;
 use eframe::egui;
 use egui_component::{
     components::{code, scroll_area, text},
     theme::Theme,
 };
 
-pub fn show(ui: &mut egui::Ui, theme: &Theme) {
+pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
     text::render(
         ui,
-        "Read-only syntax highlighting",
+        locale.text("demo.code:heading"),
         text::Style::new_heading(theme),
     );
     ui.add_space(12.0);

@@ -1,3 +1,4 @@
+use crate::i18n::Locale;
 use eframe::egui;
 use egui_component::{
     components::{button, card, field, scroll_area, text, text_edit},
@@ -23,25 +24,29 @@ impl Default for UserDraft {
 #[derive(Default)]
 pub struct FormPage {
     external_draft: UserDraft,
-    saved: [Option<String>; 3],
+    saved: [Option<(String, u8)>; 3],
 }
 
 impl FormPage {
-    pub fn show(&mut self, ui: &mut egui::Ui, theme: &Theme) {
+    pub fn show(&mut self, ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         scroll_area::render(
             ui,
             "form_page_scroll",
             scroll_area::ScrollAxes::Vertical,
             |ui| {
-                text::render(ui, "Form / 表单", text::Style::new_heading(theme));
                 text::render(
                     ui,
-                    "show 托管草稿和交互状态，无需在应用里保存表单数据。",
+                    locale.text("demo.form:title"),
+                    text::Style::new_heading(theme),
+                );
+                text::render(
+                    ui,
+                    locale.text("demo.form:managed"),
                     text::Style::new(theme),
                 );
                 text::render(
                     ui,
-                    "离开字段或尝试保存后显示错误；重置恢复默认值。",
+                    locale.text("demo.form:validation"),
                     text::Style::new(theme),
                 );
                 ui.add_space(12.0);
@@ -52,16 +57,16 @@ impl FormPage {
                             text::render(
                                 ui,
                                 match index {
-                                    0 => "用户 A · 托管草稿",
-                                    1 => "用户 B · 同类型、独立 ID 的托管草稿",
-                                    _ => "用户 C · show_with_data 借用应用数据",
+                                    0 => locale.text("demo.form:userA"),
+                                    1 => locale.text("demo.form:userB"),
+                                    _ => locale.text("demo.form:userC"),
                                 },
                                 text::Style::new_heading(theme),
                             );
                             let form = Form::new(("gallery_user", index));
                             let (submitted, reset, valid, changed, snapshot) = if index < 2 {
                                 let result = form.show::<UserDraft, _>(ui, |form, ui, draft| {
-                                    fields(form, ui, draft, theme)
+                                    fields(form, ui, draft, theme, locale)
                                 });
                                 (
                                     result.submitted,
@@ -74,7 +79,7 @@ impl FormPage {
                                 let result = form.show_with_data(
                                     ui,
                                     &mut self.external_draft,
-                                    |form, ui, draft| fields(form, ui, draft, theme),
+                                    |form, ui, draft| fields(form, ui, draft, theme, locale),
                                 );
                                 if result.reset_requested {
                                     self.external_draft = UserDraft::default();
@@ -90,19 +95,31 @@ impl FormPage {
                             if reset {
                                 self.saved[index] = None;
                             } else if submitted {
-                                self.saved[index] = Some(format!(
-                                    "已保存：{}，{} 岁",
-                                    snapshot.name.trim(),
-                                    snapshot.age.value().unwrap()
+                                self.saved[index] = Some((
+                                    snapshot.name.trim().to_owned(),
+                                    snapshot.age.value().unwrap(),
                                 ));
                             }
                             text::render(
                                 ui,
-                                &format!("当前有效：{valid} · 本帧修改：{changed}"),
+                                &locale.format(
+                                    "demo.form:status",
+                                    &[
+                                        ("valid", &valid.to_string()),
+                                        ("changed", &changed.to_string()),
+                                    ],
+                                ),
                                 text::Style::new(theme),
                             );
-                            if let Some(saved) = &self.saved[index] {
-                                text::render(ui, saved, text::Style::new(theme));
+                            if let Some((name, age)) = &self.saved[index] {
+                                text::render(
+                                    ui,
+                                    &locale.format(
+                                        "demo.form:saved",
+                                        &[("name", name), ("age", &age.to_string())],
+                                    ),
+                                    text::Style::new(theme),
+                                );
                             }
                         },
                         card::Style::new_md(theme),
@@ -112,7 +129,11 @@ impl FormPage {
                 card::render(
                     ui,
                     |ui| {
-                        text::render(ui, "API 示例", text::Style::new_heading(theme));
+                        text::render(
+                            ui,
+                            locale.text("demo.form:api"),
+                            text::Style::new_heading(theme),
+                        );
                         text::render(
                             ui,
                             r#"// 托管草稿，返回值携带当前数据快照
@@ -145,11 +166,17 @@ Form::new(("edit_user", user_id)).remove::<UserDraft>(ui);"#,
     }
 }
 
-fn fields(form: &mut FormUi<'_>, ui: &mut egui::Ui, draft: &mut UserDraft, theme: &Theme) {
+fn fields(
+    form: &mut FormUi<'_>,
+    ui: &mut egui::Ui,
+    draft: &mut UserDraft,
+    theme: &Theme,
+    locale: Locale,
+) {
     let style = field::Style::new(theme).direction(field::FieldDirection::Vertical);
     field::render(
         ui,
-        "姓名",
+        locale.text("demo.form:name"),
         |ui| {
             form.field_with_error(
                 ui,
@@ -159,12 +186,13 @@ fn fields(form: &mut FormUi<'_>, ui: &mut egui::Ui, draft: &mut UserDraft, theme
                     text_edit::render(
                         ui,
                         name,
-                        text_edit::Style::new_outline_md(theme).placeholder("请输入姓名"),
+                        text_edit::Style::new_outline_md(theme)
+                            .placeholder(locale.text("demo.form:enterName")),
                     )
                 },
                 |name| {
                     if name.trim().is_empty() {
-                        Err("请输入姓名".into())
+                        Err("demo.form:enterName".into())
                     } else {
                         Ok(())
                     }
@@ -172,7 +200,7 @@ fn fields(form: &mut FormUi<'_>, ui: &mut egui::Ui, draft: &mut UserDraft, theme
                 |ui, error| {
                     text::render(
                         ui,
-                        error,
+                        locale.text(error),
                         text::Style::new(theme).color(theme.colors.red.normal()),
                     );
                 },
@@ -183,7 +211,7 @@ fn fields(form: &mut FormUi<'_>, ui: &mut egui::Ui, draft: &mut UserDraft, theme
     ui.add_space(8.0);
     field::render(
         ui,
-        "年龄（18–120）",
+        locale.text("demo.form:age"),
         |ui| {
             form.field_with_error(
                 ui,
@@ -194,12 +222,12 @@ fn fields(form: &mut FormUi<'_>, ui: &mut egui::Ui, draft: &mut UserDraft, theme
                 },
                 |age| match age.value() {
                     Ok(18..=120) => Ok(()),
-                    _ => Err("请输入 18 到 120 之间的整数".into()),
+                    _ => Err("demo.form:enterAge".into()),
                 },
                 |ui, error| {
                     text::render(
                         ui,
-                        error,
+                        locale.text(error),
                         text::Style::new(theme).color(theme.colors.red.normal()),
                     );
                 },
@@ -209,10 +237,22 @@ fn fields(form: &mut FormUi<'_>, ui: &mut egui::Ui, draft: &mut UserDraft, theme
     );
     ui.add_space(8.0);
     ui.horizontal(|ui| {
-        if button::render(ui, "保存", button::Style::new_solid_md(theme)).clicked() {
+        if button::render(
+            ui,
+            locale.text("common:save"),
+            button::Style::new_solid_md(theme),
+        )
+        .clicked()
+        {
             form.request_submit();
         }
-        if button::render(ui, "重置", button::Style::new_outline_md(theme)).clicked() {
+        if button::render(
+            ui,
+            locale.text("common:reset"),
+            button::Style::new_outline_md(theme),
+        )
+        .clicked()
+        {
             form.request_reset();
         }
     });

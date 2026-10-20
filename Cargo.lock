@@ -1013,6 +1013,8 @@ dependencies = [
  "egui_extras",
  "ehttp",
  "log",
+ "serde",
+ "serde_json",
  "tracing",
  "tracing-appender",
  "tracing-subscriber",

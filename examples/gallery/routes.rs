@@ -1,5 +1,35 @@
 use egui_component_router::{PathPattern, Route};
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ComponentGroup {
+    Actions,
+    Inputs,
+    Layout,
+    Content,
+    Identity,
+    Feedback,
+}
+impl ComponentGroup {
+    pub const ALL: [Self; 6] = [
+        Self::Actions,
+        Self::Inputs,
+        Self::Layout,
+        Self::Content,
+        Self::Identity,
+        Self::Feedback,
+    ];
+    pub fn label(self, locale: crate::i18n::Locale) -> &'static str {
+        locale.text(match self {
+            Self::Actions => "groups:actions",
+            Self::Inputs => "groups:inputs",
+            Self::Layout => "groups:layout",
+            Self::Content => "groups:content",
+            Self::Identity => "groups:identity",
+            Self::Feedback => "groups:feedback",
+        })
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Component {
     Avatar,
@@ -73,83 +103,79 @@ impl Component {
             Self::Tooltip => "tooltip",
         }
     }
-    pub fn name(self) -> &'static str {
+    pub fn name(self, locale: crate::i18n::Locale) -> &'static str {
         match self {
-            Self::Avatar => "Avatar",
-            Self::Button => "Button",
-            Self::Card => "Card",
-            Self::Code => "Code",
-            Self::Dialog => "Dialog",
-            Self::Divider => "Divider",
-            Self::Field => "Field",
-            Self::Form => "Form",
-            Self::Icon => "Icon",
-            Self::IconButton => "Icon Button",
-            Self::IconMenuButton => "Icon Menu Button",
-            Self::MenuButton => "Menu Button",
-            Self::Navigation => "Navigation",
-            Self::ScrollArea => "Scroll Area",
-            Self::Select => "Select",
-            Self::Separator => "Separator",
-            Self::Switch => "Switch",
-            Self::Text => "Text",
-            Self::TextEdit => "Text Edit",
-            Self::Toast => "Toast",
-            Self::Tooltip => "Tooltip",
+            Self::Avatar => locale.text("component.avatar:name"),
+            Self::Button => locale.text("component.button:name"),
+            Self::Card => locale.text("component.card:name"),
+            Self::Code => locale.text("component.code:name"),
+            Self::Dialog => locale.text("component.dialog:name"),
+            Self::Divider => locale.text("component.divider:name"),
+            Self::Field => locale.text("component.field:name"),
+            Self::Form => locale.text("component.form:name"),
+            Self::Icon => locale.text("component.icon:name"),
+            Self::IconButton => locale.text("component.iconButton:name"),
+            Self::IconMenuButton => locale.text("component.iconMenuButton:name"),
+            Self::MenuButton => locale.text("component.menuButton:name"),
+            Self::Navigation => locale.text("component.navigation:name"),
+            Self::ScrollArea => locale.text("component.scrollArea:name"),
+            Self::Select => locale.text("component.select:name"),
+            Self::Separator => locale.text("component.separator:name"),
+            Self::Switch => locale.text("component.switch:name"),
+            Self::Text => locale.text("component.text:name"),
+            Self::TextEdit => locale.text("component.textEdit:name"),
+            Self::Toast => locale.text("component.toast:name"),
+            Self::Tooltip => locale.text("component.tooltip:name"),
         }
     }
-    pub fn group(self) -> &'static str {
+    pub fn group(self) -> ComponentGroup {
         match self {
-            Self::Avatar => "Identity",
-            Self::Button => "Actions",
-            Self::Card => "Layout",
-            Self::Code => "Content",
-            Self::Dialog => "Feedback",
-            Self::Divider => "Layout",
-            Self::Field => "Inputs",
-            Self::Form => "Inputs",
-            Self::Icon => "Content",
-            Self::IconButton => "Actions",
-            Self::IconMenuButton => "Actions",
-            Self::MenuButton => "Actions",
-            Self::Navigation => "Layout",
-            Self::ScrollArea => "Layout",
-            Self::Select => "Inputs",
-            Self::Separator => "Layout",
-            Self::Switch => "Inputs",
-            Self::Text => "Content",
-            Self::TextEdit => "Inputs",
-            Self::Toast => "Feedback",
-            Self::Tooltip => "Feedback",
+            Self::Avatar => ComponentGroup::Identity,
+            Self::Button => ComponentGroup::Actions,
+            Self::Card => ComponentGroup::Layout,
+            Self::Code => ComponentGroup::Content,
+            Self::Dialog => ComponentGroup::Feedback,
+            Self::Divider => ComponentGroup::Layout,
+            Self::Field => ComponentGroup::Inputs,
+            Self::Form => ComponentGroup::Inputs,
+            Self::Icon => ComponentGroup::Content,
+            Self::IconButton => ComponentGroup::Actions,
+            Self::IconMenuButton => ComponentGroup::Actions,
+            Self::MenuButton => ComponentGroup::Actions,
+            Self::Navigation => ComponentGroup::Layout,
+            Self::ScrollArea => ComponentGroup::Layout,
+            Self::Select => ComponentGroup::Inputs,
+            Self::Separator => ComponentGroup::Layout,
+            Self::Switch => ComponentGroup::Inputs,
+            Self::Text => ComponentGroup::Content,
+            Self::TextEdit => ComponentGroup::Inputs,
+            Self::Toast => ComponentGroup::Feedback,
+            Self::Tooltip => ComponentGroup::Feedback,
         }
     }
-    pub fn description(self) -> &'static str {
+    pub fn description(self, locale: crate::i18n::Locale) -> &'static str {
         match self {
-            Self::Avatar => "A compact visual identity for people, teams, and accounts.",
-            Self::Button => "Clear actions, consistent states, and a style for every context.",
-            Self::Card => "A quiet surface for grouping related content and controls.",
-            Self::Code => "Readable, selectable code with language-aware syntax highlighting.",
-            Self::Dialog => "Focused surfaces for decisions that need a little more attention.",
-            Self::Divider => "Create structure and breathing room between pieces of content.",
-            Self::Field => "Bring labels, controls, and validation into a consistent layout.",
-            Self::Form => "Coordinate drafts, validation, submission, and reset behavior.",
-            Self::Icon => "Small, expressive symbols that bring clarity to your interface.",
-            Self::IconButton => {
-                "A compact action with an icon and customizable interaction states."
-            }
-            Self::IconMenuButton => "Compact icon triggers for contextual menus.",
-            Self::MenuButton => "Keep related actions together in a contextual menu.",
-            Self::Navigation => {
-                "A focused, keyboard-friendly navigation item for sidebars and outlines."
-            }
-            Self::ScrollArea => "Give overflowing content its own carefully styled viewport.",
-            Self::Select => "Let people choose from a compact set of options.",
-            Self::Separator => "A subtle visual boundary that follows the surrounding layout.",
-            Self::Switch => "A direct control for a setting that is either on or off.",
-            Self::Text => "Typography with theme-aware colors, weights, and managed fonts.",
-            Self::TextEdit => "Text inputs with flexible visual styles and password support.",
-            Self::Toast => "Timely, lightweight feedback without interrupting the workflow.",
-            Self::Tooltip => "Helpful context, revealed when it is needed.",
+            Self::Avatar => locale.text("component.avatar:description"),
+            Self::Button => locale.text("component.button:description"),
+            Self::Card => locale.text("component.card:description"),
+            Self::Code => locale.text("component.code:description"),
+            Self::Dialog => locale.text("component.dialog:description"),
+            Self::Divider => locale.text("component.divider:description"),
+            Self::Field => locale.text("component.field:description"),
+            Self::Form => locale.text("component.form:description"),
+            Self::Icon => locale.text("component.icon:description"),
+            Self::IconButton => locale.text("component.iconButton:description"),
+            Self::IconMenuButton => locale.text("component.iconMenuButton:description"),
+            Self::MenuButton => locale.text("component.menuButton:description"),
+            Self::Navigation => locale.text("component.navigation:description"),
+            Self::ScrollArea => locale.text("component.scrollArea:description"),
+            Self::Select => locale.text("component.select:description"),
+            Self::Separator => locale.text("component.separator:description"),
+            Self::Switch => locale.text("component.switch:description"),
+            Self::Text => locale.text("component.text:description"),
+            Self::TextEdit => locale.text("component.textEdit:description"),
+            Self::Toast => locale.text("component.toast:description"),
+            Self::Tooltip => locale.text("component.tooltip:description"),
         }
     }
     pub fn source(self) -> &'static str {
@@ -201,22 +227,20 @@ impl Doc {
             Self::Routing => "routing",
         }
     }
-    pub fn title(self) -> &'static str {
+    pub fn title(self, locale: crate::i18n::Locale) -> &'static str {
         match self {
-            Self::GettingStarted => "Getting started",
-            Self::Styling => "Styling",
-            Self::Theming => "Theming",
-            Self::Routing => "Routing",
+            Self::GettingStarted => locale.text("doc.gettingStarted:title"),
+            Self::Styling => locale.text("doc.styling:title"),
+            Self::Theming => locale.text("doc.theming:title"),
+            Self::Routing => locale.text("doc.routing:title"),
         }
     }
-    pub fn description(self) -> &'static str {
+    pub fn description(self, locale: crate::i18n::Locale) -> &'static str {
         match self {
-            Self::GettingStarted => {
-                "From your first dependency to your first component. A small API, ready for your next idea."
-            }
-            Self::Styling => "Start with a preset. Make every detail your own.",
-            Self::Theming => "One design language. Light, dark, and everything you customize.",
-            Self::Routing => "Typed navigation that feels at home on desktop and in the browser.",
+            Self::GettingStarted => locale.text("doc.gettingStarted:description"),
+            Self::Styling => locale.text("doc.styling:description"),
+            Self::Theming => locale.text("doc.theming:description"),
+            Self::Routing => locale.text("doc.routing:description"),
         }
     }
 }
@@ -268,9 +292,96 @@ impl Route for Page {
         }
     }
 }
+/// Language is part of the route; Page remains independent of presentation.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct GalleryRoute {
+    pub locale: crate::i18n::Locale,
+    pub page: Page,
+}
+impl GalleryRoute {
+    pub fn new(locale: crate::i18n::Locale, page: Page) -> Self {
+        Self { locale, page }
+    }
+}
+impl Route for GalleryRoute {
+    fn from_path(path: &str) -> Self {
+        let (prefix, tail) = path
+            .strip_prefix('/')
+            .unwrap_or(path)
+            .split_once('/')
+            .unwrap_or((path.trim_start_matches('/'), ""));
+        if let Some(locale) = crate::i18n::Locale::parse(prefix) {
+            Self::new(locale, Page::from_path(&format!("/{tail}")))
+        } else {
+            Self::new(crate::i18n::Locale::En, Page::from_path(path))
+        }
+    }
+    fn to_path(&self) -> String {
+        let page = self.page.to_path();
+        if page == "/" {
+            format!("/{}", self.locale.code())
+        } else {
+            format!("/{}{page}", self.locale.code())
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn localized_pages_round_trip_and_legacy_urls_default_to_english() {
+        use crate::i18n::Locale;
+        for locale in Locale::ALL {
+            for page in std::iter::once(Page::Home)
+                .chain(Doc::ALL.iter().copied().map(Page::Docs))
+                .chain(Component::ALL.iter().copied().map(Page::Component))
+                .chain([Page::NotFound("/missing".into())])
+            {
+                let route = GalleryRoute::new(locale, page);
+                assert_eq!(GalleryRoute::from_path(&route.to_path()), route);
+            }
+            assert_eq!(
+                GalleryRoute::from_path(&format!("/{}/components", locale.code())).page,
+                Page::Component(Component::Button)
+            );
+            assert_eq!(
+                GalleryRoute::from_path(&format!("/{}/docs", locale.code())).page,
+                Page::Docs(Doc::GettingStarted)
+            );
+        }
+        for path in ["/", "/components/button", "/docs/styling"] {
+            let route = GalleryRoute::from_path(path);
+            assert_eq!(route.locale, Locale::En);
+            assert_eq!(route.page, Page::from_path(path));
+            assert!(route.to_path().starts_with("/en"));
+        }
+        assert!(matches!(
+            GalleryRoute::from_path("/fr/components/button").page,
+            Page::NotFound(_)
+        ));
+    }
+    #[test]
+    fn language_navigation_preserves_search_and_browser_history() {
+        use crate::i18n::Locale;
+        use egui_component_router::{Location, Router, SearchParams};
+        let original = GalleryRoute::new(Locale::En, Page::Component(Component::Select));
+        let search = SearchParams::parse("section=usage&tag=a&tag=b");
+        let mut router =
+            Router::with_location(Location::new(original.clone(), search.clone()), || {}).unwrap();
+        let translated = GalleryRoute::new(Locale::Ja, original.page.clone());
+        router
+            .navigate_with_search(translated.clone(), router.search_params())
+            .unwrap();
+        assert_eq!(
+            router.location().to_url(),
+            "/ja/components/select?section=usage&tag=a&tag=b"
+        );
+        router.back().unwrap();
+        assert_eq!(router.current(), original);
+        assert_eq!(router.search_params(), search);
+        router.forward().unwrap();
+        assert_eq!(router.current(), translated);
+    }
     #[test]
     fn every_page_round_trips() {
         for page in std::iter::once(Page::Home)

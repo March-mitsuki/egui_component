@@ -11,6 +11,7 @@ mod logging;
 
 mod app;
 mod docs;
+mod i18n;
 mod pages;
 mod routes;
 

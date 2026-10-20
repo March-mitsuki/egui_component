@@ -1,3 +1,4 @@
+use crate::i18n::Locale;
 use eframe::egui;
 use egui_component::{
     components::{icon, scroll_area, text, tooltip},
@@ -5,11 +6,11 @@ use egui_component::{
     theme::Theme,
 };
 
-pub fn show(ui: &mut egui::Ui, theme: &Theme) {
+pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
     let title_style = text::Style::new_heading(theme).size(16.0);
 
     ui.vertical(|ui| {
-        text::render(ui, "All Icons / 所有图标", title_style.clone());
+        text::render(ui, locale.text("demo.icon:all"), title_style.clone());
         ui.add_space(8.0);
 
         let icons = [

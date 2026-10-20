@@ -1,26 +1,29 @@
+use crate::i18n::Locale;
 use eframe::egui;
 use egui_component::{
     components::{button, card, text},
     theme::Theme,
 };
-pub fn show(ui: &mut egui::Ui, theme: &Theme) {
+pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
     card::render(
         ui,
         |ui| {
             text::render(
                 ui,
-                "A place for your next idea",
+                locale.text("demo.card:title"),
                 text::Style::new_heading(theme),
             );
-            text::render(
-                ui,
-                "Compose content and controls on a shared surface.",
-                text::Style::new(theme),
-            );
+            text::render(ui, locale.text("demo.card:body"), text::Style::new(theme));
             ui.add_space(12.0);
-            if button::render(ui, "Create project", button::Style::new_solid_md(theme)).clicked() {
+            if button::render(
+                ui,
+                locale.text("common:createProject"),
+                button::Style::new_solid_md(theme),
+            )
+            .clicked()
+            {
                 egui_component::toast::create(
-                    "Project created",
+                    locale.text("demo.card:created"),
                     egui_component::toast::ToastKind::Success,
                 );
             }
