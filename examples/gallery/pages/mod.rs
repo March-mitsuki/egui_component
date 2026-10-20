@@ -4,6 +4,7 @@ pub mod card;
 pub mod dialog;
 pub mod divider;
 pub mod field;
+pub mod form;
 pub mod icon;
 pub mod icon_button;
 pub mod icon_menu_button;

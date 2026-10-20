@@ -18,6 +18,7 @@ enum Page {
     Dialog,
     Divider,
     Field,
+    Form,
     Icon,
     IconButton,
     IconMenuButton,
@@ -41,6 +42,7 @@ impl Page {
             Page::Dialog => "Dialog",
             Page::Divider => "Divider",
             Page::Field => "Field",
+            Page::Form => "Form",
             Page::Icon => "Icon",
             Page::IconButton => "Icon Button",
             Page::IconMenuButton => "Icon Menu Button",
@@ -61,6 +63,7 @@ pub(crate) struct GalleryApp {
     ui_theme: UiTheme,
     color_mode: ColorMode,
     current_page: Page,
+    form_page: pages::form::FormPage,
 }
 
 impl GalleryApp {
@@ -69,6 +72,7 @@ impl GalleryApp {
             ui_theme,
             color_mode: ColorMode::Dark,
             current_page: Page::Button,
+            form_page: Default::default(),
         }
     }
 }
@@ -113,6 +117,7 @@ impl eframe::App for GalleryApp {
                     Page::Dialog,
                     Page::Divider,
                     Page::Field,
+                    Page::Form,
                     Page::Icon,
                     Page::IconButton,
                     Page::IconMenuButton,
@@ -173,6 +178,7 @@ impl eframe::App for GalleryApp {
                     Page::Dialog => pages::dialog::show(ui),
                     Page::Divider => pages::divider::show(ui),
                     Page::Field => pages::field::show(ui),
+                    Page::Form => self.form_page.show(ui, theme),
                     Page::Icon => pages::icon::show(ui, theme),
                     Page::IconButton => pages::icon_button::show(ui),
                     Page::IconMenuButton => pages::icon_menu_button::show(ui),
