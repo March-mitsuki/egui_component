@@ -1,6 +1,6 @@
 use eframe::egui;
 use egui_component::{
-    components::{code, text},
+    components::{code, scroll_area, text},
     theme::Theme,
 };
 
@@ -12,29 +12,35 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme) {
     );
     ui.add_space(12.0);
 
-    egui::ScrollArea::both().show(ui, |ui| {
-        text::render(ui, "Rust", text::Style::new(theme));
-        code::render(
-            ui,
-            r#"// Display a highlighted code snippet
+    scroll_area::render(
+        ui,
+        "code_scroll",
+        scroll_area::ScrollAxes::Both,
+        |ui| {
+            text::render(ui, "Rust", text::Style::new(theme));
+            code::render(
+                ui,
+                r#"// Display a highlighted code snippet
 fn main() {
     let message = "Hello, gallery!";
     println!("{message}");
 }"#,
-            "rs",
-            code::Style::new(theme),
-        );
-        ui.add_space(20.0);
-        text::render(ui, "JSON", text::Style::new(theme));
-        code::render(
-            ui,
-            r#"{
+                "rs",
+                code::Style::new(theme),
+            );
+            ui.add_space(20.0);
+            text::render(ui, "JSON", text::Style::new(theme));
+            code::render(
+                ui,
+                r#"{
   "component": "Code",
   "editable": false,
   "languages": ["rust", "json", "python"]
 }"#,
-            "json",
-            code::Style::new(theme),
-        );
-    });
+                "json",
+                code::Style::new(theme),
+            );
+        },
+        scroll_area::Style::new_no_frame(),
+    );
 }

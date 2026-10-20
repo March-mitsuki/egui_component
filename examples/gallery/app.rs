@@ -1,5 +1,5 @@
 use eframe::egui;
-use egui_component::components::{button, separator, text};
+use egui_component::components::{button, scroll_area, separator, text};
 use egui_component::theme::UiTheme;
 
 use crate::pages;
@@ -140,21 +140,27 @@ impl eframe::App for GalleryApp {
                     Page::Tooltip,
                 ];
 
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    for page in pages {
-                        let label = page.name();
-                        let is_selected = self.current_page == page;
+                scroll_area::render(
+                    ui,
+                    "nav_scroll",
+                    scroll_area::ScrollAxes::Vertical,
+                    |ui| {
+                        for page in pages {
+                            let label = page.name();
+                            let is_selected = self.current_page == page;
 
-                        let nav_btn_style = if is_selected {
-                            button::Style::new_solid_md(theme).width(Some(ui.available_width()))
-                        } else {
-                            button::Style::new_ghost_md(theme).width(Some(ui.available_width()))
-                        };
-                        if button::render(ui, label, nav_btn_style).clicked() {
-                            self.current_page = page;
+                            let nav_btn_style = if is_selected {
+                                button::Style::new_solid_md(theme).width(Some(ui.available_width()))
+                            } else {
+                                button::Style::new_ghost_md(theme).width(Some(ui.available_width()))
+                            };
+                            if button::render(ui, label, nav_btn_style).clicked() {
+                                self.current_page = page;
+                            }
                         }
-                    }
-                });
+                    },
+                    scroll_area::Style::new_no_frame(),
+                );
             });
 
         egui::CentralPanel::default()
