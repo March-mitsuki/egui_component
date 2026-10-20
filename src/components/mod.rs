@@ -1,6 +1,7 @@
 pub mod avatar;
 pub mod button;
 pub mod card;
+pub mod code;
 pub mod dialog;
 pub mod divider;
 pub mod field;
