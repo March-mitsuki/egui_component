@@ -597,6 +597,12 @@ impl GalleryApp {
 
 impl eframe::App for GalleryApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if ui.ctx().input(|i| i.viewport().close_requested()) {
+            // prevent macOS touch bar crash report
+            std::process::exit(0);
+        }
+
         self.text_page.poll_download(ui.ctx());
         egui_component::consts::FONT_MANAGER.apply(ui.ctx());
         let theme = if self.dark {

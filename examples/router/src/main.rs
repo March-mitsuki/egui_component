@@ -67,6 +67,12 @@ impl App {
 }
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        #[cfg(not(target_arch = "wasm32"))]
+        if ui.ctx().input(|i| i.viewport().close_requested()) {
+            // prevent macOS touch bar crash report
+            std::process::exit(0);
+        }
+
         let theme = &self.theme.dark;
         ui.ctx().set_visuals(egui::Visuals::dark());
         egui_component::consts::FONT_MANAGER.apply(ui.ctx());
