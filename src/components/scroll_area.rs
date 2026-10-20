@@ -11,6 +11,8 @@ pub struct Style {
     /// Minimum viewport height, including inside another scroll area.
     pub min_height: Option<f32>,
     pub auto_shrink: [bool; 2],
+    /// Apply an explicit offset for this frame, e.g. when switching pages.
+    pub scroll_offset: Option<egui::Vec2>,
 }
 impl Style {
     pub fn new(theme: &Theme) -> Self {
@@ -22,6 +24,7 @@ impl Style {
             max_height: None,
             min_height: None,
             auto_shrink: [true, true],
+            scroll_offset: None,
         }
     }
 
@@ -32,6 +35,7 @@ impl Style {
             max_height: None,
             min_height: None,
             auto_shrink: [true, true],
+            scroll_offset: None,
         }
     }
 
@@ -47,6 +51,18 @@ impl Style {
 
     pub fn auto_shrink(mut self, axes: [bool; 2]) -> Self {
         self.auto_shrink = axes;
+        self
+    }
+
+    pub fn scroll_offset(mut self, offset: egui::Vec2) -> Self {
+        self.scroll_offset = Some(offset);
+        self
+    }
+
+    /// Padding inside the viewport. Unlike `outer_frame` margins, it does not
+    /// inset the scrollbar or shrink the scrollable surface.
+    pub fn padding(mut self, padding: impl Into<egui::Margin>) -> Self {
+        self.inner_frame = self.inner_frame.inner_margin(padding);
         self
     }
 
@@ -75,7 +91,7 @@ pub fn render_global(
             ScrollAxes::Horizontal => [true, false],
             ScrollAxes::Both => [true, true],
         };
-        egui::ScrollArea::new(scroll_axes)
+        let mut scroll = egui::ScrollArea::new(scroll_axes)
             .id_salt(id_salt)
             .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
             .max_height(style.max_height.unwrap_or_else(|| ui.available_height()))
@@ -85,12 +101,15 @@ pub fn render_global(
                     .unwrap_or(64.0)
                     .min(style.max_height.unwrap_or(f32::INFINITY)),
             )
-            .auto_shrink(style.auto_shrink)
-            .show(ui, |ui| {
-                style.inner_frame.show(ui, |ui| {
-                    renderer(ui);
-                });
+            .auto_shrink(style.auto_shrink);
+        if let Some(offset) = style.scroll_offset {
+            scroll = scroll.scroll_offset(offset);
+        }
+        scroll.show(ui, |ui| {
+            style.inner_frame.show(ui, |ui| {
+                renderer(ui);
             });
+        });
     });
 }
 
@@ -108,7 +127,7 @@ pub fn render(
             ScrollAxes::Horizontal => [true, false],
             ScrollAxes::Both => [true, true],
         };
-        egui::ScrollArea::new(scroll_axes)
+        let mut scroll = egui::ScrollArea::new(scroll_axes)
             .id_salt(id_salt)
             .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
             .max_height(style.max_height.unwrap_or_else(|| ui.available_height()))
@@ -118,12 +137,15 @@ pub fn render(
                     .unwrap_or(64.0)
                     .min(style.max_height.unwrap_or(f32::INFINITY)),
             )
-            .auto_shrink(style.auto_shrink)
-            .show(ui, |ui| {
-                style.inner_frame.show(ui, |ui| {
-                    renderer(ui);
-                });
+            .auto_shrink(style.auto_shrink);
+        if let Some(offset) = style.scroll_offset {
+            scroll = scroll.scroll_offset(offset);
+        }
+        scroll.show(ui, |ui| {
+            style.inner_frame.show(ui, |ui| {
+                renderer(ui);
             });
+        });
         ui.set_style(style_origin);
     });
 }
@@ -164,6 +186,42 @@ fn set_style(style: &mut egui::Style) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn padding_keeps_the_viewport_at_the_parent_edges() {
+        let ctx = Context::default();
+        let _ = ctx.run_ui(
+            egui::RawInput {
+                screen_rect: Some(egui::Rect::from_min_size(
+                    egui::Pos2::ZERO,
+                    egui::vec2(640.0, 480.0),
+                )),
+                ..Default::default()
+            },
+            |ui| {
+                let available = ui.available_rect_before_wrap();
+                let mut content_origin = egui::Pos2::ZERO;
+                let response = ui.scope(|ui| {
+                    render(
+                        ui,
+                        "padded-viewport",
+                        ScrollAxes::Vertical,
+                        |ui| {
+                            content_origin = ui.next_widget_position();
+                            ui.allocate_space(egui::vec2(120.0, 1500.0));
+                        },
+                        Style::new_no_frame()
+                            .auto_shrink([false, false])
+                            .padding(egui::Margin::same(24)),
+                    );
+                });
+                assert!((response.response.rect.right() - available.right()).abs() < 1.0);
+                assert!((response.response.rect.bottom() - available.bottom()).abs() < 1.0);
+                assert!((content_origin.x - available.left() - 24.0).abs() < 1.0);
+                assert!((content_origin.y - available.top() - 24.0).abs() < 1.0);
+            },
+        );
+    }
 
     #[test]
     fn nested_viewport_respects_explicit_minimum_height() {

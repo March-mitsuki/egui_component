@@ -4,10 +4,10 @@ use crate::{
 };
 use eframe::egui::{self, Margin, Stroke};
 use egui_component::{
-    components::{button, card, code, navigation, scroll_area, separator, switch, text, text_edit},
+    components::{button, card, code, navigation, scroll_area, switch, text, text_edit},
     theme::{Theme, UiTheme},
 };
-use egui_component_router::{HistoryMode, Route, Router};
+use egui_component_router::{HistoryMode, Router};
 
 pub(crate) struct GalleryApp {
     router: Router<Page>,
@@ -18,6 +18,8 @@ pub(crate) struct GalleryApp {
     active_section: String,
     pending_section: Option<String>,
     last_url: String,
+    last_page: Option<Page>,
+    reset_main_scroll: bool,
     error: Option<String>,
     form_page: pages::form::FormPage,
     text_page: pages::text::FontDemo,
@@ -41,6 +43,8 @@ impl GalleryApp {
             active_section: "overview".into(),
             pending_section: None,
             last_url: String::new(),
+            last_page: None,
+            reset_main_scroll: true,
             error: None,
             form_page: Default::default(),
             text_page: Default::default(),
@@ -83,6 +87,7 @@ impl GalleryApp {
     }
     fn header(&mut self, ui: &mut egui::Ui, theme: &Theme) {
         egui::Panel::top("site-header")
+            .show_separator_line(false)
             .exact_size(if ui.available_width() < 620.0 {
                 106.0
             } else {
@@ -272,7 +277,6 @@ impl GalleryApp {
             }
         }
         ui.add_space(26.0);
-        separator::render(ui, 1.0);
         ui.add_space(18.0);
         muted(ui, "Made for immediate mode.", theme);
         ui.add_space(10.0);
@@ -288,37 +292,26 @@ impl GalleryApp {
         let sidebar = width >= 760.0;
         if sidebar {
             egui::Panel::left("site-sidebar")
+                .show_separator_line(false)
                 .exact_size(218.0)
                 .resizable(false)
-                .frame(
-                    egui::Frame::NONE
-                        .inner_margin(Margin::symmetric(16, 16))
-                        .fill(theme.colors.bg.base),
-                )
+                .frame(egui::Frame::NONE.fill(theme.colors.bg.base))
                 .show_inside(ui, |ui| {
                     scroll_area::render(
                         ui,
                         "sidebar-scroll",
                         scroll_area::ScrollAxes::Vertical,
                         |ui| self.sidebar(ui, theme, &page),
-                        scroll_area::Style::new_no_frame(),
+                        scroll_area::Style::new_no_frame()
+                            .auto_shrink([false, false])
+                            .padding(Margin::same(16)),
                     )
                 });
         }
-        if wide {
-            egui::Panel::right("site-outline")
-                .exact_size(194.0)
-                .resizable(false)
-                .frame(
-                    egui::Frame::NONE
-                        .inner_margin(Margin::symmetric(16, 24))
-                        .fill(theme.colors.bg.base),
-                )
-                .show_inside(ui, |ui| self.toc(ui, theme, &page));
-        }
-        egui::CentralPanel::default().frame(egui::Frame::NONE.fill(theme.colors.bg.base).inner_margin(Margin::same(if sidebar { 32 } else { 18 })))
+        egui::CentralPanel::default().frame(egui::Frame::NONE.fill(theme.colors.bg.base))
             .show_inside(ui, |ui| {
                 if !sidebar {
+                    egui::Frame::NONE.inner_margin(Margin::symmetric(18, 12)).show(ui, |ui| {
                     ui.horizontal(|ui| {
                         if button::render(ui, if self.mobile_nav { "Close navigation" } else { "Browse pages" }, button::Style::new_outline_sm(theme)).clicked() { self.mobile_nav = !self.mobile_nav; }
                         muted(ui, "Docs / Components", theme);
@@ -326,11 +319,14 @@ impl GalleryApp {
                     if self.mobile_nav {
                         scroll_area::render(ui, "mobile-nav", scroll_area::ScrollAxes::Vertical, |ui| self.sidebar(ui, theme, &page), scroll_area::Style::new_no_frame().max_height(260.0));
                     }
-                    ui.add_space(14.0);
+                    });
                 }
-                scroll_area::render(ui, ("document", page.to_path()), scroll_area::ScrollAxes::Vertical, |ui| {
-                    let content_width = ui.available_width().min(820.0);
-                    let inset = ((ui.available_width() - content_width) / 2.0).max(0.0);
+                let body_rect = ui.available_rect_before_wrap();
+                let outline_width = if wide { 210.0 } else { 0.0 };
+                main_scroll(ui, self.reset_main_scroll, |ui| {
+                    let main_width = (ui.available_width() - outline_width).max(0.0);
+                    let content_width = main_width.min(820.0);
+                    let inset = ((main_width - content_width) / 2.0).max(0.0);
                     ui.horizontal(|ui| {
                     if inset > 0.0 { ui.add_space((inset - ui.spacing().item_spacing.x).max(0.0)); }
                     ui.vertical(|ui| {
@@ -353,7 +349,6 @@ impl GalleryApp {
                         });
                         ui.add_space(12.0);
                     }
-                    separator::render(ui, 1.0);
                     match page {
                         Page::Docs(doc) => {
                             for section in docs::sections(doc) {
@@ -393,13 +388,24 @@ impl GalleryApp {
                         _ => {}
                     }
                     ui.add_space(48.0);
-                    separator::render(ui, 1.0);
-                    ui.add_space(18.0);
+                                ui.add_space(18.0);
                     muted(ui, "egui_component  /  Open source. Made with Rust.", theme);
                     ui.add_space(48.0);
                     });
                     });
-                }, scroll_area::Style::new_no_frame());
+                }, scroll_area::Style::new_no_frame()
+                    .auto_shrink([false, false])
+                    .padding(Margin::same(if sidebar { 32 } else { 18 })));
+                if wide {
+                    let rect = egui::Rect::from_min_max(
+                        egui::pos2(body_rect.right() - 210.0, body_rect.top() + 32.0),
+                        egui::pos2(body_rect.right() - 24.0, body_rect.bottom()),
+                    );
+                    let mut outline_ui = ui.new_child(egui::UiBuilder::new()
+                        .id_salt("page-outline").max_rect(rect));
+                    outline_ui.set_clip_rect(rect.intersect(ui.clip_rect()));
+                    self.toc(&mut outline_ui, theme, &page);
+                }
             });
     }
     fn demo(&mut self, ui: &mut egui::Ui, theme: &Theme, component: Component) {
@@ -428,9 +434,9 @@ impl GalleryApp {
         }
     }
     fn home(&mut self, ui: &mut egui::Ui, theme: &Theme) {
-        egui::CentralPanel::default().frame(egui::Frame::NONE.fill(theme.colors.bg.base).inner_margin(Margin::same(24)))
+        egui::CentralPanel::default().frame(egui::Frame::NONE.fill(theme.colors.bg.base))
             .show_inside(ui, |ui| {
-                scroll_area::render(ui, "home-scroll", scroll_area::ScrollAxes::Vertical, |ui| {
+                main_scroll(ui, self.reset_main_scroll, |ui| {
                     let max = 1120.0_f32.min(ui.available_width());
                     let offset = ((ui.available_width() - max) / 2.0).max(0.0);
                     ui.horizontal(|ui| { if offset > 0.0 { ui.add_space((offset - ui.spacing().item_spacing.x).max(0.0)); } ui.vertical(|ui| {
@@ -450,8 +456,7 @@ impl GalleryApp {
                             self.showcase(ui, theme);
                         }
                         ui.add_space(44.0);
-                        separator::render(ui, 1.0);
-                        ui.add_space(26.0);
+                                        ui.add_space(26.0);
                         ui.horizontal_wrapped(|ui| {
                             eyebrow(ui, "RUST AT HEART", theme); ui.add_space(22.0);
                             muted(ui, "Native + Web", theme); ui.add_space(22.0);
@@ -488,12 +493,11 @@ impl GalleryApp {
                             }
                         });
                         ui.add_space(52.0);
-                        separator::render(ui, 1.0);
-                        ui.add_space(24.0);
+                                        ui.add_space(24.0);
                         muted(ui, "egui_component · Built with its own components · MIT license", theme);
                         ui.add_space(26.0);
                     }); });
-                }, scroll_area::Style::new_no_frame());
+                }, scroll_area::Style::new_no_frame().auto_shrink([false, false]).padding(Margin::same(24)));
             });
     }
     fn hero(&mut self, ui: &mut egui::Ui, theme: &Theme, width: f32) {
@@ -563,7 +567,6 @@ impl GalleryApp {
                     });
                 });
                 ui.add_space(20.0);
-                separator::render(ui, 1.0);
                 ui.add_space(18.0);
                 ui.horizontal_wrapped(|ui| {
                     if button::render(
@@ -595,8 +598,8 @@ impl GalleryApp {
     }
 }
 
-impl eframe::App for GalleryApp {
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+impl GalleryApp {
+    fn render(&mut self, ui: &mut egui::Ui) {
         #[cfg(not(target_arch = "wasm32"))]
         if ui.ctx().input(|i| i.viewport().close_requested()) {
             // prevent macOS touch bar crash report
@@ -619,6 +622,9 @@ impl eframe::App for GalleryApp {
         visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0_f32, theme.colors.gray.l1);
         ui.ctx().set_visuals(visuals);
         ui.spacing_mut().item_spacing = egui::vec2(8.0, 8.0);
+        let page = self.router.current();
+        self.reset_main_scroll = self.last_page.as_ref() != Some(&page);
+        self.last_page = Some(page.clone());
         let url = self.router.location().to_url();
         if self.last_url != url {
             self.pending_section = self
@@ -631,7 +637,7 @@ impl eframe::App for GalleryApp {
         }
         let previous_section = self.active_section.clone();
         self.header(ui, &theme);
-        match self.router.current() {
+        match page {
             Page::Home => self.home(ui, &theme),
             page @ (Page::Docs(_) | Page::Component(_)) => self.document(ui, &theme, page),
             Page::NotFound(path) => {
@@ -675,6 +681,142 @@ impl eframe::App for GalleryApp {
         egui_component::toast::renderer(ui, &theme);
     }
 }
+impl eframe::App for GalleryApp {
+    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+        self.render(ui);
+    }
+}
+
+#[cfg(test)]
+mod layout_tests {
+    use super::*;
+    fn red_rects(shapes: &[egui::epaint::ClippedShape]) -> Vec<egui::Rect> {
+        fn collect(shape: &egui::Shape, rects: &mut Vec<egui::Rect>) {
+            match shape {
+                egui::Shape::Rect(r) if r.stroke.color == egui::Color32::RED => rects.push(r.rect),
+                egui::Shape::Vec(shapes) => {
+                    for shape in shapes {
+                        collect(shape, rects);
+                    }
+                }
+                _ => {}
+            }
+        }
+        let mut rects = Vec::new();
+        for shape in shapes {
+            collect(&shape.shape, &mut rects);
+        }
+        rects
+    }
+    #[test]
+    fn header_clicks_have_no_debug_error_borders() {
+        let ctx = egui::Context::default();
+        let theme = UiTheme::from_json_bytes(include_bytes!("../theme.json")).unwrap();
+        let mut app = GalleryApp::new(theme, &ctx).unwrap();
+        let mut events = Vec::new();
+        let frame = |events: Vec<egui::Event>, app: &mut GalleryApp| {
+            ctx.run_ui(
+                egui::RawInput {
+                    events,
+                    screen_rect: Some(egui::Rect::from_min_size(
+                        egui::Pos2::ZERO,
+                        egui::vec2(1280.0, 800.0),
+                    )),
+                    ..Default::default()
+                },
+                |ui| app.render(ui),
+            )
+        };
+        for _ in 0..2 {
+            frame(events.clone(), &mut app);
+        }
+        for (pos, expected) in [
+            (egui::pos2(341.0, 29.0), Page::Docs(Doc::GettingStarted)),
+            (egui::pos2(432.0, 29.0), Page::Component(Component::Button)),
+            (egui::pos2(270.0, 29.0), Page::Home),
+        ] {
+            for pressed in [true, false] {
+                events = vec![
+                    egui::Event::PointerMoved(pos),
+                    egui::Event::PointerButton {
+                        pos,
+                        button: egui::PointerButton::Primary,
+                        pressed,
+                        modifiers: Default::default(),
+                    },
+                ];
+                let output = frame(events.clone(), &mut app);
+                assert!(
+                    red_rects(&output.shapes).is_empty(),
+                    "debug borders clicking {pos:?} on {:?}: {:?}",
+                    app.router.current(),
+                    red_rects(&output.shapes)
+                );
+            }
+            let output = frame(Vec::new(), &mut app);
+            assert_eq!(app.router.current(), expected);
+            assert!(red_rects(&output.shapes).is_empty());
+        }
+    }
+    #[test]
+    fn navigation_has_no_debug_error_borders() {
+        let ctx = egui::Context::default();
+        let theme = UiTheme::from_json_bytes(include_bytes!("../theme.json")).unwrap();
+        let mut app = GalleryApp::new(theme, &ctx).unwrap();
+        for page in [
+            Page::Home,
+            Page::Docs(Doc::GettingStarted),
+            Page::Component(Component::Button),
+            Page::Docs(Doc::Styling),
+            Page::Home,
+        ] {
+            app.go(page.clone());
+            for _ in 0..2 {
+                let output = ctx.run_ui(
+                    egui::RawInput {
+                        screen_rect: Some(egui::Rect::from_min_size(
+                            egui::Pos2::ZERO,
+                            egui::vec2(1280.0, 800.0),
+                        )),
+                        ..Default::default()
+                    },
+                    |ui| app.render(ui),
+                );
+                assert!(
+                    red_rects(&output.shapes).is_empty(),
+                    "debug borders on {page:?}: {:?}",
+                    red_rects(&output.shapes)
+                );
+            }
+        }
+    }
+}
+
+/// One stable viewport for all main pages. Page changes reset its offset, rather
+/// than replacing the scrollbar's ID at the same screen location.
+fn main_scroll(
+    ui: &mut egui::Ui,
+    reset: bool,
+    render: impl FnOnce(&mut egui::Ui),
+    mut style: scroll_area::Style,
+) {
+    if reset {
+        style = style.scroll_offset(egui::Vec2::ZERO);
+    }
+    ui.scope_builder(
+        egui::UiBuilder::new().id(egui::Id::new("site-main-viewport")),
+        |ui| {
+            scroll_area::render(
+                ui,
+                "site-main-scroll",
+                scroll_area::ScrollAxes::Vertical,
+                render,
+                style,
+            );
+        },
+    );
+}
+
 fn eyebrow(ui: &mut egui::Ui, label: &str, theme: &Theme) {
     text::render(
         ui,

@@ -20,7 +20,7 @@ impl Style {
             radius: 6,
             text: text::Style::new(theme).size(14.0),
             selected_background: theme.colors.primary.l0,
-            hover_background: theme.colors.bg.accent,
+            hover_background: theme.colors.fg.base.gamma_multiply(0.07),
             selected_color: theme.colors.primary.l6,
         }
     }
@@ -39,15 +39,23 @@ pub fn render(ui: &mut Ui, label: &str, selected: bool, style: Style) -> Respons
             label,
         )
     });
-    if selected || response.hovered() || response.has_focus() {
+    let hover = ui.ctx().animate_bool_with_time(
+        response.id.with("hover"),
+        ui.is_enabled() && (response.hovered() || response.has_focus()),
+        0.16,
+    );
+    if selected {
         ui.painter().rect_filled(
             rect,
             CornerRadius::same(style.radius),
-            if selected {
-                style.selected_background
-            } else {
-                style.hover_background
-            },
+            style.selected_background,
+        );
+    }
+    if hover > 0.0 {
+        ui.painter().rect_filled(
+            rect,
+            CornerRadius::same(style.radius),
+            style.hover_background.gamma_multiply(hover),
         );
     }
     let mut text_style = style.text;
