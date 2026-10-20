@@ -12,6 +12,7 @@ path = "../main.rs"
 ehttp = "0.7"
 wuff = { version = "0.2.9", default-features = false, features = ["brotli"] }
 egui_component = { path = "../../.." }
+egui_component_router = { path = "../../../router" }
 egui_extras = { version = "0.34", features = ["syntect", "all_loaders"] }
 log = "0.4"
 tracing = "0.1"

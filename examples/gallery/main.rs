@@ -10,7 +10,9 @@ use egui_component::theme::UiTheme;
 mod logging;
 
 mod app;
+mod docs;
 mod pages;
+mod routes;
 
 use app::GalleryApp;
 
@@ -33,8 +35,8 @@ fn main() -> eframe::Result {
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1100.0, 750.0])
-            .with_title("egui_component Storybook Gallery"),
+            .with_inner_size([1360.0, 880.0])
+            .with_title("egui_component"),
         ..Default::default()
     };
 
@@ -46,7 +48,7 @@ fn main() -> eframe::Result {
             egui_extras::install_image_loaders(&cc.egui_ctx);
             tracing::info!("eframe app init");
 
-            Ok(Box::new(GalleryApp::new(ui_theme)))
+            Ok(Box::new(GalleryApp::new(ui_theme, &cc.egui_ctx)?))
         }),
     )
 }
@@ -88,7 +90,7 @@ fn main() {
                     let ui_theme = UiTheme::from_json_bytes(include_bytes!("../theme.json"))
                         .expect("Failed to load theme.json");
 
-                    Ok(Box::new(GalleryApp::new(ui_theme)))
+                    Ok(Box::new(GalleryApp::new(ui_theme, &cc.egui_ctx)?))
                 }),
             )
             .await;

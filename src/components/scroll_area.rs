@@ -6,6 +6,11 @@ use crate::{components::utils::CardFrame, theme::Theme};
 pub struct Style {
     pub outer_frame: Frame,
     pub inner_frame: Frame,
+    /// Optional viewport height cap, useful inside long documents.
+    pub max_height: Option<f32>,
+    /// Minimum viewport height, including inside another scroll area.
+    pub min_height: Option<f32>,
+    pub auto_shrink: [bool; 2],
 }
 impl Style {
     pub fn new(theme: &Theme) -> Self {
@@ -14,6 +19,9 @@ impl Style {
                 .inner_margin(egui::Margin::symmetric(4, 8))
                 .frame,
             inner_frame: Frame::NONE.inner_margin(egui::Margin::same(4)),
+            max_height: None,
+            min_height: None,
+            auto_shrink: [true, true],
         }
     }
 
@@ -21,7 +29,25 @@ impl Style {
         Self {
             outer_frame: Frame::NONE,
             inner_frame: Frame::NONE,
+            max_height: None,
+            min_height: None,
+            auto_shrink: [true, true],
         }
+    }
+
+    pub fn max_height(mut self, height: f32) -> Self {
+        self.max_height = Some(height.max(0.0));
+        self
+    }
+
+    pub fn min_height(mut self, height: f32) -> Self {
+        self.min_height = Some(height.max(0.0));
+        self
+    }
+
+    pub fn auto_shrink(mut self, axes: [bool; 2]) -> Self {
+        self.auto_shrink = axes;
+        self
     }
 
     pub fn corner_radius(mut self, corner_radius: CornerRadius) -> Self {
@@ -52,8 +78,14 @@ pub fn render_global(
         egui::ScrollArea::new(scroll_axes)
             .id_salt(id_salt)
             .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
-            .max_height(ui.available_height())
-            .auto_shrink(true)
+            .max_height(style.max_height.unwrap_or_else(|| ui.available_height()))
+            .min_scrolled_height(
+                style
+                    .min_height
+                    .unwrap_or(64.0)
+                    .min(style.max_height.unwrap_or(f32::INFINITY)),
+            )
+            .auto_shrink(style.auto_shrink)
             .show(ui, |ui| {
                 style.inner_frame.show(ui, |ui| {
                     renderer(ui);
@@ -79,8 +111,14 @@ pub fn render(
         egui::ScrollArea::new(scroll_axes)
             .id_salt(id_salt)
             .scroll_bar_visibility(egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded)
-            .max_height(ui.available_height())
-            .auto_shrink(true)
+            .max_height(style.max_height.unwrap_or_else(|| ui.available_height()))
+            .min_scrolled_height(
+                style
+                    .min_height
+                    .unwrap_or(64.0)
+                    .min(style.max_height.unwrap_or(f32::INFINITY)),
+            )
+            .auto_shrink(style.auto_shrink)
             .show(ui, |ui| {
                 style.inner_frame.show(ui, |ui| {
                     renderer(ui);
@@ -121,4 +159,33 @@ fn set_style(style: &mut egui::Style) {
     style.spacing.scroll.active_handle_opacity = 1.0;
     style.spacing.scroll.dormant_handle_opacity = 1.0;
     style.spacing.scroll.interact_handle_opacity = 1.0;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn nested_viewport_respects_explicit_minimum_height() {
+        let ctx = Context::default();
+        let _ = ctx.run_ui(Default::default(), |ui| {
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                let response = ui.scope(|ui| {
+                    render(
+                        ui,
+                        "nested-height",
+                        ScrollAxes::Both,
+                        |ui| {
+                            ui.allocate_space(egui::vec2(200.0, 600.0));
+                        },
+                        Style::new_no_frame()
+                            .min_height(180.0)
+                            .max_height(180.0)
+                            .auto_shrink([false, false]),
+                    );
+                });
+                assert!((response.response.rect.height() - 180.0).abs() < 1.0);
+            });
+        });
+    }
 }

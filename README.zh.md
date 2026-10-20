@@ -127,3 +127,12 @@ Gallery 的 **Text** 页面可以运行时切换字体、开关中文 fallback�
 ## 📄 LICENSE
 
 本仓库及其包含的所有包均在 **MIT License** 下发布。
+
+
+### Gallery 主页
+
+运行 `cargo run --example gallery` 启动原生应用；运行 `trunk serve` 后访问
+`http://127.0.0.1:8080/` 使用 Web 版本。Home、Docs、Components 共用页头，
+文档和组件页采用左侧导航、正文、右侧页内目录的布局，窄窗口下导航自动折叠。
+页面使用 `egui_component_router`，例如 `/components/button?section=usage`。
+生产环境需要将页面请求回退至 `index.html`，由应用显示未知路径的 404 页面。

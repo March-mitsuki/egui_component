@@ -10,6 +10,7 @@ pub mod icon;
 pub mod icon_button;
 pub mod icon_menu_button;
 pub mod menu_button;
+pub mod navigation;
 pub mod scroll_area;
 pub mod select;
 pub mod separator;

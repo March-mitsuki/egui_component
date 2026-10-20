@@ -1,7 +1,9 @@
 [build]
 target = "examples/gallery/index.html"
 dist = "dist"
+public_url = "/"
 
 [serve]
 addresses = ["127.0.0.1"]
 port = 8080
+no_spa = false

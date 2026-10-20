@@ -78,6 +78,16 @@ Open <http://127.0.0.1:8080>. `trunk build --release` produces a static website 
 The Web gallery uses WebGL and embeds its CJK font at compile time; it does not need access to local fonts at runtime. The bundled font adds approximately 19 MB before compression.
 Native gallery: `cargo run --example gallery`.
 
+The gallery is also the library's homepage: Home, Docs, and Components share a
+header and use `egui_component_router` on both platforms. Desktop documentation
+pages have a sidebar, scrollable content, and a page outline. Smaller windows
+collapse the sidebar into Browse pages and move the outline above the content.
+Try `/docs/getting-started`, `/components/button`, or
+`/components/button?section=usage`. Unknown paths show an application 404 page.
+For production hosting, serve assets normally and fall back to `index.html` for
+page requests; Trunk's development SPA fallback is already enabled.
+
+
 For your own app, use egui's default fonts or call `FONT_MANAGER.load_from_bytes` with bundled font bytes before `FONT_MANAGER.set_egui_fonts(&cc.egui_ctx)`. File and system font loading are native-only; theme JSON can be loaded on both platforms with `UiTheme::from_json_bytes`.
 
 ### Dynamic fonts
