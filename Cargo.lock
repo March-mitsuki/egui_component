@@ -1022,6 +1022,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui-component-router-example"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook",
+ "eframe",
+ "egui_component",
+ "egui_component_router",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "egui-wgpu"
 version = "0.34.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1083,6 +1096,7 @@ dependencies = [
  "eframe",
  "egui",
  "egui_animation",
+ "egui_component_router",
  "egui_component_style_macros",
  "egui_extras",
  "ehttp",
@@ -1100,6 +1114,14 @@ dependencies = [
  "web-sys",
  "web-time",
  "wuff",
+]
+
+[[package]]
+name = "egui_component_router"
+version = "0.1.0"
+dependencies = [
+ "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]

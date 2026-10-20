@@ -1,0 +1,11 @@
+[package]
+name = "egui_component_router"
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+description = "Minimal native and Web navigation for egui applications"
+publish = false
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+web-sys = { version = "0.3", features = ["Window", "Location", "History", "Event", "EventTarget"] }
