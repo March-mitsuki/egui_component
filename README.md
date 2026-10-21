@@ -31,6 +31,34 @@ Add the following dependency to your `Cargo.toml` file:
 egui_component = "0.1.0-alpha.2"
 ```
 
+### Optional Lucide icons
+
+Enable `lucide_icon` for the complete vendored Lucide SVG set:
+
+```toml
+egui_component = { version = "0.1.0-alpha.2", features = ["lucide_icon"] }
+```
+
+```rust
+use egui_component::icon::lucide;
+
+let heart = lucide::HEART;
+let arrow = lucide::get("arrow-down").unwrap();
+// lucide::NAMES lists all available upstream names.
+```
+
+Pass these image sources to the icon/button components as usual. SVG strokes are
+white so egui tinting controls their color; transparent fills stay transparent.
+Without this feature, only the existing `icon::ICONS` set is compiled in.
+Call `egui_extras::install_image_loaders(ctx)` once to enable SVG rendering.
+Assets are bundled in the crate; builds and applications do not download icons.
+
+Maintainers can run `python3 scripts/update_lucide_icons.py` to reproduce the pinned
+revision, or add `--ref main` (or a tag/commit) to update. Commit the generated
+`src/icon/lucide.rs` and `assets/lucide/` together. The upstream revision is recorded
+in `assets/lucide/source.json`; Lucide's ISC and Feather's MIT notices are retained
+in [assets/lucide/LICENSE](assets/lucide/LICENSE).
+
 ## 📝 Quick Start
 
 `egui_component` follows egui's Immediate Mode design philosophy. If you are familiar with egui, getting started will feel very natural.

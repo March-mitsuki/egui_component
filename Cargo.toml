@@ -15,6 +15,10 @@ homepage = "https://github.com/March-mitsuki/egui_component"
 members = ["style_macros", "examples/gallery/web", "router", "examples/router"]
 resolver = "3"
 
+[features]
+default = []
+lucide_icon = []
+
 [[example]]
 name = "router"
 path = "examples/router/src/main.rs"
@@ -41,6 +45,7 @@ serde_json = "1"
 font-kit = "0.14"
 
 [dev-dependencies]
+egui_component = { path = ".", features = ["lucide_icon"] }
 egui_component_router = { version = "0.1.0-alpha.2", path = "router" }
 ehttp = { version = "0.7", features = ["streaming"] }
 wuff = { version = "0.2.9", default-features = false, features = ["brotli"] }

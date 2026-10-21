@@ -370,11 +370,16 @@ impl GalleryApp {
                     .iter()
                     .map(|s| (s.id, locale.text(s.title))),
             ),
-            Page::Component(_) => result.extend([
-                ("preview", locale.text("common:livePreview")),
-                ("usage", locale.text("common:sourceUsage")),
-                ("customization", locale.text("common:customization")),
-            ]),
+            Page::Component(component) => {
+                result.push(("preview", locale.text("common:livePreview")));
+                if *component == Component::Icon {
+                    result.push(("lucide", "Lucide Icons"));
+                }
+                result.extend([
+                    ("usage", locale.text("common:sourceUsage")),
+                    ("customization", locale.text("common:customization")),
+                ]);
+            }
             _ => {}
         }
         result
@@ -570,6 +575,14 @@ impl GalleryApp {
                                             },
                                             surface(theme),
                                         );
+                                        if component == Component::Icon {
+                                            self.heading(ui, "lucide", "Lucide Icons", theme);
+                                            card::render(
+                                                ui,
+                                                |ui| pages::icon::show_lucide(ui, theme, locale),
+                                                surface(theme),
+                                            );
+                                        }
                                         self.heading(
                                             ui,
                                             "usage",

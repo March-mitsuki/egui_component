@@ -39,6 +39,32 @@ egui_component = "0.1.0-alpha.2"
 egui_component = { git = "https://github.com/March-mitsuki/egui_component", branch = "dev" }
 ```
 
+### 可选 Lucide 图标
+
+启用 `lucide_icon` feature 即可使用完整的 Lucide SVG 图标集：
+
+```toml
+egui_component = { version = "0.1.0-alpha.2", features = ["lucide_icon"] }
+```
+
+```rust
+use egui_component::icon::lucide;
+
+let heart = lucide::HEART;
+let arrow = lucide::get("arrow-down").unwrap();
+// lucide::NAMES 包含所有上游图标名称。
+```
+
+这些图像源可以直接传给现有图标和按钮组件。SVG 描边使用白色，支持 egui
+的 tint 着色，透明填充保持不变。不开启 feature 时，只编译现有的 `icon::ICONS`。
+初始化时调用一次 `egui_extras::install_image_loaders(ctx)` 以支持 SVG 渲染。
+图标随 crate 分发，构建和运行时均不需要下载。
+
+维护者运行 `python3 scripts/update_lucide_icons.py` 可重现固定版本，添加
+`--ref main`（或 tag/commit）可更新。请一起提交生成的 `src/icon/lucide.rs`
+和 `assets/lucide/`。上游 commit 记录在 `assets/lucide/source.json`，完整保留
+Lucide ISC 和 Feather MIT 声明，见 [assets/lucide/LICENSE](assets/lucide/LICENSE)。
+
 ## 📝 快速开始
 
 `egui_component` 遵循 egui 的立即模式（Immediate Mode）设计哲学。如果你熟悉 egui，上手将非常自然。
