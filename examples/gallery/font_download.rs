@@ -1,4 +1,4 @@
-//! The Web shell starts with egui's default fonts; CJK is fetched independently.
+//! Native and Web galleries start with default fonts and download CJK in the background.
 use eframe::egui;
 use egui_component::{components::progress, consts::FONT_MANAGER, toast};
 use std::{

@@ -103,7 +103,7 @@ trunk serve
 ```
 
 Open <http://127.0.0.1:8080>. `trunk build --release` produces a static website in `dist/`.
-The Web gallery uses WebGL and starts with default fonts, then asynchronously downloads its CJK fallback from GitHub. A persistent toast shows download progress and offers retry on failure. The native gallery still embeds the font.
+The Web gallery uses WebGL and starts with default fonts, then asynchronously downloads its CJK fallback from GitHub. A persistent toast shows download progress and offers retry on failure. The native gallery uses the same background download and progress toast.
 Native gallery: `cargo run --example gallery`.
 
 The gallery is also the library's homepage: Home, Docs, and Components share a

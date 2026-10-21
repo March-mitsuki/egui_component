@@ -10,6 +10,21 @@ description = "Unstyled, headless egui components with granular styling. Include
 categories = ["gui"]
 repository = "https://github.com/March-mitsuki/egui_component"
 homepage = "https://github.com/March-mitsuki/egui_component"
+# Keep library assets and runnable gallery sources; omit the full downloadable CJK font
+# and repository-only publishing/tooling files.
+include = [
+    "/src/**",
+    "/tests/*.rs",
+    "/assets/**",
+    "/examples/*.rs",
+    "/examples/theme.json",
+    "/examples/gallery/**",
+    "/examples/assets/font-fixtures/**",
+    "/images/**",
+    "/README.md",
+    "/README.zh.md",
+    "/LICENSE",
+]
 
 [workspace]
 members = ["style_macros", "examples/gallery/web", "router", "examples/router"]

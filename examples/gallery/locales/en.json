@@ -211,7 +211,7 @@
   "docs.typedroutes:title": "Define typed routes",
   "docs.typedroutes:body": "egui_component_router is a separate workspace crate. Implement Route for your page enum; the same navigation API runs on native desktop and Web. The router does not depend on the UI library.",
   "docs.fonts:title": "Fonts that travel with your app",
-  "docs.fonts:body": "Load embedded or asynchronously downloaded font bytes for portable native and Web typography. Apply font-manager updates before rendering each frame. The native gallery embeds its CJK fallback; the Web gallery downloads it from GitHub after startup.",
+  "docs.fonts:body": "Load embedded or asynchronously downloaded font bytes for portable native and Web typography. Apply font-manager updates before rendering each frame. Both native and Web galleries download their CJK fallback from GitHub after startup, with a progress toast and retry on failure.",
   "docs.colormode:title": "Light and dark",
   "docs.colormode:body": "UiTheme contains both modes. Select the active theme when rendering. This website's header switches modes for the entire application, including every live demo.",
   "docs.brandcolors:title": "Our brand palette",

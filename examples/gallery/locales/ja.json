@@ -211,7 +211,7 @@
   "docs.typedroutes:title": "型付きルートの定義",
   "docs.typedroutes:body": "egui_component_router は独立したワークスペース crate です。ページ enum に Route を実装すれば、デスクトップと Web で同じ API を使えます。UI ライブラリへの依存はありません。",
   "docs.fonts:title": "アプリに同梱するフォント",
-  "docs.fonts:body": "同梱または非同期ダウンロードしたフォントデータを読み込み、各フレームの描画前に更新を適用してください。ネイティブ Gallery は CJK フォントを同梱し、Web Gallery は起動後に GitHub からダウンロードします。",
+  "docs.fonts:body": "同梱または非同期ダウンロードしたフォントデータを読み込み、各フレームの描画前に更新を適用してください。ネイティブと Web の Gallery は起動後に GitHub から CJK フォントをダウンロードし、トーストで進捗と失敗時の再試行を表示します。",
   "docs.colormode:title": "ライトとダーク",
   "docs.colormode:body": "UiTheme は両モードを含みます。描画時に使うテーマを選びます。ヘッダーの切り替えは、すべてのライブサンプルを含むアプリ全体に反映されます。",
   "docs.brandcolors:title": "ブランドカラー",
