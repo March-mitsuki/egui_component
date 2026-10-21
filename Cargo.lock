@@ -1121,7 +1121,7 @@ dependencies = [
 
 [[package]]
 name = "egui_component_router"
-version = "0.1.0"
+version = "0.1.0-alpha.2"
 dependencies = [
  "form_urlencoded",
  "percent-encoding",
@@ -1132,8 +1132,6 @@ dependencies = [
 [[package]]
 name = "egui_component_style_macros"
 version = "0.1.0-alpha.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe8e5fcddf77718c35ec64ae022ead6721fd3f6a3dfc55cfb78b8670c1059a48"
 dependencies = [
  "proc-macro2",
  "quote",

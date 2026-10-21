@@ -12,7 +12,7 @@ repository = "https://github.com/March-mitsuki/egui_component"
 homepage = "https://github.com/March-mitsuki/egui_component"
 
 [workspace]
-members = ["examples/gallery/web", "router", "examples/router"]
+members = ["style_macros", "examples/gallery/web", "router", "examples/router"]
 resolver = "3"
 
 [[example]]
@@ -20,7 +20,7 @@ name = "router"
 path = "examples/router/src/main.rs"
 
 [dependencies]
-egui_component_style_macros = "0.1.0-alpha.2" # internal
+egui_component_style_macros = { version = "0.1.0-alpha.2", path = "style_macros" } # internal
 
 anyhow = "1"
 tracing = "0.1"
@@ -41,7 +41,7 @@ serde_json = "1"
 font-kit = "0.14"
 
 [dev-dependencies]
-egui_component_router = { path = "router" }
+egui_component_router = { version = "0.1.0-alpha.2", path = "router" }
 ehttp = { version = "0.7", features = ["streaming"] }
 wuff = { version = "0.2.9", default-features = false, features = ["brotli"] }
 log = "0.4"
