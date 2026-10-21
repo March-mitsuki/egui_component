@@ -32,4 +32,25 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             }
         }
     });
+    if button::render(
+        ui,
+        locale.text("demo.toast:custom"),
+        button::Style::new_solid_md(theme),
+    )
+    .clicked()
+    {
+        let label = locale.text("demo.toast:custom").to_owned();
+        toast::custom(
+            toast::ToastKind::Info,
+            Some(std::time::Duration::from_secs(6)),
+            move |ui, theme| {
+                ui.label(&label);
+                egui_component::components::progress::render(
+                    ui,
+                    None,
+                    egui_component::components::progress::Style::new(theme),
+                );
+            },
+        );
+    }
 }

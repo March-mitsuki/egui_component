@@ -14,6 +14,7 @@ use std::collections::BTreeMap;
 pub struct Generator {
     base: UiTheme,
     options: Options,
+    gallery_preset: bool,
     seed_hex: String,
     overrides: BTreeMap<String, Value>,
     mode: u8,
@@ -30,6 +31,7 @@ impl Generator {
         Self {
             base,
             options: Options::default(),
+            gallery_preset: false,
             seed_hex: "#6B65F5".into(),
             overrides: Default::default(),
             mode: 0,
@@ -43,7 +45,20 @@ impl Generator {
         }
     }
     fn generated(&self) -> UiTheme {
-        theme_gen::generate(&self.base, self.options)
+        if self.gallery_preset {
+            self.base.clone()
+        } else {
+            theme_gen::generate(&self.base, self.options)
+        }
+    }
+    fn select_gallery_preset(&mut self) {
+        self.gallery_preset = true;
+        self.overrides.clear();
+    }
+    fn select_seed(&mut self, seed: Color32) {
+        self.gallery_preset = false;
+        self.options.seed = seed;
+        self.seed_hex = seed.to_hex();
     }
     fn value(&self) -> Value {
         let mut value = serde_json::to_value(self.generated()).unwrap();
@@ -74,18 +89,6 @@ impl Generator {
                     "theme-generator-scroll",
                     scroll_area::ScrollAxes::Vertical,
                     |ui| {
-                        text::render(
-                            ui,
-                            locale.text("nav:themeGenerator"),
-                            text::Style::new_heading(shell).size(32.0),
-                        );
-                        themed_label(
-                            ui,
-                            locale
-                                .text("generator:startWithABrandColorBuildAThemeForEveryComponent"),
-                            shell,
-                        );
-                        ui.add_space(20.0);
                         if ui.available_width() > 900.0 {
                             ui.horizontal_top(|ui| {
                                 ui.vertical(|ui| {
@@ -119,11 +122,9 @@ impl Generator {
         heading(ui, locale.text("generator:customize"), shell);
         themed_label(ui, locale.text("generator:presets"), shell);
         if action(ui, locale.text("generator:galleryPreset"), shell).clicked() {
-            let current = serde_json::to_value(&self.base).unwrap();
-            let generated = serde_json::to_value(self.generated()).unwrap();
-            self.overrides.clear();
-            collect_overrides(&current, &generated, "", &mut self.overrides);
+            self.select_gallery_preset();
         }
+        let previous_options = self.options;
 
         ui.horizontal_wrapped(|ui| {
             for (name, hex) in [
@@ -133,8 +134,7 @@ impl Generator {
                 ("Rose", "#D44472"),
             ] {
                 if action(ui, name, shell).clicked() {
-                    self.options.seed = Color32::from_hex(hex).unwrap();
-                    self.seed_hex = hex.into();
+                    self.select_seed(Color32::from_hex(hex).unwrap());
                 }
             }
         });
@@ -200,6 +200,12 @@ impl Generator {
                 shell,
             );
         });
+        if self.options.seed != previous_options.seed
+            || self.options.neutral != previous_options.neutral
+            || self.options.radius != previous_options.radius
+        {
+            self.gallery_preset = false;
+        }
         themed_label(
             ui,
             locale.text("generator:solidColorsMayBeAdjustedForReadableText"),
@@ -790,6 +796,32 @@ extern "C" {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn color_presets_after_gallery_preset_update_both_preview_themes() {
+        let base = UiTheme::from_json_bytes(include_bytes!("../../theme.json")).unwrap();
+        let mut g = Generator::new(base.clone());
+        for hex in ["#6B65F5", "#1683BC", "#24845C", "#D44472"] {
+            g.select_gallery_preset();
+            assert_eq!(
+                serde_json::to_value(g.theme()).unwrap(),
+                serde_json::to_value(&base).unwrap()
+            );
+            g.overrides
+                .insert("/light/corner_radius/md".into(), serde_json::json!(13.0));
+            g.select_seed(Color32::from_hex(hex).unwrap());
+            let preview = g.theme();
+            let expected = theme_gen::generate(&base, g.options);
+            assert_eq!(
+                serde_json::to_value(preview.light.colors.primary).unwrap(),
+                serde_json::to_value(expected.light.colors.primary).unwrap()
+            );
+            assert_eq!(
+                serde_json::to_value(preview.dark.colors.primary).unwrap(),
+                serde_json::to_value(expected.dark.colors.primary).unwrap()
+            );
+            assert_eq!(preview.light.corner_radius.md, 13.0);
+        }
+    }
     #[test]
     fn preview_modes_leave_context_and_editor_colors_unchanged() {
         let ctx = egui::Context::default();

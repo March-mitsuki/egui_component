@@ -9,6 +9,8 @@ use egui_component::theme::UiTheme;
 #[cfg(not(target_arch = "wasm32"))]
 mod logging;
 
+mod font_download;
+
 mod app;
 mod docs;
 mod i18n;
@@ -20,15 +22,6 @@ use app::GalleryApp;
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result {
     let _logger_guard = logging::init_logging();
-
-    FONT_MANAGER
-        .load_from_bytes(
-            "gallery-cjk",
-            include_bytes!("../assets/NotoSansCJK-Regular.ttc"),
-            0,
-        )
-        .unwrap();
-    FONT_MANAGER.set_fallback_chain(&["gallery-cjk"]);
 
     // Load theme from theme.json file
     let ui_theme = UiTheme::from_json_bytes(include_bytes!("../theme.json"))
@@ -55,7 +48,9 @@ fn main() -> eframe::Result {
             egui_extras::install_image_loaders(&cc.egui_ctx);
             tracing::info!("eframe app init");
 
-            Ok(Box::new(GalleryApp::new(ui_theme, &cc.egui_ctx)?))
+            let app = GalleryApp::new(ui_theme, &cc.egui_ctx)?;
+            font_download::start(&cc.egui_ctx);
+            Ok(Box::new(app))
         }),
     )
 }
@@ -68,15 +63,6 @@ fn main() {
 
     // Web Panic Hook
     console_error_panic_hook::set_once();
-
-    FONT_MANAGER
-        .load_from_bytes(
-            "gallery-cjk",
-            include_bytes!("../assets/NotoSansCJK-Regular.ttc"),
-            0,
-        )
-        .unwrap();
-    FONT_MANAGER.set_fallback_chain(&["gallery-cjk"]);
 
     let web_options = eframe::WebOptions::default();
     let canvas = web_sys::window()
@@ -97,7 +83,9 @@ fn main() {
                     let ui_theme = UiTheme::from_json_bytes(include_bytes!("../theme.json"))
                         .expect("Failed to load theme.json");
 
-                    Ok(Box::new(GalleryApp::new(ui_theme, &cc.egui_ctx)?))
+                    let app = GalleryApp::new(ui_theme, &cc.egui_ctx)?;
+                    font_download::start(&cc.egui_ctx);
+                    Ok(Box::new(app))
                 }),
             )
             .await;

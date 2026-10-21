@@ -22,6 +22,8 @@ pub mod theme_generator;
 pub mod toast;
 pub mod tooltip;
 
-pub mod slider;
 pub mod color_picker;
 pub mod segmented_control;
+pub mod slider;
+
+pub mod progress;

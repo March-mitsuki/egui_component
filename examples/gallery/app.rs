@@ -370,11 +370,16 @@ impl GalleryApp {
                     .iter()
                     .map(|s| (s.id, locale.text(s.title))),
             ),
-            Page::Component(_) => result.extend([
-                ("preview", locale.text("common:livePreview")),
-                ("usage", locale.text("common:sourceUsage")),
-                ("customization", locale.text("common:customization")),
-            ]),
+            Page::Component(component) => {
+                result.push(("preview", locale.text("common:livePreview")));
+                if *component == Component::Icon {
+                    result.push(("lucide", "Lucide Icons"));
+                }
+                result.extend([
+                    ("usage", locale.text("common:sourceUsage")),
+                    ("customization", locale.text("common:customization")),
+                ]);
+            }
             _ => {}
         }
         result
@@ -570,6 +575,14 @@ impl GalleryApp {
                                             },
                                             surface(theme),
                                         );
+                                        if component == Component::Icon {
+                                            self.heading(ui, "lucide", "Lucide Icons", theme);
+                                            card::render(
+                                                ui,
+                                                |ui| pages::icon::show_lucide(ui, theme, locale),
+                                                surface(theme),
+                                            );
+                                        }
                                         self.heading(
                                             ui,
                                             "usage",
@@ -676,6 +689,7 @@ impl GalleryApp {
     fn demo(&mut self, ui: &mut egui::Ui, theme: &Theme, component: Component) {
         let locale = self.locale();
         match component {
+            Component::Progress => pages::progress::show(ui, theme, locale),
             Component::Slider => pages::slider::show(ui, theme, locale),
             Component::ColorPicker => pages::color_picker::show(ui, theme, locale),
             Component::SegmentedControl => pages::segmented_control::show(ui, theme, locale),

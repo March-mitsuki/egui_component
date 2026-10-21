@@ -6,6 +6,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ![egui_component dark screenshot](images/key_visual.dark.png)
+
 ![egui_component light screenshot](images/key_visual.light.png)
 
 ## 🚀 简介
@@ -16,11 +17,10 @@
 
 ## ✨ 特性
 
-- **🧩 非侵入式设计**：不强制接管全局 `Visuals`，可以与原生 egui 控件完美并存。
+- **🧩 非侵入式 (Non-Intrusive)**：不强制接管全局 `Visuals`，可以与原生 egui 控件完美并存。
 - **✨ 现代样式**： 开箱即用的现代组件样式，提升应用视觉质感。
 - **🎨 灵活的样式系统**：高度解耦，每个组件的视觉属性均可完全自定义。
 - **🌓 颜色模式友好**：原生支持深色/浅色模式切换。
-- **表单系统**: 自带一个可以用于原生 egui immediate mode 的表单系统。
 
 ## 📦 安装
 
@@ -29,7 +29,7 @@
 
 ```toml
 [dependencies]
-egui_component = "0.1.0-alpha.2"
+egui_component = "0.2.0"
 ```
 
 ### 先行版 (直接添加我们的 dev branch)
@@ -38,6 +38,32 @@ egui_component = "0.1.0-alpha.2"
 ```toml
 egui_component = { git = "https://github.com/March-mitsuki/egui_component", branch = "dev" }
 ```
+
+### 可选 Lucide 图标
+
+启用 `lucide_icon` feature 即可使用完整的 Lucide SVG 图标集：
+
+```toml
+egui_component = { version = "0.1.0-alpha.2", features = ["lucide_icon"] }
+```
+
+```rust
+use egui_component::icon::lucide;
+
+let heart = lucide::HEART;
+let arrow = lucide::get("arrow-down").unwrap();
+// lucide::NAMES 包含所有上游图标名称。
+```
+
+这些图像源可以直接传给现有图标和按钮组件。SVG 描边使用白色，支持 egui
+的 tint 着色，透明填充保持不变。不开启 feature 时，只编译现有的 `icon::ICONS`。
+初始化时调用一次 `egui_extras::install_image_loaders(ctx)` 以支持 SVG 渲染。
+图标随 crate 分发，构建和运行时均不需要下载。
+
+维护者运行 `python3 scripts/update_lucide_icons.py` 可重现固定版本，添加
+`--ref main`（或 tag/commit）可更新。请一起提交生成的 `src/icon/lucide.rs`
+和 `assets/lucide/`。上游 commit 记录在 `assets/lucide/source.json`，完整保留
+Lucide ISC 和 Feather MIT 声明，见 [assets/lucide/LICENSE](assets/lucide/LICENSE)。
 
 ## 📝 快速开始
 
@@ -83,7 +109,7 @@ trunk serve
 ```
 
 打开 <http://127.0.0.1:8080>。运行 `trunk build --release` 可在 `dist/` 生成静态网站。
-Web Gallery 使用 WebGL，中文字体在编译时内嵌，运行时无需读取本地字体。内嵌字体在压缩前约为 19 MB。
+Web Gallery 使用 WebGL，先以默认字体显示页面，再从 GitHub 异步下载多语言字体。右下角 Toast 显示下载进度，失败时可重试；桌面版使用相同的后台下载、进度提示和失败重试流程。
 桌面版本使用 `cargo run --example gallery` 运行。
 
 应用可以直接使用 egui 默认字体，也可以先通过 `FONT_MANAGER.load_from_bytes` 加载内嵌字体，再调用 `FONT_MANAGER.set_egui_fonts(&cc.egui_ctx)`。文件和系统字体加载仅供原生平台使用；主题 JSON 可在两个平台上通过 `UiTheme::from_json_bytes` 加载。

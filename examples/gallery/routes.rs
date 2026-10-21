@@ -35,6 +35,7 @@ pub enum Component {
     SegmentedControl,
     ColorPicker,
     Slider,
+    Progress,
     Accordion,
     Avatar,
     Button,
@@ -80,6 +81,7 @@ impl Component {
         Self::Select,
         Self::Separator,
         Self::Slider,
+        Self::Progress,
         Self::Switch,
         Self::Text,
         Self::TextEdit,
@@ -88,6 +90,7 @@ impl Component {
     ];
     pub fn slug(self) -> &'static str {
         match self {
+            Self::Progress => "progress",
             Self::Slider => "slider",
             Self::ColorPicker => "color-picker",
             Self::SegmentedControl => "segmented-control",
@@ -117,6 +120,7 @@ impl Component {
     }
     pub fn name(self, locale: crate::i18n::Locale) -> &'static str {
         match self {
+            Self::Progress => locale.text("component.progress:name"),
             Self::Slider => locale.text("component.slider:name"),
             Self::ColorPicker => locale.text("component.colorPicker:name"),
             Self::SegmentedControl => locale.text("component.segmentedControl:name"),
@@ -146,6 +150,7 @@ impl Component {
     }
     pub fn group(self) -> ComponentGroup {
         match self {
+            Self::Progress => ComponentGroup::Feedback,
             Self::Slider => ComponentGroup::Inputs,
             Self::ColorPicker => ComponentGroup::Inputs,
             Self::SegmentedControl => ComponentGroup::Inputs,
@@ -175,6 +180,7 @@ impl Component {
     }
     pub fn description(self, locale: crate::i18n::Locale) -> &'static str {
         match self {
+            Self::Progress => locale.text("component.progress:description"),
             Self::Slider => locale.text("component.slider:description"),
             Self::ColorPicker => locale.text("component.colorPicker:description"),
             Self::SegmentedControl => locale.text("component.segmentedControl:description"),
@@ -204,6 +210,7 @@ impl Component {
     }
     pub fn source(self) -> &'static str {
         match self {
+            Self::Progress => include_str!("pages/progress.rs"),
             Self::Slider => include_str!("pages/slider.rs"),
             Self::ColorPicker => include_str!("pages/color_picker.rs"),
             Self::SegmentedControl => include_str!("pages/segmented_control.rs"),

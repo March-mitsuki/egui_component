@@ -198,7 +198,10 @@
   "common:disabledHeading": "無効",
   "demo.select:interactive": "操作デモ",
   "demo.select:invalidHeading": "無効な状態",
-  "demo.icon:all": "すべてのアイコン",
+  "demo.icon:all": "組み込みアイコン",
+  "demo.icon:lucideSupport": "オプションの lucide_icon feature で Lucide アイコンを利用できます。Lucide のサイトでアイコン名を検索し、定数または lucide::get で取得してください。ここには同梱バージョンを表示しています。サイトに追加された新しいアイコンにはライブラリの更新が必要な場合があります。",
+  "demo.icon:lucideBrowse": "lucide.dev でアイコンを検索 ↗",
+  "demo.icon:lucideDisabled": "lucide_icon を有効にすると一覧を表示できます：cargo run --example gallery --features lucide_icon",
   "docs.deployment:title": "Web アプリのデプロイ",
   "docs.deployment:body": "既存の静的ファイルを配信し、ページへのリクエストは index.html にフォールバックさせます。開発時は Trunk の SPA フォールバックが有効です。アプリの 404 ページは読み込み後に描画され、HTTP 404 ステータスはサーバー側の設定が必要です。",
   "docs.history:title": "両プラットフォームの履歴",
@@ -208,7 +211,7 @@
   "docs.typedroutes:title": "型付きルートの定義",
   "docs.typedroutes:body": "egui_component_router は独立したワークスペース crate です。ページ enum に Route を実装すれば、デスクトップと Web で同じ API を使えます。UI ライブラリへの依存はありません。",
   "docs.fonts:title": "アプリに同梱するフォント",
-  "docs.fonts:body": "フォントデータを同梱し、ネイティブと Web で文字を表示します。各フレームの描画前にフォント管理の更新を適用してください。Gallery は多言語サンプル用に CJK フォールバックを同梱しています。",
+  "docs.fonts:body": "同梱または非同期ダウンロードしたフォントデータを読み込み、各フレームの描画前に更新を適用してください。ネイティブと Web の Gallery は起動後に GitHub から CJK フォントをダウンロードし、トーストで進捗と失敗時の再試行を表示します。",
   "docs.colormode:title": "ライトとダーク",
   "docs.colormode:body": "UiTheme は両モードを含みます。描画時に使うテーマを選びます。ヘッダーの切り替えは、すべてのライブサンプルを含むアプリ全体に反映されます。",
   "docs.brandcolors:title": "ブランドカラー",
@@ -346,5 +349,9 @@
   "slider:help": "ドラッグ、矢印キー、Home、End に対応。数値入力には通常の TextEdit を使用します。",
   "colorPicker:help": "色見本をクリックして RGB / HEX を編集。二つ目は透明度にも対応します。",
   "segmentedControl:help": "ポインターまたはキーボードでモードを選択します。",
-  "textEdit:multiline": "複数行入力"
+  "textEdit:multiline": "複数行入力",
+  "component.progress:name": "プログレス",
+  "component.progress:description": "確定または不確定のタスク進捗を表示します。",
+  "demo.progress:indeterminate": "不確定の進捗",
+  "demo.toast:custom": "カスタムコンテンツと進捗"
 }

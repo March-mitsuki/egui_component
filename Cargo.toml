@@ -1,6 +1,6 @@
 [package]
 name = "egui_component"
-version = "0.1.0-alpha.2"
+version = "0.2.0"
 edition = "2024"
 authors = ["Zehua Yang <march772827981@gmail.com>"]
 license = "MIT"
@@ -10,17 +10,36 @@ description = "Unstyled, headless egui components with granular styling. Include
 categories = ["gui"]
 repository = "https://github.com/March-mitsuki/egui_component"
 homepage = "https://github.com/March-mitsuki/egui_component"
+# Keep library assets and runnable gallery sources; omit the full downloadable CJK font
+# and repository-only publishing/tooling files.
+include = [
+    "/src/**",
+    "/tests/*.rs",
+    "/assets/**",
+    "/examples/*.rs",
+    "/examples/theme.json",
+    "/examples/gallery/**",
+    "/examples/assets/font-fixtures/**",
+    "/images/**",
+    "/README.md",
+    "/README.zh.md",
+    "/LICENSE",
+]
 
 [workspace]
-members = ["examples/gallery/web", "router", "examples/router"]
+members = ["style_macros", "examples/gallery/web", "router", "examples/router"]
 resolver = "3"
+
+[features]
+default = []
+lucide_icon = []
 
 [[example]]
 name = "router"
 path = "examples/router/src/main.rs"
 
 [dependencies]
-egui_component_style_macros = "0.1.0-alpha.2" # internal
+egui_component_style_macros = { version = "0.2.0", path = "style_macros" } # internal
 
 anyhow = "1"
 tracing = "0.1"
@@ -41,8 +60,9 @@ serde_json = "1"
 font-kit = "0.14"
 
 [dev-dependencies]
-egui_component_router = { path = "router" }
-ehttp = "0.7"
+egui_component = { path = ".", features = ["lucide_icon"] }
+egui_component_router = { version = "0.2.0", path = "router" }
+ehttp = { version = "0.7", features = ["streaming"] }
 wuff = { version = "0.2.9", default-features = false, features = ["brotli"] }
 log = "0.4"
 wasm-bindgen = "0.2"

@@ -67,3 +67,67 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         });
     });
 }
+
+pub fn show_lucide(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
+    ui.vertical(|ui| {
+        text::render(
+            ui,
+            locale.text("demo.icon:lucideSupport"),
+            text::Style::new(theme),
+        );
+        ui.hyperlink_to(
+            locale.text("demo.icon:lucideBrowse"),
+            "https://lucide.dev/icons/",
+        );
+        ui.code("egui_component = { version = \"0.1.0-alpha.2\", features = [\"lucide_icon\"] }");
+        ui.code("egui_component::icon::lucide::HEART");
+        ui.code("egui_component::icon::lucide::get(\"heart\")");
+        ui.add_space(8.0);
+
+        #[cfg(feature = "lucide_icon")]
+        {
+            use egui_component::icon::lucide;
+
+            ui.scope(|ui| {
+                let cell_size = 40.0;
+                let gap = 8.0;
+                ui.spacing_mut().item_spacing = egui::vec2(gap, gap);
+                let columns = ((ui.available_width() + gap) / (cell_size + gap))
+                    .floor()
+                    .max(1.0) as usize;
+                let rows = lucide::NAMES.len().div_ceil(columns);
+                // Only rasterize visible rows of the full icon collection.
+                egui::ScrollArea::vertical()
+                    .id_salt("lucide_icons_scroll")
+                    .max_height(300.0)
+                    .auto_shrink([false, true])
+                    .show_rows(ui, cell_size, rows, |ui, range| {
+                        for row in range {
+                            ui.horizontal(|ui| {
+                                for name in lucide::NAMES.iter().skip(row * columns).take(columns) {
+                                    let response = icon::render(
+                                        ui,
+                                        lucide::get(name).expect("known Lucide icon"),
+                                        icon::Style::new(theme).box_size(cell_size).icon_size(24.0),
+                                    );
+                                    tooltip::render(
+                                        &response,
+                                        |ui| {
+                                            text::render(ui, name, text::Style::new(theme));
+                                        },
+                                        &tooltip::Style::new(theme),
+                                    );
+                                }
+                            });
+                        }
+                    });
+            });
+        }
+        #[cfg(not(feature = "lucide_icon"))]
+        text::render(
+            ui,
+            locale.text("demo.icon:lucideDisabled"),
+            text::Style::new(theme),
+        );
+    });
+}

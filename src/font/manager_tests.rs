@@ -190,14 +190,22 @@ fn late_fallback_load_and_removal_change_actual_glyph_availability() {
     manager.apply(&ctx);
     ctx.begin_pass(Default::default());
     assert!(!has_chinese(&manager, &ctx));
-    // Use a nonzero collection index to exercise TTC face selection too.
-    manager
-        .load_from_bytes(
-            "cjk",
-            include_bytes!("../../examples/assets/NotoSansCJK-Regular.ttc"),
-            1,
-        )
-        .unwrap();
+    // Face 0 lacks Chinese; face 1 has it. Keep nonzero TTC selection covered
+    // without shipping the full gallery font in the crate.
+    let fixture = include_bytes!("../../examples/assets/font-fixtures/GalleryCJK-Test.ttc");
+    assert!(
+        ttf_parser::Face::parse(fixture, 0)
+            .unwrap()
+            .glyph_index('中')
+            .is_none()
+    );
+    assert!(
+        ttf_parser::Face::parse(fixture, 1)
+            .unwrap()
+            .glyph_index('中')
+            .is_some()
+    );
+    manager.load_from_bytes("cjk", fixture, 1).unwrap();
     assert!(manager.apply(&ctx));
     assert!(!has_chinese(&manager, &ctx));
     finish(&ctx);

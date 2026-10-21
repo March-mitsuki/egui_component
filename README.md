@@ -6,6 +6,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 ![egui_component dark screenshot](images/key_visual.dark.png)
+
 ![egui_component light screenshot](images/key_visual.light.png)
 
 ## 🚀 Introduction
@@ -27,8 +28,36 @@ Add the following dependency to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-egui_component = "0.1.0-alpha.2"
+egui_component = "0.2.0"
 ```
+
+### Optional Lucide icons
+
+Enable `lucide_icon` for the complete vendored Lucide SVG set:
+
+```toml
+egui_component = { version = "0.1.0-alpha.2", features = ["lucide_icon"] }
+```
+
+```rust
+use egui_component::icon::lucide;
+
+let heart = lucide::HEART;
+let arrow = lucide::get("arrow-down").unwrap();
+// lucide::NAMES lists all available upstream names.
+```
+
+Pass these image sources to the icon/button components as usual. SVG strokes are
+white so egui tinting controls their color; transparent fills stay transparent.
+Without this feature, only the existing `icon::ICONS` set is compiled in.
+Call `egui_extras::install_image_loaders(ctx)` once to enable SVG rendering.
+Assets are bundled in the crate; builds and applications do not download icons.
+
+Maintainers can run `python3 scripts/update_lucide_icons.py` to reproduce the pinned
+revision, or add `--ref main` (or a tag/commit) to update. Commit the generated
+`src/icon/lucide.rs` and `assets/lucide/` together. The upstream revision is recorded
+in `assets/lucide/source.json`; Lucide's ISC and Feather's MIT notices are retained
+in [assets/lucide/LICENSE](assets/lucide/LICENSE).
 
 ## 📝 Quick Start
 
@@ -74,7 +103,7 @@ trunk serve
 ```
 
 Open <http://127.0.0.1:8080>. `trunk build --release` produces a static website in `dist/`.
-The Web gallery uses WebGL and embeds its CJK font at compile time; it does not need access to local fonts at runtime. The bundled font adds approximately 19 MB before compression.
+The Web gallery uses WebGL and starts with default fonts, then asynchronously downloads its CJK fallback from GitHub. A persistent toast shows download progress and offers retry on failure. The native gallery uses the same background download and progress toast.
 Native gallery: `cargo run --example gallery`.
 
 The gallery is also the library's homepage: Home, Docs, and Components share a

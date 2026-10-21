@@ -1,7 +1,8 @@
 # egui_component_router
 
 Minimal typed SPA navigation for native and Web egui applications. This crate
-is an unpublished workspace member and has no dependency on egui_component or egui.
+shares its release version with egui_component and egui_component_style_macros,
+and has no dependency on egui_component or egui.
 
 Implement `Route` with `from_path` and `to_path`, then create a `Router` with an
 initial native route and a repaint callback. Use `current`, `navigate`, `replace`,
