@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::sync::OnceLock;
+use std::sync::{Arc, OnceLock};
 use web_time::{Duration, Instant};
 
 use egui::{Align2, Area, Frame, Id, Order, Ui, Vec2};
@@ -41,7 +41,10 @@ struct SpringState {
     vel: f32,
 }
 
+type Content = Arc<dyn Fn(&mut Ui, &Theme) + Send + Sync>;
+
 struct ToastManager {
+    contents: HashMap<u64, Content>,
     toasts: Vec<Toast>,
     next_id: u64,
     position: ToastPosition,
@@ -55,6 +58,7 @@ fn get_manager() -> &'static Mutex<ToastManager> {
     MANAGER.get_or_init(|| {
         Mutex::new(ToastManager {
             toasts: Vec::new(),
+            contents: HashMap::new(),
             next_id: 0,
             position: ToastPosition::default(),
             spring_states: HashMap::new(),
@@ -80,6 +84,36 @@ pub fn create(message: impl Into<String>, kind: ToastKind) {
         created_at: Instant::now(),
         duration: Duration::from_secs(3),
     });
+}
+
+/// Create a toast with arbitrary UI. `None` keeps it visible until [`dismiss`].
+/// The callback runs without the manager lock and may create or dismiss toasts.
+/// Capture shared state to update content between frames.
+pub fn custom(
+    kind: ToastKind,
+    duration: Option<Duration>,
+    content: impl Fn(&mut Ui, &Theme) + Send + Sync + 'static,
+) -> u64 {
+    let mut manager = get_manager().lock();
+    let id = manager.next_id;
+    manager.next_id += 1;
+    manager.toasts.push(Toast {
+        id,
+        kind,
+        message: String::new(),
+        created_at: Instant::now(),
+        duration: duration.unwrap_or(Duration::MAX),
+    });
+    manager.contents.insert(id, Arc::new(content));
+    id
+}
+
+/// Dismiss a toast, allowing its exit animation to complete.
+pub fn dismiss(id: u64) {
+    let mut manager = get_manager().lock();
+    if let Some(toast) = manager.toasts.iter_mut().find(|toast| toast.id == id) {
+        toast.duration = Instant::now().duration_since(toast.created_at);
+    }
 }
 
 pub fn info(message: impl Into<String>) {
@@ -109,6 +143,7 @@ pub fn renderer(ui: &mut Ui, theme: &Theme) {
         elapsed < t.duration.as_secs_f32() + 0.3
     });
     let active_ids: Vec<u64> = manager.toasts.iter().map(|t| t.id).collect();
+    manager.contents.retain(|id, _| active_ids.contains(id));
     manager.spring_states.retain(|id, _| {
         active_ids
             .iter()
@@ -218,14 +253,18 @@ pub fn renderer(ui: &mut Ui, theme: &Theme) {
 
         // ── 渲染 ──────────────────────────────────────────────────────────
         let area_id = Id::new("toast_area").with(toast.id);
+        let content = manager.contents.get(&toast.id).cloned();
+        drop(manager);
         let response = Area::new(area_id)
             .anchor(anchor, final_offset)
             .order(Order::Foreground)
             .interactable(true)
             .show(ctx, |ui| {
                 ui.set_max_width(320.0);
-                render_toast_ui(ui, theme, toast, alpha);
+                render_toast_ui(ui, theme, toast, alpha, content.as_ref());
             });
+
+        manager = get_manager().lock();
 
         // ── 堆叠高度累计 ──────────────────────────────────────────────────
         // 退出时通过 alpha 缩减占位高度，使下方 Toast 平滑上移
@@ -241,7 +280,13 @@ pub fn renderer(ui: &mut Ui, theme: &Theme) {
     ctx.request_repaint();
 }
 
-fn render_toast_ui(ui: &mut Ui, theme: &Theme, toast: &Toast, alpha: f32) {
+fn render_toast_ui(
+    ui: &mut Ui,
+    theme: &Theme,
+    toast: &Toast,
+    alpha: f32,
+    content: Option<&Content>,
+) {
     let color = match toast.kind {
         ToastKind::Info => theme.colors.blue.l4,
         ToastKind::Success => theme.colors.green.l4,
@@ -257,6 +302,12 @@ fn render_toast_ui(ui: &mut Ui, theme: &Theme, toast: &Toast, alpha: f32) {
         .corner_radius(egui::CornerRadius::same(theme.corner_radius.sm as u8))
         .inner_margin(egui::Margin::symmetric(16, 12))
         .show(ui, |ui| {
+            if let Some(content) = content {
+                ui.visuals_mut().override_text_color = Some(egui::Color32::WHITE);
+                ui.multiply_opacity(alpha);
+                content(ui, theme);
+                return;
+            }
             text::render(
                 ui,
                 &toast.message,
@@ -265,4 +316,47 @@ fn render_toast_ui(ui: &mut Ui, theme: &Theme, toast: &Toast, alpha: f32) {
                     .size(theme.text_size.sm),
             );
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    #[test]
+    fn custom_content_can_reenter_manager_and_persist_until_dismissed() {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let rendered = calls.clone();
+        let id = custom(ToastKind::Info, None, move |ui, _| {
+            // A callback must be able to call the manager without deadlocking.
+            set_position(ToastPosition::BottomRight);
+            rendered.fetch_add(1, Ordering::Relaxed);
+            ui.label("Custom content");
+        });
+        assert_eq!(
+            get_manager()
+                .lock()
+                .toasts
+                .iter()
+                .find(|t| t.id == id)
+                .unwrap()
+                .duration,
+            Duration::MAX
+        );
+        let ctx = egui::Context::default();
+        let theme =
+            crate::theme::UiTheme::from_json_bytes(include_bytes!("../examples/theme.json"))
+                .unwrap();
+        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+            renderer(ui, &theme.light);
+        });
+        assert!(calls.load(Ordering::Relaxed) > 0);
+        dismiss(id);
+        let mut manager = get_manager().lock();
+        assert!(
+            manager.toasts.iter().find(|t| t.id == id).unwrap().duration < Duration::from_secs(10)
+        );
+        manager.toasts.retain(|t| t.id != id);
+        manager.contents.remove(&id);
+    }
 }

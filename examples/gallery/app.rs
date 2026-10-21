@@ -676,6 +676,7 @@ impl GalleryApp {
     fn demo(&mut self, ui: &mut egui::Ui, theme: &Theme, component: Component) {
         let locale = self.locale();
         match component {
+            Component::Progress => pages::progress::show(ui, theme, locale),
             Component::Slider => pages::slider::show(ui, theme, locale),
             Component::ColorPicker => pages::color_picker::show(ui, theme, locale),
             Component::SegmentedControl => pages::segmented_control::show(ui, theme, locale),

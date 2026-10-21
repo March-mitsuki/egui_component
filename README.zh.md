@@ -83,7 +83,7 @@ trunk serve
 ```
 
 打开 <http://127.0.0.1:8080>。运行 `trunk build --release` 可在 `dist/` 生成静态网站。
-Web Gallery 使用 WebGL，中文字体在编译时内嵌，运行时无需读取本地字体。内嵌字体在压缩前约为 19 MB。
+Web Gallery 使用 WebGL，先以默认字体显示页面，再从 GitHub 异步下载多语言字体。右下角 Toast 显示下载进度，失败时可重试；桌面版仍然内嵌字体。
 桌面版本使用 `cargo run --example gallery` 运行。
 
 应用可以直接使用 egui 默认字体，也可以先通过 `FONT_MANAGER.load_from_bytes` 加载内嵌字体，再调用 `FONT_MANAGER.set_egui_fonts(&cc.egui_ctx)`。文件和系统字体加载仅供原生平台使用；主题 JSON 可在两个平台上通过 `UiTheme::from_json_bytes` 加载。

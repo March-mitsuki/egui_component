@@ -208,7 +208,7 @@
   "docs.typedroutes:title": "定义类型化路由",
   "docs.typedroutes:body": "egui_component_router 是独立的工作区 crate。为页面枚举实现 Route，同一套导航 API 可用于桌面与 Web。路由器不依赖 UI 库。",
   "docs.fonts:title": "随应用分发的字体",
-  "docs.fonts:body": "嵌入字体字节，实现原生与 Web 一致的字体支持。每帧渲染前应用字体管理器更新。Gallery 为多语言示例内置了中日韩回退字体。",
+  "docs.fonts:body": "加载内嵌或异步下载的字体字节，实现原生与 Web 的字体支持。每帧渲染前应用字体管理器更新。桌面 Gallery 内嵌中日韩回退字体，Web Gallery 启动后从 GitHub 异步下载。",
   "docs.colormode:title": "浅色与深色",
   "docs.colormode:body": "UiTheme 包含两种模式，渲染时选择当前主题。网站顶部的切换按钮作用于整个应用，包括所有实时示例。",
   "docs.brandcolors:title": "品牌配色",
@@ -346,5 +346,9 @@
   "slider:help": "拖动或使用方向键、Home 和 End。数值输入复用普通 TextEdit。",
   "colorPicker:help": "点击色块编辑 RGB / HEX，第二个色块还支持透明度。",
   "segmentedControl:help": "使用指针或键盘选择模式。",
-  "textEdit:multiline": "多行输入"
+  "textEdit:multiline": "多行输入",
+  "component.progress:name": "进度条",
+  "component.progress:description": "显示确定进度或未知总量的任务进度。",
+  "demo.progress:indeterminate": "未知总量",
+  "demo.toast:custom": "自定义内容与进度条"
 }

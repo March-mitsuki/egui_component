@@ -75,7 +75,7 @@ trunk serve
 ```
 
 Open <http://127.0.0.1:8080>. `trunk build --release` produces a static website in `dist/`.
-The Web gallery uses WebGL and embeds its CJK font at compile time; it does not need access to local fonts at runtime. The bundled font adds approximately 19 MB before compression.
+The Web gallery uses WebGL and starts with default fonts, then asynchronously downloads its CJK fallback from GitHub. A persistent toast shows download progress and offers retry on failure. The native gallery still embeds the font.
 Native gallery: `cargo run --example gallery`.
 
 The gallery is also the library's homepage: Home, Docs, and Components share a

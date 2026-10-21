@@ -9,6 +9,9 @@ use egui_component::theme::UiTheme;
 #[cfg(not(target_arch = "wasm32"))]
 mod logging;
 
+#[cfg(target_arch = "wasm32")]
+mod web_font;
+
 mod app;
 mod docs;
 mod i18n;
@@ -69,15 +72,6 @@ fn main() {
     // Web Panic Hook
     console_error_panic_hook::set_once();
 
-    FONT_MANAGER
-        .load_from_bytes(
-            "gallery-cjk",
-            include_bytes!("../assets/NotoSansCJK-Regular.ttc"),
-            0,
-        )
-        .unwrap();
-    FONT_MANAGER.set_fallback_chain(&["gallery-cjk"]);
-
     let web_options = eframe::WebOptions::default();
     let canvas = web_sys::window()
         .and_then(|window| window.document())
@@ -97,7 +91,9 @@ fn main() {
                     let ui_theme = UiTheme::from_json_bytes(include_bytes!("../theme.json"))
                         .expect("Failed to load theme.json");
 
-                    Ok(Box::new(GalleryApp::new(ui_theme, &cc.egui_ctx)?))
+                    let app = GalleryApp::new(ui_theme, &cc.egui_ctx)?;
+                    web_font::start(&cc.egui_ctx);
+                    Ok(Box::new(app))
                 }),
             )
             .await;

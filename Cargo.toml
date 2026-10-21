@@ -42,7 +42,7 @@ font-kit = "0.14"
 
 [dev-dependencies]
 egui_component_router = { path = "router" }
-ehttp = "0.7"
+ehttp = { version = "0.7", features = ["streaming"] }
 wuff = { version = "0.2.9", default-features = false, features = ["brotli"] }
 log = "0.4"
 wasm-bindgen = "0.2"

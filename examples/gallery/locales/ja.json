@@ -208,7 +208,7 @@
   "docs.typedroutes:title": "型付きルートの定義",
   "docs.typedroutes:body": "egui_component_router は独立したワークスペース crate です。ページ enum に Route を実装すれば、デスクトップと Web で同じ API を使えます。UI ライブラリへの依存はありません。",
   "docs.fonts:title": "アプリに同梱するフォント",
-  "docs.fonts:body": "フォントデータを同梱し、ネイティブと Web で文字を表示します。各フレームの描画前にフォント管理の更新を適用してください。Gallery は多言語サンプル用に CJK フォールバックを同梱しています。",
+  "docs.fonts:body": "同梱または非同期ダウンロードしたフォントデータを読み込み、各フレームの描画前に更新を適用してください。ネイティブ Gallery は CJK フォントを同梱し、Web Gallery は起動後に GitHub からダウンロードします。",
   "docs.colormode:title": "ライトとダーク",
   "docs.colormode:body": "UiTheme は両モードを含みます。描画時に使うテーマを選びます。ヘッダーの切り替えは、すべてのライブサンプルを含むアプリ全体に反映されます。",
   "docs.brandcolors:title": "ブランドカラー",
@@ -346,5 +346,9 @@
   "slider:help": "ドラッグ、矢印キー、Home、End に対応。数値入力には通常の TextEdit を使用します。",
   "colorPicker:help": "色見本をクリックして RGB / HEX を編集。二つ目は透明度にも対応します。",
   "segmentedControl:help": "ポインターまたはキーボードでモードを選択します。",
-  "textEdit:multiline": "複数行入力"
+  "textEdit:multiline": "複数行入力",
+  "component.progress:name": "プログレス",
+  "component.progress:description": "確定または不確定のタスク進捗を表示します。",
+  "demo.progress:indeterminate": "不確定の進捗",
+  "demo.toast:custom": "カスタムコンテンツと進捗"
 }

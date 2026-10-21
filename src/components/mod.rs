@@ -21,6 +21,8 @@ pub mod tooltip;
 pub mod utils;
 pub mod window;
 
-pub mod slider;
-pub mod segmented_control;
 pub mod color_picker;
+pub mod segmented_control;
+pub mod slider;
+
+pub mod progress;
