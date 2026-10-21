@@ -18,7 +18,7 @@ pub struct Style {
 impl Style {
     pub fn new(theme: &Theme) -> Self {
         Self {
-            selectable: false,
+            selectable: true,
             truncate: false,
             color: theme.colors.fg.base,
             size: theme.text_size.md,
@@ -29,7 +29,7 @@ impl Style {
 
     pub fn new_heading(theme: &Theme) -> Self {
         Self {
-            selectable: false,
+            selectable: true,
             truncate: false,
             color: theme.colors.fg.base,
             size: theme.text_size.lg,
