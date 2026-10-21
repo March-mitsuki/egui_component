@@ -150,31 +150,10 @@ Gallery 的 **Text** 页面可以运行时切换字体、开关中文 fallback�
 
 如果你也在用 egui_component, 欢迎提交 issue 添加你的项目到这里！
 
+## 参与贡献
+
+开发环境、检查命令与 `功能分支 → dev → main` 协作流程，请参阅[贡献指南](CONTRIBUTE.zh.md)。
+
 ## 📄 LICENSE
 
 本仓库及其包含的所有包均在 **MIT License** 下发布。
-
-
-### Gallery 主页
-
-运行 `cargo run --example gallery` 启动原生应用；运行 `trunk serve` 后访问
-`http://127.0.0.1:8080/` 使用 Web 版本。Home、Docs、Components 共用页头，
-文档和组件页采用左侧导航、正文、右侧页内目录的布局，窄窗口下导航自动折叠。
-页面使用 `egui_component_router`，例如 `/components/button?section=usage`。
-生产环境需要将页面请求回退至 `index.html`，由应用显示未知路径的 404 页面。
-
-
-### 品牌主题颜色
-
-`examples/theme.json` 分别配置明暗主题。`colors.primary.l6` 为主题色，
-`colors.bg.base` 为页面背景，`colors.fg.base` 为正文字色，颜色使用 RGBA 字节数组。
-目前亮色为 `#6B65F5` / `#FFFFFF` / `#202124`，暗色为
-`#8B85FF` / `#101318` / `#F6F7FB`。
-
-色阶可选的 `foreground` 字段控制实心彩色按钮的文字及图标颜色，主色色阶也用于
-Switch 的滑块颜色。旧 JSON 不需要增加该字段；省略时沿用原先默认值。
-`ICONS.logo_light` 和 `ICONS.logo_dark` 提供品牌 SVG，搭配 icon 组件时使用白色 tint 保留原色。
-
-Gallery 的 `/zh/theme-generator` 页面提供主题生成器：选择品牌色、预览明暗主题、编辑高级配置，并导出兼容 `UiTheme` 的 JSON。库中也提供 `theme_gen::generate`，以及支持独立或受控展开状态的 `components::accordion` 折叠面板。
-
-生成器统一使用库内组件，包括 `slider`、`color_picker`、`segmented_control` 和 `text_edit::render_multiline`。数值编辑复用普通 TextEdit，由页面负责解析，不单独提供 NumberInput 组件。
