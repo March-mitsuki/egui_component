@@ -2,10 +2,10 @@ use std::collections::HashMap;
 use std::sync::OnceLock;
 use web_time::{Duration, Instant};
 
-use egui::{Align2, Area, Frame, Id, Order, RichText, Ui, Vec2};
+use egui::{Align2, Area, Frame, Id, Order, Ui, Vec2};
 use parking_lot::Mutex;
 
-use crate::theme::Theme;
+use crate::{components::text, theme::Theme};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToastKind {
@@ -257,8 +257,10 @@ fn render_toast_ui(ui: &mut Ui, theme: &Theme, toast: &Toast, alpha: f32) {
         .corner_radius(egui::CornerRadius::same(theme.corner_radius.sm as u8))
         .inner_margin(egui::Margin::symmetric(16, 12))
         .show(ui, |ui| {
-            ui.label(
-                RichText::new(&toast.message)
+            text::render(
+                ui,
+                &toast.message,
+                text::Style::new(theme)
                     .color(text_color)
                     .size(theme.text_size.sm),
             );
