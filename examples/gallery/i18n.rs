@@ -125,6 +125,7 @@ mod tests {
             include_str!("docs.rs"),
             include_str!("routes.rs"),
             include_str!("main.rs"),
+            include_str!("pages/theme_generator.rs"),
         ];
         for source in sources.into_iter().chain(
             crate::routes::Component::ALL

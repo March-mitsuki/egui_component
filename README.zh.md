@@ -148,3 +148,7 @@ Gallery 的 **Text** 页面可以运行时切换字体、开关中文 fallback�
 色阶可选的 `foreground` 字段控制实心彩色按钮的文字及图标颜色，主色色阶也用于
 Switch 的滑块颜色。旧 JSON 不需要增加该字段；省略时沿用原先默认值。
 `ICONS.logo_light` 和 `ICONS.logo_dark` 提供品牌 SVG，搭配 icon 组件时使用白色 tint 保留原色。
+
+Gallery 的 `/zh/theme-generator` 页面提供主题生成器：选择品牌色、预览明暗主题、编辑高级配置，并导出兼容 `UiTheme` 的 JSON。库中也提供 `theme_gen::generate`，以及支持独立或受控展开状态的 `components::accordion` 折叠面板。
+
+生成器统一使用库内组件，包括 `slider`、`color_picker`、`segmented_control` 和 `text_edit::render_multiline`。数值编辑复用普通 TextEdit，由页面负责解析，不单独提供 NumberInput 组件。

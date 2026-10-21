@@ -1,3 +1,4 @@
+pub mod accordion;
 pub mod avatar;
 pub mod button;
 pub mod card;
@@ -19,3 +20,7 @@ pub mod text_edit;
 pub mod tooltip;
 pub mod utils;
 pub mod window;
+
+pub mod slider;
+pub mod segmented_control;
+pub mod color_picker;

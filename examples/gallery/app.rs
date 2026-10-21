@@ -16,6 +16,7 @@ use egui_component_router::{HistoryMode, Router};
 pub(crate) struct GalleryApp {
     router: Router<GalleryRoute>,
     ui_theme: UiTheme,
+    generator: pages::theme_generator::Generator,
     dark: bool,
     filter: String,
     mobile_nav: bool,
@@ -42,6 +43,7 @@ impl GalleryApp {
             router: Router::new(GalleryRoute::new(Locale::En, Page::Home), move || {
                 ctx.request_repaint()
             })?,
+            generator: pages::theme_generator::Generator::new(ui_theme.clone()),
             ui_theme,
             dark: false,
             filter: String::new(),
@@ -140,7 +142,7 @@ impl GalleryApp {
             .show_separator_line(false)
             .exact_size(if ui.available_width() < 480.0 {
                 154.0
-            } else if ui.available_width() < 820.0 {
+            } else if ui.available_width() < 1040.0 {
                 106.0
             } else {
                 68.0
@@ -152,7 +154,7 @@ impl GalleryApp {
                     .inner_margin(Margin::symmetric(20, 12)),
             )
             .show_inside(ui, |ui| {
-                let narrow = ui.available_width() < 780.0;
+                let narrow = ui.available_width() < 1000.0;
                 let compact = ui.available_width() < 440.0;
                 ui.horizontal(|ui| {
                     if self.logo(ui, theme, 44.0, true).clicked() {
@@ -195,7 +197,7 @@ impl GalleryApp {
                     });
                 });
                 if narrow {
-                    ui.horizontal(|ui| self.top_links(ui, theme));
+                    ui.horizontal_wrapped(|ui| self.top_links(ui, theme));
                 }
                 if compact {
                     ui.horizontal(|ui| self.language_menu(ui, theme));
@@ -237,6 +239,11 @@ impl GalleryApp {
                 Page::Component(Component::Button),
                 locale.text("nav:components"),
                 matches!(current, Page::Component(_)),
+            ),
+            (
+                Page::ThemeGenerator,
+                locale.text("nav:themeGenerator"),
+                current == Page::ThemeGenerator,
             ),
         ] {
             let mut style = if ui.available_width() < 440.0 {
@@ -339,6 +346,18 @@ impl GalleryApp {
             {
                 self.go(Page::Component(Component::Button));
             }
+        }
+        ui.add_space(28.0);
+        eyebrow(ui, locale.text("nav:tools"), theme);
+        if navigation::render(
+            ui,
+            locale.text("nav:themeGenerator"),
+            *page == Page::ThemeGenerator,
+            navigation::Style::new(theme),
+        )
+        .clicked()
+        {
+            self.go(Page::ThemeGenerator);
         }
         ui.add_space(28.0);
         muted(ui, locale.text("common:builtWith"), theme);
@@ -657,6 +676,10 @@ impl GalleryApp {
     fn demo(&mut self, ui: &mut egui::Ui, theme: &Theme, component: Component) {
         let locale = self.locale();
         match component {
+            Component::Slider => pages::slider::show(ui, theme, locale),
+            Component::ColorPicker => pages::color_picker::show(ui, theme, locale),
+            Component::SegmentedControl => pages::segmented_control::show(ui, theme, locale),
+            Component::Accordion => pages::accordion::show(ui, theme, locale),
             Component::Avatar => pages::avatar::show(ui, theme),
             Component::Button => pages::button::show(ui, theme, locale),
             Component::Card => pages::card::show(ui, theme, locale),
@@ -1005,6 +1028,11 @@ impl GalleryApp {
         self.header(ui, &theme);
         match page {
             Page::Home => self.home(ui, &theme),
+            Page::ThemeGenerator => {
+                if let Some(generated) = self.generator.show(ui, &theme, self.locale()) {
+                    self.ui_theme = generated;
+                }
+            }
             page @ (Page::Docs(_) | Page::Component(_)) => self.document(ui, &theme, page),
             Page::NotFound(path) => {
                 egui::CentralPanel::default()
@@ -1131,6 +1159,31 @@ mod layout_tests {
         }
     }
     #[test]
+    fn theme_generator_responsive_layout() {
+        for width in [375.0, 768.0, 1280.0, 1600.0] {
+            let ctx = egui::Context::default();
+            let theme = UiTheme::from_json_bytes(include_bytes!("../theme.json")).unwrap();
+            let mut app = GalleryApp::new(theme, &ctx).unwrap();
+            app.go(Page::ThemeGenerator);
+            for _ in 0..2 {
+                let output = ctx.run_ui(
+                    egui::RawInput {
+                        screen_rect: Some(egui::Rect::from_min_size(
+                            egui::Pos2::ZERO,
+                            egui::vec2(width, 900.0),
+                        )),
+                        ..Default::default()
+                    },
+                    |ui| app.render(ui),
+                );
+                assert!(
+                    red_rects(&output.shapes).is_empty(),
+                    "layout errors at {width}"
+                );
+            }
+        }
+    }
+    #[test]
     fn navigation_has_no_debug_error_borders() {
         let ctx = egui::Context::default();
         let theme = UiTheme::from_json_bytes(include_bytes!("../theme.json")).unwrap();
@@ -1140,6 +1193,12 @@ mod layout_tests {
             Page::Docs(Doc::GettingStarted),
             Page::Component(Component::Button),
             Page::Docs(Doc::Styling),
+            Page::Component(Component::Accordion),
+            Page::Component(Component::Slider),
+            Page::Component(Component::ColorPicker),
+            Page::Component(Component::SegmentedControl),
+            Page::Component(Component::TextEdit),
+            Page::ThemeGenerator,
             Page::Home,
         ] {
             app.go(page.clone());

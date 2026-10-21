@@ -139,3 +139,7 @@ behavior using the theme's main foreground. For example, the light primary scale
 uses `"foreground": [255, 255, 255, 255]`; the dark primary uses `[16, 19, 24, 255]`.
 The provided multicolor SVG logos are available as `ICONS.logo_light` and
 `ICONS.logo_dark`; use a white tint with the icon component to preserve their colors.
+
+The gallery includes a Theme Generator at `/en/theme-generator`: choose a brand color, preview light/dark themes, edit advanced tokens, and export a compatible `UiTheme` JSON. The library also exposes `theme_gen::generate` and a themed `components::accordion` disclosure with independent or controlled open state.
+
+The generator uses library components throughout, including `slider`, `color_picker`, `segmented_control`, and `text_edit::render_multiline`. Numeric values use the standard TextEdit with page-level parsing; there is no separate NumberInput component.

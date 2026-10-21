@@ -32,6 +32,10 @@ impl ComponentGroup {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Component {
+    SegmentedControl,
+    ColorPicker,
+    Slider,
+    Accordion,
     Avatar,
     Button,
     Card,
@@ -56,10 +60,12 @@ pub enum Component {
 }
 impl Component {
     pub const ALL: &'static [Self] = &[
+        Self::Accordion,
         Self::Avatar,
         Self::Button,
         Self::Card,
         Self::Code,
+        Self::ColorPicker,
         Self::Dialog,
         Self::Divider,
         Self::Field,
@@ -70,8 +76,10 @@ impl Component {
         Self::MenuButton,
         Self::Navigation,
         Self::ScrollArea,
+        Self::SegmentedControl,
         Self::Select,
         Self::Separator,
+        Self::Slider,
         Self::Switch,
         Self::Text,
         Self::TextEdit,
@@ -80,6 +88,10 @@ impl Component {
     ];
     pub fn slug(self) -> &'static str {
         match self {
+            Self::Slider => "slider",
+            Self::ColorPicker => "color-picker",
+            Self::SegmentedControl => "segmented-control",
+            Self::Accordion => "accordion",
             Self::Avatar => "avatar",
             Self::Button => "button",
             Self::Card => "card",
@@ -105,6 +117,10 @@ impl Component {
     }
     pub fn name(self, locale: crate::i18n::Locale) -> &'static str {
         match self {
+            Self::Slider => locale.text("component.slider:name"),
+            Self::ColorPicker => locale.text("component.colorPicker:name"),
+            Self::SegmentedControl => locale.text("component.segmentedControl:name"),
+            Self::Accordion => locale.text("component.accordion:name"),
             Self::Avatar => locale.text("component.avatar:name"),
             Self::Button => locale.text("component.button:name"),
             Self::Card => locale.text("component.card:name"),
@@ -130,6 +146,10 @@ impl Component {
     }
     pub fn group(self) -> ComponentGroup {
         match self {
+            Self::Slider => ComponentGroup::Inputs,
+            Self::ColorPicker => ComponentGroup::Inputs,
+            Self::SegmentedControl => ComponentGroup::Inputs,
+            Self::Accordion => ComponentGroup::Layout,
             Self::Avatar => ComponentGroup::Identity,
             Self::Button => ComponentGroup::Actions,
             Self::Card => ComponentGroup::Layout,
@@ -155,6 +175,10 @@ impl Component {
     }
     pub fn description(self, locale: crate::i18n::Locale) -> &'static str {
         match self {
+            Self::Slider => locale.text("component.slider:description"),
+            Self::ColorPicker => locale.text("component.colorPicker:description"),
+            Self::SegmentedControl => locale.text("component.segmentedControl:description"),
+            Self::Accordion => locale.text("component.accordion:description"),
             Self::Avatar => locale.text("component.avatar:description"),
             Self::Button => locale.text("component.button:description"),
             Self::Card => locale.text("component.card:description"),
@@ -180,6 +204,10 @@ impl Component {
     }
     pub fn source(self) -> &'static str {
         match self {
+            Self::Slider => include_str!("pages/slider.rs"),
+            Self::ColorPicker => include_str!("pages/color_picker.rs"),
+            Self::SegmentedControl => include_str!("pages/segmented_control.rs"),
+            Self::Accordion => include_str!("pages/accordion.rs"),
             Self::Avatar => include_str!("pages/avatar.rs"),
             Self::Button => include_str!("pages/button.rs"),
             Self::Card => include_str!("pages/card.rs"),
@@ -247,12 +275,16 @@ impl Doc {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Page {
     Home,
+    ThemeGenerator,
     Docs(Doc),
     Component(Component),
     NotFound(String),
 }
 impl Route for Page {
     fn from_path(path: &str) -> Self {
+        if path == "/theme-generator" {
+            return Self::ThemeGenerator;
+        }
         if path == "/" {
             return Self::Home;
         }
@@ -286,6 +318,7 @@ impl Route for Page {
     fn to_path(&self) -> String {
         match self {
             Self::Home => "/".into(),
+            Self::ThemeGenerator => "/theme-generator".into(),
             Self::Docs(doc) => format!("/docs/{}", doc.slug()),
             Self::Component(component) => format!("/components/{}", component.slug()),
             Self::NotFound(path) => path.clone(),
@@ -332,7 +365,8 @@ mod tests {
     fn localized_pages_round_trip_and_legacy_urls_default_to_english() {
         use crate::i18n::Locale;
         for locale in Locale::ALL {
-            for page in std::iter::once(Page::Home)
+            for page in [Page::Home, Page::ThemeGenerator]
+                .into_iter()
                 .chain(Doc::ALL.iter().copied().map(Page::Docs))
                 .chain(Component::ALL.iter().copied().map(Page::Component))
                 .chain([Page::NotFound("/missing".into())])
@@ -384,7 +418,8 @@ mod tests {
     }
     #[test]
     fn every_page_round_trips() {
-        for page in std::iter::once(Page::Home)
+        for page in [Page::Home, Page::ThemeGenerator]
+            .into_iter()
             .chain(Doc::ALL.iter().copied().map(Page::Docs))
             .chain(Component::ALL.iter().copied().map(Page::Component))
         {

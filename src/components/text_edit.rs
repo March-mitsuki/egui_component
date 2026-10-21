@@ -1507,3 +1507,41 @@ pub fn match_text_edit_palette(
         }
     }
 }
+
+/// A multiline version of the standard input. Styles stay local to this editor.
+/// Uses egui's text editing engine for selection, clipboard, undo, and IME.
+pub fn render_multiline(
+    ui: &mut Ui,
+    text: &mut String,
+    rows: usize,
+    style: Style,
+) -> egui::Response {
+    ui.scope(|ui| {
+        let family = FONT_MANAGER.default_egui_font_family(ui.ctx());
+        let visuals = ui.visuals_mut();
+        visuals.override_text_color = Some(style.palette.text_color);
+        visuals.extreme_bg_color = style.palette.normal_bg;
+        visuals.weak_text_color = Some(style.palette.placeholder_color);
+        visuals.text_cursor.stroke = style.palette.focus_stroke;
+        visuals.selection.bg_fill = style.palette.focus_stroke.color.gamma_multiply(0.25);
+        for widget in [
+            &mut visuals.widgets.inactive,
+            &mut visuals.widgets.hovered,
+            &mut visuals.widgets.active,
+        ] {
+            widget.bg_fill = style.palette.normal_bg;
+            widget.bg_stroke = style.palette.border_stroke;
+            widget.corner_radius = style.corner_radius;
+        }
+        ui.visuals_mut().widgets.active.bg_stroke = style.palette.focus_stroke;
+        ui.add(
+            egui::TextEdit::multiline(text)
+                .font(egui::FontId::new(style.text_size, family))
+                .text_color(style.palette.text_color)
+                .hint_text(style.placeholder)
+                .desired_width(style.width.unwrap_or(ui.available_width()))
+                .desired_rows(rows),
+        )
+    })
+    .inner
+}
