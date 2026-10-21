@@ -1,6 +1,6 @@
 [package]
 name = "egui_component"
-version = "0.1.0-alpha.2"
+version = "0.2.0"
 edition = "2024"
 authors = ["Zehua Yang <march772827981@gmail.com>"]
 license = "MIT"
@@ -24,7 +24,7 @@ name = "router"
 path = "examples/router/src/main.rs"
 
 [dependencies]
-egui_component_style_macros = { version = "0.1.0-alpha.2", path = "style_macros" } # internal
+egui_component_style_macros = { version = "0.2.0", path = "style_macros" } # internal
 
 anyhow = "1"
 tracing = "0.1"
@@ -46,7 +46,7 @@ font-kit = "0.14"
 
 [dev-dependencies]
 egui_component = { path = ".", features = ["lucide_icon"] }
-egui_component_router = { version = "0.1.0-alpha.2", path = "router" }
+egui_component_router = { version = "0.2.0", path = "router" }
 ehttp = { version = "0.7", features = ["streaming"] }
 wuff = { version = "0.2.9", default-features = false, features = ["brotli"] }
 log = "0.4"

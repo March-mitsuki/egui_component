@@ -1092,7 +1092,7 @@ dependencies = [
 
 [[package]]
 name = "egui_component"
-version = "0.1.0-alpha.2"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "console_error_panic_hook",
@@ -1122,7 +1122,7 @@ dependencies = [
 
 [[package]]
 name = "egui_component_router"
-version = "0.1.0-alpha.2"
+version = "0.2.0"
 dependencies = [
  "form_urlencoded",
  "percent-encoding",
@@ -1132,7 +1132,7 @@ dependencies = [
 
 [[package]]
 name = "egui_component_style_macros"
-version = "0.1.0-alpha.2"
+version = "0.2.0"
 dependencies = [
  "proc-macro2",
  "quote",

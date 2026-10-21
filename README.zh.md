@@ -29,7 +29,7 @@
 
 ```toml
 [dependencies]
-egui_component = "0.1.0-alpha.2"
+egui_component = "0.2.0"
 ```
 
 ### 先行版 (直接添加我们的 dev branch)

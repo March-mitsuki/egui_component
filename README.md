@@ -28,7 +28,7 @@ Add the following dependency to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-egui_component = "0.1.0-alpha.2"
+egui_component = "0.2.0"
 ```
 
 ### Optional Lucide icons
