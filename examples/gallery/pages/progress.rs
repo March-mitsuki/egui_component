@@ -12,10 +12,18 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         text::Style::new_heading(theme),
     );
     for value in [0.0, 0.35, 0.75, 1.0] {
-        ui.label(format!("{:.0}%", value * 100.0));
+        text::render(
+            ui,
+            &format!("{:.0}%", value * 100.0),
+            text::Style::new(theme),
+        );
         progress::render(ui, Some(value), progress::Style::new(theme));
         ui.add_space(12.0);
     }
-    ui.label(locale.text("demo.progress:indeterminate"));
+    text::render(
+        ui,
+        locale.text("demo.progress:indeterminate"),
+        text::Style::new(theme),
+    );
     progress::render(ui, None, progress::Style::new(theme));
 }
