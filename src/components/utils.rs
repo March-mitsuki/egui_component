@@ -37,7 +37,7 @@ impl CardFrame {
                     color: Color32::from_black_alpha(60),
                 })
                 .fill(theme.colors.bg.base)
-                .stroke(Stroke::new(1.0, theme.colors.gray.border())),
+                .stroke(Stroke::new(1.0_f32, theme.colors.gray.border())),
         }
     }
 
@@ -49,7 +49,6 @@ impl CardFrame {
 /// change style for current ui
 ///
 /// ### Returns
-///
 /// the style before change. can be used to restore style
 pub fn change_style(ui: &mut Ui, change_fn: impl FnOnce(&mut egui::Style)) -> egui::Style {
     let style_origin = (**ui.style()).clone();

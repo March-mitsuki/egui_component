@@ -3,7 +3,7 @@ use egui_component_style_macros::FrameModifier;
 
 use crate::theme::Theme;
 
-#[derive(FrameModifier)]
+#[derive(FrameModifier, Clone)]
 pub struct Style {
     align: egui::RectAlign,
     gap: f32,

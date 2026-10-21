@@ -1,9 +1,9 @@
 use egui::{Context, Ui};
 use egui_component_style_macros::FrameModifier;
 
-use crate::theme::Theme;
+use crate::{icon::ICONS, theme::Theme};
 
-#[derive(FrameModifier)]
+#[derive(FrameModifier, Clone)]
 pub struct Style {
     pub frame: egui::Frame,
     pub title: String,
@@ -52,22 +52,16 @@ pub fn render(ctx: &Context, renderer: impl FnOnce(&mut Ui), style: Style) {
         });
 }
 
-pub fn render_header(
-    ui: &mut Ui,
-    theme: &Theme,
-    title: &str,
-    close_icon: egui::ImageSource,
-    on_close: impl FnOnce(),
-) {
+pub fn render_header(ui: &mut Ui, theme: &Theme, title: &str, on_close: impl FnOnce()) {
     ui.horizontal(|ui| {
-        ui.heading(title);
+        super::text::render(ui, title, super::text::Style::new_heading(theme));
         ui.allocate_ui_with_layout(
             ui.available_size(),
             egui::Layout::right_to_left(egui::Align::Center),
             |ui| {
                 if super::icon_button::render(
                     ui,
-                    close_icon,
+                    ICONS.close.clone(),
                     super::icon_button::Style::new_ghost_sm(theme),
                 )
                 .clicked()

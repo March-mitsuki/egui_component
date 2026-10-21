@@ -1,20 +1,28 @@
 use egui::{Color32, Stroke};
 use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum AvatarSize {
+    Sm,
+    Md,
+    Lg,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ButtonSize {
     Xs,
     Sm,
     Md,
     Lg,
 }
-#[derive(PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum ButtonVariant {
     Solid,
     Surface,
     Outline,
     Ghost,
 }
+#[derive(Clone)]
 pub struct ButtonPalette {
     pub normal_bg: Color32,
     pub hover_bg: Color32,
@@ -23,7 +31,31 @@ pub struct ButtonPalette {
     pub stroke: Stroke,
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum TextEditSize {
+    Xs,
+    Sm,
+    Md,
+    Lg,
+}
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum TextEditVariant {
+    Subtle,
+    Outline,
+    Flushed,
+}
+#[derive(Clone)]
+pub struct TextEditPalette {
+    pub normal_bg: Color32,
+    pub hover_bg: Color32,
+    pub focus_bg: Color32,
+    pub text_color: Color32,
+    pub placeholder_color: Color32,
+    pub border_stroke: Stroke,
+    pub focus_stroke: Stroke,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum CardSize {
     Sm,
     Md,
@@ -32,6 +64,10 @@ pub enum CardSize {
 
 #[derive(Clone, Copy, Deserialize, Serialize)]
 pub struct Color {
+    /// Text/icon color on solid surfaces. If omitted, preserves the theme's
+    /// foreground color for compatibility with existing theme files.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub foreground: Option<Color32>,
     pub l0: Color32,
     pub l1: Color32,
     pub l2: Color32,
@@ -64,7 +100,7 @@ impl Color {
         match variant {
             ButtonVariant::Solid => ButtonPalette {
                 normal_bg: self.normal(),
-                text_color: theme.colors.fg.base,
+                text_color: self.foreground.unwrap_or(theme.colors.fg.base),
                 hover_bg: self.hover(),
                 active_bg: self.active(),
                 stroke: Stroke::NONE,
@@ -74,14 +110,14 @@ impl Color {
                 text_color: self.normal(),
                 hover_bg: self.l1,
                 active_bg: self.l2,
-                stroke: Stroke::new(1.0, self.l1),
+                stroke: Stroke::new(1.0_f32, self.l1),
             },
             ButtonVariant::Outline => ButtonPalette {
                 normal_bg: Color32::TRANSPARENT,
                 text_color: self.normal(),
                 hover_bg: self.l0,
                 active_bg: self.l1,
-                stroke: Stroke::new(1.0, self.normal()),
+                stroke: Stroke::new(1.0_f32, self.normal()),
             },
             ButtonVariant::Ghost => ButtonPalette {
                 normal_bg: Color32::TRANSPARENT,
@@ -103,7 +139,7 @@ pub struct SetColor {
     pub accent: Color32,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Colors {
     pub bg: SetColor,
     pub fg: SetColor,
@@ -126,13 +162,60 @@ pub struct CornerRadius {
     pub xl: f32,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Copy, Deserialize, Serialize)]
+pub struct TextSize {
+    pub xxs: f32,
+    pub xs: f32,
+    pub sm: f32,
+    pub md: f32,
+    pub lg: f32,
+    pub xl: f32,
+}
+
+#[derive(Clone, Copy, Deserialize, Serialize)]
+pub struct ButtonStyle {
+    /// 在 button 中是 height
+    /// 在 icon_button 中是 size
+    pub size: f32,
+    /// 在 button 中是 padding_x
+    /// 在 icon_button 中是 padding
+    pub padding: f32,
+
+    pub text_size: f32,
+    pub icon_size: f32,
+    pub gap: f32,
+}
+
+#[derive(Clone, Copy, Deserialize, Serialize)]
+pub struct ButtonStyles {
+    pub xs: ButtonStyle,
+    pub sm: ButtonStyle,
+    pub md: ButtonStyle,
+    pub lg: ButtonStyle,
+}
+
+#[derive(Clone, Copy, Deserialize, Serialize)]
+pub struct AvatarStyle {
+    pub size: f32,
+}
+
+#[derive(Clone, Copy, Deserialize, Serialize)]
+pub struct AvatarStyles {
+    pub sm: AvatarStyle,
+    pub md: AvatarStyle,
+    pub lg: AvatarStyle,
+}
+
+#[derive(Clone, Deserialize, Serialize)]
 pub struct Theme {
     pub colors: Colors,
     pub corner_radius: CornerRadius,
+    pub text_size: TextSize,
+    pub avatar: AvatarStyles,
+    pub button: ButtonStyles,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct UiTheme {
     pub dark: Theme,
     pub light: Theme,
@@ -140,8 +223,10 @@ pub struct UiTheme {
 
 impl UiTheme {
     /// 只是用来开发的时候更新构造体之后输出新的占位types
+    #[cfg(debug_assertions)]
     pub fn dummy() -> Self {
         let dummy_color = Color {
+            foreground: None,
             l0: Color32::from_hex("#f4f7e9").unwrap(),
             l1: Color32::from_hex("#e2ebca").unwrap(),
             l2: Color32::from_hex("#cbde9b").unwrap(),
@@ -166,6 +251,49 @@ impl UiTheme {
             lg: 12.0,
             xl: 16.0,
         };
+        let dummy_text_size = TextSize {
+            xxs: 12.0,
+            xs: 14.0,
+            sm: 16.0,
+            md: 18.0,
+            lg: 20.0,
+            xl: 22.0,
+        };
+        let dummy_avatar_styles = AvatarStyles {
+            sm: AvatarStyle { size: 24.0 },
+            md: AvatarStyle { size: 32.0 },
+            lg: AvatarStyle { size: 40.0 },
+        };
+        let dummy_btn_styles = ButtonStyles {
+            xs: ButtonStyle {
+                size: 18.0,
+                padding: 8.0,
+                text_size: 10.0,
+                icon_size: 10.0,
+                gap: 4.0,
+            },
+            sm: ButtonStyle {
+                size: 24.0,
+                padding: 10.0,
+                text_size: 12.0,
+                icon_size: 14.0,
+                gap: 6.0,
+            },
+            md: ButtonStyle {
+                size: 32.0,
+                padding: 14.0,
+                text_size: 14.0,
+                icon_size: 20.0,
+                gap: 6.0,
+            },
+            lg: ButtonStyle {
+                size: 40.0,
+                padding: 18.0,
+                text_size: 16.0,
+                icon_size: 26.0,
+                gap: 8.0,
+            },
+        };
 
         // dark mode
         let dark_colors = Colors {
@@ -182,6 +310,9 @@ impl UiTheme {
         let dark = Theme {
             colors: dark_colors,
             corner_radius: dummy_corner_radius,
+            text_size: dummy_text_size,
+            avatar: dummy_avatar_styles,
+            button: dummy_btn_styles,
         };
 
         // light mode
@@ -199,10 +330,14 @@ impl UiTheme {
         let light = Theme {
             colors: light_colors,
             corner_radius: dummy_corner_radius,
+            text_size: dummy_text_size,
+            avatar: dummy_avatar_styles,
+            button: dummy_btn_styles,
         };
         UiTheme { dark, light }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn from_json(path: impl AsRef<std::path::Path>) -> anyhow::Result<Self> {
         let json = std::fs::read_to_string(path)?;
         serde_json::from_str(&json).map_err(anyhow::Error::from)
@@ -214,5 +349,57 @@ impl UiTheme {
 
     pub fn to_json(&self) -> String {
         serde_json::to_string(self).unwrap()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    fn brand_theme() -> UiTheme {
+        UiTheme::from_json_bytes(include_bytes!("../examples/theme.json")).unwrap()
+    }
+    #[test]
+    fn brand_colors_and_solid_foregrounds_follow_each_mode() {
+        let ui = brand_theme();
+        for (theme, primary, bg, fg, on_primary) in [
+            (&ui.light, "#6B65F5", "#FFFFFF", "#202124", "#FFFFFF"),
+            (&ui.dark, "#8B85FF", "#101318", "#F6F7FB", "#101318"),
+        ] {
+            assert_eq!(
+                theme.colors.primary.normal(),
+                Color32::from_hex(primary).unwrap()
+            );
+            assert_eq!(theme.colors.bg.base, Color32::from_hex(bg).unwrap());
+            assert_eq!(theme.colors.fg.base, Color32::from_hex(fg).unwrap());
+            let palette = theme
+                .colors
+                .primary
+                .to_button_palette(theme, ButtonVariant::Solid);
+            assert_eq!(palette.text_color, Color32::from_hex(on_primary).unwrap());
+            assert_eq!(
+                crate::components::switch::Style::new(theme).knob_color,
+                palette.text_color
+            );
+        }
+    }
+    #[test]
+    fn legacy_color_json_keeps_its_previous_foreground() {
+        let theme = brand_theme().light;
+        let mut json = serde_json::to_value(theme.colors.primary).unwrap();
+        json.as_object_mut().unwrap().remove("foreground");
+        let color: Color = serde_json::from_value(json).unwrap();
+        assert_eq!(color.foreground, None);
+        assert_eq!(
+            color
+                .to_button_palette(&theme, ButtonVariant::Solid)
+                .text_color,
+            theme.colors.fg.base
+        );
+        assert!(
+            serde_json::to_value(color)
+                .unwrap()
+                .get("foreground")
+                .is_none()
+        );
     }
 }

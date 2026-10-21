@@ -1,9 +1,26 @@
+pub mod accordion;
+pub mod avatar;
 pub mod button;
+pub mod card;
+pub mod code;
 pub mod dialog;
+pub mod divider;
+pub mod field;
+pub mod icon;
 pub mod icon_button;
+pub mod icon_menu_button;
 pub mod menu_button;
-pub mod panel;
+pub mod navigation;
 pub mod scroll_area;
+pub mod select;
 pub mod separator;
+pub mod switch;
+pub mod text;
+pub mod text_edit;
 pub mod tooltip;
 pub mod utils;
+pub mod window;
+
+pub mod slider;
+pub mod segmented_control;
+pub mod color_picker;
