@@ -343,8 +343,32 @@ impl GalleryRoute {
         Self { locale, page }
     }
 }
-impl Route for GalleryRoute {
-    fn from_path(path: &str) -> Self {
+// The published router API stays unchanged: deployment paths belong to this gallery.
+fn deployment_base() -> &'static str {
+    option_env!("GALLERY_BASE_PATH")
+        .unwrap_or("")
+        .trim_end_matches('/')
+}
+
+impl GalleryRoute {
+    fn from_deployment_path(path: &str, base: &str) -> Self {
+        let base = base.trim_end_matches('/');
+        let path = if base.is_empty() {
+            path
+        } else if path == base {
+            "/"
+        } else if let Some(path) = path.strip_prefix(base).filter(|path| path.starts_with('/')) {
+            path
+        } else {
+            return Self::new(crate::i18n::Locale::En, Page::NotFound(path.into()));
+        };
+        // Static hosts may append a slash when serving a directory URL.
+        let path = if path == "/" {
+            path
+        } else {
+            path.trim_end_matches('/')
+        };
+
         let (prefix, tail) = path
             .strip_prefix('/')
             .unwrap_or(path)
@@ -356,18 +380,59 @@ impl Route for GalleryRoute {
             Self::new(crate::i18n::Locale::En, Page::from_path(path))
         }
     }
-    fn to_path(&self) -> String {
+    fn to_deployment_path(&self, base: &str) -> String {
+        let base = base.trim_end_matches('/');
         let page = self.page.to_path();
         if page == "/" {
-            format!("/{}", self.locale.code())
+            format!("{base}/{}", self.locale.code())
         } else {
-            format!("/{}{page}", self.locale.code())
+            format!("{base}/{}{page}", self.locale.code())
         }
     }
 }
+impl Route for GalleryRoute {
+    fn from_path(path: &str) -> Self {
+        Self::from_deployment_path(path, deployment_base())
+    }
+    fn to_path(&self) -> String {
+        self.to_deployment_path(deployment_base())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn deployment_prefix_round_trips_every_page_and_locale() {
+        use crate::i18n::Locale;
+        for base in ["", "/", "/egui_component", "/egui_component/"] {
+            for locale in Locale::ALL {
+                for page in [Page::Home, Page::ThemeGenerator]
+                    .into_iter()
+                    .chain(Doc::ALL.iter().copied().map(Page::Docs))
+                    .chain(Component::ALL.iter().copied().map(Page::Component))
+                {
+                    let route = GalleryRoute::new(locale, page);
+                    let path = route.to_deployment_path(base);
+                    assert!(path.starts_with(&format!("{}/", base.trim_end_matches('/'))));
+                    assert_eq!(GalleryRoute::from_deployment_path(&path, base), route);
+                    assert_eq!(
+                        GalleryRoute::from_deployment_path(&format!("{path}/"), base),
+                        route
+                    );
+                }
+            }
+        }
+        assert_eq!(
+            GalleryRoute::from_deployment_path("/egui_component/", "/egui_component").page,
+            Page::Home
+        );
+        assert!(matches!(
+            GalleryRoute::from_deployment_path("/egui_component-other/en", "/egui_component").page,
+            Page::NotFound(_)
+        ));
+    }
+
     #[test]
     fn localized_pages_round_trip_and_legacy_urls_default_to_english() {
         use crate::i18n::Locale;
