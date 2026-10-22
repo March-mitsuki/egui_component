@@ -144,37 +144,49 @@ Gallery 的 **Text** 页面可以运行时切换字体、开关中文 fallback�
 
 该页面也支持输入 HTTP(S) 字体文件直链，通过 `ehttp` 异步下载。默认使用 Google Fonts 的 Black Ops One Latin 字体地址：粘贴字体 URL，再点击 **Load font**。Gallery 使用 `wuff` 将 WOFF2 解压为 OpenType，再调用 `replace_family`；这些依赖仅用于示例。TTF/OTF/TTC 字节直接交给管理器。下载或解析失败时保留当前字体；取消或切换其他字体后，迟到的下载结果不会覆盖新选择。Web 下载需要字体服务器允许 CORS。Google Fonts 的链接可能只包含部分字符，缺少的字符仍会使用配置的 fallback 链。
 
+### 发布 Gallery 到 GitHub Pages
+
+1. 打开仓库 **Settings → Pages → Build and deployment**，将 **Source** 设置为
+   **GitHub Actions**。
+2. 将 `.github/workflows/gallery-pages.yml` 和 Gallery 路由修改合并到 `main`。
+   在属于 `main` 的提交上创建并推送 tag，才会构建部署该 tag 对应的版本。
+   普通分支推送和手动运行均不会触发部署；tag 指向的提交不属于 `main` 时会拒绝部署。
+3. 打开 `github-pages` 部署显示的地址。本仓库预期地址为
+   <https://march-mitsuki.github.io/egui_component/>。
+
+例如，更新本地 `main` 后：
+
+```sh
+git switch main
+git pull --ff-only
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+如果 `github-pages` 环境配置了部署限制，还需在 **Settings → Environments →
+github-pages → Deployment branches and tags** 中允许 tag 部署。
+
+Workflow 根据 Pages 元数据同时设置 Trunk 资源路径和 `GALLERY_BASE_PATH`。
+生成的 `404.html` 支持直接打开和刷新子页面；这类回退请求仍返回 HTTP 404。
+Gallery 部署不需要重新发布 crates.io，也不需要提交 `dist/` 构建产物。
+
+本地按相同子目录构建：
+
+```sh
+GALLERY_BASE_PATH=/egui_component/ trunk build --release --locked --public-url /egui_component/
+```
+
+
 ## 🌍 谁在用 egui_component ?
 
 - [ChiyoCast](https://chiyocast.com): 为次世代直播量身定制的云原生直播软件。
 
 如果你也在用 egui_component, 欢迎提交 issue 添加你的项目到这里！
 
+## 参与贡献
+
+开发环境、检查命令与 `功能分支 → dev → main` 协作流程，请参阅[贡献指南](CONTRIBUTE.zh.md)。
+
 ## 📄 LICENSE
 
 本仓库及其包含的所有包均在 **MIT License** 下发布。
-
-
-### Gallery 主页
-
-运行 `cargo run --example gallery` 启动原生应用；运行 `trunk serve` 后访问
-`http://127.0.0.1:8080/` 使用 Web 版本。Home、Docs、Components 共用页头，
-文档和组件页采用左侧导航、正文、右侧页内目录的布局，窄窗口下导航自动折叠。
-页面使用 `egui_component_router`，例如 `/components/button?section=usage`。
-生产环境需要将页面请求回退至 `index.html`，由应用显示未知路径的 404 页面。
-
-
-### 品牌主题颜色
-
-`examples/theme.json` 分别配置明暗主题。`colors.primary.l6` 为主题色，
-`colors.bg.base` 为页面背景，`colors.fg.base` 为正文字色，颜色使用 RGBA 字节数组。
-目前亮色为 `#6B65F5` / `#FFFFFF` / `#202124`，暗色为
-`#8B85FF` / `#101318` / `#F6F7FB`。
-
-色阶可选的 `foreground` 字段控制实心彩色按钮的文字及图标颜色，主色色阶也用于
-Switch 的滑块颜色。旧 JSON 不需要增加该字段；省略时沿用原先默认值。
-`ICONS.logo_light` 和 `ICONS.logo_dark` 提供品牌 SVG，搭配 icon 组件时使用白色 tint 保留原色。
-
-Gallery 的 `/zh/theme-generator` 页面提供主题生成器：选择品牌色、预览明暗主题、编辑高级配置，并导出兼容 `UiTheme` 的 JSON。库中也提供 `theme_gen::generate`，以及支持独立或受控展开状态的 `components::accordion` 折叠面板。
-
-生成器统一使用库内组件，包括 `slider`、`color_picker`、`segmented_control` 和 `text_edit::render_multiline`。数值编辑复用普通 TextEdit，由页面负责解析，不单独提供 NumberInput 组件。

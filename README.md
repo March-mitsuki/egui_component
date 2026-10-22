@@ -148,26 +148,51 @@ Open the Gallery's **Text** page to switch fonts, toggle CJK fallback, remove th
 
 The same page accepts a direct HTTP(S) font URL and downloads it asynchronously with `ehttp`. It includes Google Fonts Black Ops One as the default URL: paste a font URL and click **Load font**. The Gallery converts WOFF2 to OpenType with `wuff` before calling `replace_family`; these dependencies are confined to the example. TTF/OTF/TTC bytes are passed directly. Failed downloads or invalid fonts preserve the current font, and selecting another font or canceling discards late results. Web downloads require the font server to allow CORS. Google Fonts URLs may contain only a character subset; missing characters still use the configured fallback chain.
 
+### Publish the gallery to GitHub Pages
+
+1. In the repository's **Settings → Pages → Build and deployment**, set **Source**
+   to **GitHub Actions**.
+2. Merge `.github/workflows/gallery-pages.yml` and the gallery routing changes into
+   `main`. Create and push a tag on a commit belonging to `main` to deploy that
+   tagged version. Branch pushes and manual runs do not trigger deployment.
+   The workflow refuses tags whose commits are not contained in `main`.
+3. Open the URL shown by the `github-pages` deployment. For this repository it is
+   <https://march-mitsuki.github.io/egui_component/>.
+
+For example, after updating local `main`:
+
+```sh
+git switch main
+git pull --ff-only
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+If `github-pages` has environment deployment rules, allow tags under **Settings →
+Environments → github-pages → Deployment branches and tags** as well.
+
+The workflow sets both Trunk's asset URL and `GALLERY_BASE_PATH` from Pages
+metadata. A `404.html` copy of the app supports opening or refreshing deep links;
+GitHub Pages still returns HTTP 404 for these fallback requests. No crates.io
+release is needed for gallery deployments. Do not commit generated `dist/` files.
+
+To build the same project-site paths locally:
+
+```sh
+GALLERY_BASE_PATH=/egui_component/ trunk build --release --locked --public-url /egui_component/
+```
+
+## 🌍 Who's using egui_component ?
+
+- [ChiyoCast](https://chiyocast.com): cloud-native streaming software custom-built for next-gen creators.
+
+If you're using egui_component too, feel free to open an issue to get your project listed here!
+
+## Contributing
+
+See [the contribution guide](CONTRIBUTE.md) for development setup, checks, and the
+`feature branch → dev → main` workflow.
+
 ## 📄 LICENSE
 
 This repository and all its included packages are released under the **MIT License**.
-
-
-### Brand theme colors
-
-`examples/theme.json` configures the gallery and examples with separate light and
-dark palettes. `colors.primary.l6` is the brand accent, `colors.bg.base` the page
-background, and `colors.fg.base` the main text color. Colors are RGBA byte arrays.
-The gallery uses `#6B65F5` / `#8B85FF` accents, white / `#101318` backgrounds,
-and `#202124` / `#F6F7FB` text.
-
-A color scale can optionally include `foreground` to choose text/icons on solid
-colored buttons (and the primary switch thumb). Omit it to preserve the previous
-behavior using the theme's main foreground. For example, the light primary scale
-uses `"foreground": [255, 255, 255, 255]`; the dark primary uses `[16, 19, 24, 255]`.
-The provided multicolor SVG logos are available as `ICONS.logo_light` and
-`ICONS.logo_dark`; use a white tint with the icon component to preserve their colors.
-
-The gallery includes a Theme Generator at `/en/theme-generator`: choose a brand color, preview light/dark themes, edit advanced tokens, and export a compatible `UiTheme` JSON. The library also exposes `theme_gen::generate` and a themed `components::accordion` disclosure with independent or controlled open state.
-
-The generator uses library components throughout, including `slider`, `color_picker`, `segmented_control`, and `text_edit::render_multiline`. Numeric values use the standard TextEdit with page-level parsing; there is no separate NumberInput component.

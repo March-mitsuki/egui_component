@@ -1,0 +1,80 @@
+name: Deploy gallery to GitHub Pages
+
+on:
+  push:
+    tags: ["**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  NO_COLOR: "false"
+
+jobs:
+  build:
+    permissions:
+      contents: read
+      pages: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Require tag commit to belong to main
+        run: |
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::The tag must point to a commit on main. Deployment refused."
+            exit 1
+          fi
+      - name: Configure GitHub Pages
+        id: pages
+        uses: actions/configure-pages@v6
+      - name: Install Rust and WASM target
+        run: |
+          rustup toolchain install stable --profile minimal --target wasm32-unknown-unknown
+          rustup default stable
+      - name: Cache Rust builds and Trunk
+        uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/trunk
+            target
+          key: gallery-${{ runner.os }}-stable-trunk-0.21.14-${{ hashFiles('Cargo.lock') }}
+      - name: Install Trunk
+        run: |
+          if ! command -v trunk > /dev/null; then
+            cargo install trunk --version 0.21.14 --locked
+          fi
+      - name: Build gallery
+        env:
+          PUBLIC_URL: ${{ steps.pages.outputs.base_path }}/
+        run: |
+          GALLERY_BASE_PATH="$PUBLIC_URL" trunk build --release --locked --public-url "$PUBLIC_URL"
+          cp dist/index.html dist/404.html
+          touch dist/.nojekyll
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
