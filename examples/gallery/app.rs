@@ -78,7 +78,7 @@ impl GalleryApp {
             },
             |ui| {
                 for locale in Locale::ALL {
-                    let mut style = button::Style::new_ghost_sm(theme);
+                    let mut style = button::Style::new_ghost_sm(theme).width(Some(100.0));
                     if locale == current {
                         style.palette.normal_bg = theme.colors.primary.l0;
                     }
