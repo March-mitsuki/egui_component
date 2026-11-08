@@ -57,7 +57,7 @@
   "home:heroBody": "为 egui 打造的可组合组件。美观的默认样式、精确的样式控制，让创意直接落地。",
   "home:getStarted": "开始使用 →",
   "home:browseComponents": "浏览组件",
-  "home:version": "v0.1.0-alpha.2   /   从一开始就开源。",
+  "home:version": "v{version}   /   从一开始就开源。",
   "home:workspace": "你的工作空间",
   "home:composition": "由真实组件组合而成",
   "home:ideaTitle": "为下一个创意留出空间。",

@@ -57,7 +57,7 @@
   "home:heroBody": "egui 向けの組み合わせ可能なコンポーネント。美しい初期設定と細かなスタイル調整で、アイデアをすぐ形に。",
   "home:getStarted": "はじめる →",
   "home:browseComponents": "コンポーネントを見る",
-  "home:version": "v0.1.0-alpha.2   /   最初からオープンソース。",
+  "home:version": "v{version}   /   最初からオープンソース。",
   "home:workspace": "あなたのワークスペース",
   "home:composition": "コンポーネントを組み合わせた実例",
   "home:ideaTitle": "次のアイデアのための場所を。",

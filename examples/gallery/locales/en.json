@@ -57,7 +57,7 @@
   "home:heroBody": "Composable components for egui. Beautiful defaults, precise styling, and no framework standing between you and your next idea.",
   "home:getStarted": "Get started →",
   "home:browseComponents": "Browse components",
-  "home:version": "v0.1.0-alpha.2   /   Open source, from the start.",
+  "home:version": "v{version}   /   Open source, from the start.",
   "home:workspace": "Your workspace",
   "home:composition": "A live composition of our components",
   "home:ideaTitle": "Make room for your next idea.",

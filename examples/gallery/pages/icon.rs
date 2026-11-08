@@ -79,7 +79,7 @@ pub fn show_lucide(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             locale.text("demo.icon:lucideBrowse"),
             "https://lucide.dev/icons/",
         );
-        ui.code("egui_component = { version = \"0.1.0-alpha.2\", features = [\"lucide_icon\"] }");
+        ui.code(crate::versions::VERSIONS.lucide_installation.as_str());
         ui.code("egui_component::icon::lucide::HEART");
         ui.code("egui_component::icon::lucide::get(\"heart\")");
         ui.add_space(8.0);

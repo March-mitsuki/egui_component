@@ -16,6 +16,7 @@ mod docs;
 mod i18n;
 mod pages;
 mod routes;
+mod versions;
 
 use app::GalleryApp;
 

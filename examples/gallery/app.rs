@@ -906,7 +906,14 @@ impl GalleryApp {
             }
         });
         ui.add_space(20.0);
-        muted(ui, locale.text("home:version"), theme);
+        muted(
+            ui,
+            &locale.format(
+                "home:version",
+                &[("version", crate::versions::VERSIONS.component)],
+            ),
+            theme,
+        );
     }
     fn showcase(&mut self, ui: &mut egui::Ui, theme: &Theme) {
         let locale = self.locale();
