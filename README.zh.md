@@ -2,12 +2,16 @@
 
 [English](README.md) | [中文](README.zh.md)
 
+![egui_component_logo](images/logo.png)
+
 [![Crates.io](https://img.shields.io/crates/v/egui_component.svg)](https://crates.io/crates/egui_component)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-![egui_component dark screenshot](images/key_visual.dark.png)
+[实际案例 & 开发文档](https://march-mitsuki.github.io/egui_component/)
 
-![egui_component light screenshot](images/key_visual.light.png)
+![egui_component light screenshot](images/kv_light.png)
+
+![egui_component dark screenshot](images/kv_dark.png)
 
 ## 🚀 简介
 
@@ -29,7 +33,7 @@
 
 ```toml
 [dependencies]
-egui_component = "0.2.0"
+egui_component = "0.3.0"
 ```
 
 ### 先行版 (直接添加我们的 dev branch)
@@ -44,7 +48,7 @@ egui_component = { git = "https://github.com/March-mitsuki/egui_component", bran
 启用 `lucide_icon` feature 即可使用完整的 Lucide SVG 图标集：
 
 ```toml
-egui_component = { version = "0.1.0-alpha.2", features = ["lucide_icon"] }
+egui_component = { version = "0.3.0", features = ["lucide_icon"] }
 ```
 
 ```rust
@@ -59,11 +63,6 @@ let arrow = lucide::get("arrow-down").unwrap();
 的 tint 着色，透明填充保持不变。不开启 feature 时，只编译现有的 `icon::ICONS`。
 初始化时调用一次 `egui_extras::install_image_loaders(ctx)` 以支持 SVG 渲染。
 图标随 crate 分发，构建和运行时均不需要下载。
-
-维护者运行 `python3 scripts/update_lucide_icons.py` 可重现固定版本，添加
-`--ref main`（或 tag/commit）可更新。请一起提交生成的 `src/icon/lucide.rs`
-和 `assets/lucide/`。上游 commit 记录在 `assets/lucide/source.json`，完整保留
-Lucide ISC 和 Feather MIT 声明，见 [assets/lucide/LICENSE](assets/lucide/LICENSE)。
 
 ## 📝 快速开始
 
@@ -96,27 +95,17 @@ fn my_page(ui: &mut egui::Ui) {
 
 ## 📖 示例
 
-更多示例请查看 `examples/` 目录。
-
-### 在浏览器中运行 Gallery
-
-安装 WASM target 和 [Trunk](https://github.com/trunk-rs/trunk)，然后在仓库根目录运行：
+更多示例请查看 `examples/` 目录。可以通过[在线 Gallery](https://march-mitsuki.github.io/egui_component/)体验组件，也可以在仓库根目录运行桌面版：
 
 ```sh
-rustup target add wasm32-unknown-unknown
-cargo install trunk --locked
-trunk serve
+cargo run --example gallery
 ```
 
-打开 <http://127.0.0.1:8080>。运行 `trunk build --release` 可在 `dist/` 生成静态网站。
-Web Gallery 使用 WebGL，先以默认字体显示页面，再从 GitHub 异步下载多语言字体。右下角 Toast 显示下载进度，失败时可重试；桌面版使用相同的后台下载、进度提示和失败重试流程。
-桌面版本使用 `cargo run --example gallery` 运行。
-
-应用可以直接使用 egui 默认字体，也可以先通过 `FONT_MANAGER.load_from_bytes` 加载内嵌字体，再调用 `FONT_MANAGER.set_egui_fonts(&cc.egui_ctx)`。文件和系统字体加载仅供原生平台使用；主题 JSON 可在两个平台上通过 `UiTheme::from_json_bytes` 加载。
+浏览器版的本地运行与构建方法见[贡献指南](CONTRIBUTE.zh.md#开发环境)。
 
 ### 动态字体
 
-每帧渲染组件前调用 `FONT_MANAGER.apply(ui.ctx())`。未变化的版本会按 Context 分别跳过，`set_egui_fonts` 也可继续用于提交更新。egui 在下一次 pass 启用新字体；查询始终使用当前 Context 已生效的字体，避免引用尚未注册的字体名称。
+应用可以使用 egui 默认字体，也可以通过 `FONT_MANAGER` 加载内嵌字体或运行时获取的字体字节。每帧在 egui UI pass 中、渲染组件之前调用 `FONT_MANAGER.apply(ctx)`；字体查询方法也应在 UI pass 中调用。
 
 ```rust,ignore
 use egui_component::consts::{DEFAULT_FONT_FAMILY_ALIAS, FONT_MANAGER};
@@ -136,46 +125,11 @@ FONT_MANAGER.apply(ctx);
 let family = FONT_MANAGER.get_egui_font_family(ctx, DEFAULT_FONT_FAMILY_ALIAS, FontWeight::Bold);
 ```
 
-`load_from_bytes` 替换同一 family、字重及斜体样式的 face。`replace_family` 验证整组字体后一次性替换；解析失败、空批次、重复字重/样式都不会修改旧字体。通过 `remove_face`、`remove_family` 删除的字体会在下次 `apply` 时提交。缺字时依次使用 fallback 链中各 family 的相近字重，最后使用基础比例字体。常规体与斜体分别存储，`get_egui_font_family_with_style` 可选择样式。
+使用 `replace_family` 替换整个字体族，使用 `load_from_bytes` 添加或替换单个字体，使用 `set_fallback_chain` 配置缺字回退。可通过 `remove_face` 或 `remove_family` 删除字体。异步加载完成后调用 `ctx.request_repaint()`，让应用显示更新。
 
-字体查询方法现在需要以 `&egui::Context` 为第一个参数，并在 egui pass 中调用。独立的 `FontManager` 可以通过自己的查询方法服务多个 Context；组件使用全局 `FONT_MANAGER`。每个 Context 应由一个字体管理器负责；应用自定义字体可通过 `FontManager::with_base_fonts(definitions)` 或 `set_base_fonts` 提供，之后不要再独立覆盖 Context 的字体。管理器不会修改基础 `Proportional`、`Monospace` 字体链。
+文件和系统字体加载仅支持原生平台；Web 应用请传入字体字节。应用已有的字体可通过 `FontManager::with_base_fonts` 或 `set_base_fonts` 提供，之后统一由该管理器更新 Context 字体。
 
-Gallery 的 **Text** 页面可以运行时切换字体、开关中文 fallback、删除主字体，以及尝试加载错误字体。
-
-该页面也支持输入 HTTP(S) 字体文件直链，通过 `ehttp` 异步下载。默认使用 Google Fonts 的 Black Ops One Latin 字体地址：粘贴字体 URL，再点击 **Load font**。Gallery 使用 `wuff` 将 WOFF2 解压为 OpenType，再调用 `replace_family`；这些依赖仅用于示例。TTF/OTF/TTC 字节直接交给管理器。下载或解析失败时保留当前字体；取消或切换其他字体后，迟到的下载结果不会覆盖新选择。Web 下载需要字体服务器允许 CORS。Google Fonts 的链接可能只包含部分字符，缺少的字符仍会使用配置的 fallback 链。
-
-### 发布 Gallery 到 GitHub Pages
-
-1. 打开仓库 **Settings → Pages → Build and deployment**，将 **Source** 设置为
-   **GitHub Actions**。
-2. 将 `.github/workflows/gallery-pages.yml` 和 Gallery 路由修改合并到 `main`。
-   在属于 `main` 的提交上创建并推送 tag，才会构建部署该 tag 对应的版本。
-   普通分支推送和手动运行均不会触发部署；tag 指向的提交不属于 `main` 时会拒绝部署。
-3. 打开 `github-pages` 部署显示的地址。本仓库预期地址为
-   <https://march-mitsuki.github.io/egui_component/>。
-
-例如，更新本地 `main` 后：
-
-```sh
-git switch main
-git pull --ff-only
-git tag v0.2.0
-git push origin v0.2.0
-```
-
-如果 `github-pages` 环境配置了部署限制，还需在 **Settings → Environments →
-github-pages → Deployment branches and tags** 中允许 tag 部署。
-
-Workflow 根据 Pages 元数据同时设置 Trunk 资源路径和 `GALLERY_BASE_PATH`。
-生成的 `404.html` 支持直接打开和刷新子页面；这类回退请求仍返回 HTTP 404。
-Gallery 部署不需要重新发布 crates.io，也不需要提交 `dist/` 构建产物。
-
-本地按相同子目录构建：
-
-```sh
-GALLERY_BASE_PATH=/egui_component/ trunk build --release --locked --public-url /egui_component/
-```
-
+Gallery 的 **Text** 页面提供字体切换、缺字回退和字体 URL 加载示例。
 
 ## 🌍 谁在用 egui_component ?
 
@@ -185,7 +139,7 @@ GALLERY_BASE_PATH=/egui_component/ trunk build --release --locked --public-url /
 
 ## 参与贡献
 
-开发环境、检查命令与 `功能分支 → dev → main` 协作流程，请参阅[贡献指南](CONTRIBUTE.zh.md)。
+欢迎参与贡献，详见[贡献指南](CONTRIBUTE.zh.md)。
 
 ## 📄 LICENSE
 

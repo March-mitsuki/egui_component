@@ -25,7 +25,7 @@ pub fn start(ctx: &egui::Context) {
     let content_state = state.clone();
     let id = Arc::new(AtomicU64::new(u64::MAX));
     let content_id = id.clone();
-    let toast_id = toast::custom(toast::ToastKind::Info, None, move |ui, theme| {
+    let toast_id = toast::custom(ctx, toast::ToastKind::Info, None, move |ui, theme| {
         let (received, total, error, done) = {
             let state = content_state.lock().unwrap();
             (
@@ -43,7 +43,7 @@ pub fn start(ctx: &egui::Context) {
             ui.label("Multilingual font download failed");
             ui.label(error);
             if ui.button("Retry").clicked() {
-                toast::dismiss(content_id.load(Ordering::Relaxed));
+                toast::dismiss(ui.ctx(), content_id.load(Ordering::Relaxed));
                 start(ui.ctx());
             }
         } else {
@@ -107,8 +107,8 @@ pub fn start(ctx: &egui::Context) {
             Ok(true) => {
                 state.bytes = Vec::new();
                 state.done = true;
-                toast::dismiss(toast_id);
-                toast::success("Multilingual font ready");
+                toast::dismiss(&ctx, toast_id);
+                toast::success(&ctx, "Multilingual font ready");
                 ControlFlow::Break(())
             }
             Ok(false) => ControlFlow::Continue(()),

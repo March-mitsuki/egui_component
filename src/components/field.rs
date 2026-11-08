@@ -1,7 +1,7 @@
 use egui::{Frame, InnerResponse, Ui};
 
-use crate::theme::Theme;
 use crate::components::text;
+use crate::theme::Theme;
 
 #[derive(Clone)]
 pub struct Style {

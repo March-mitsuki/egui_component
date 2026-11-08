@@ -18,7 +18,7 @@ impl Style {
             height: 34.0,
             padding: 12.0,
             radius: 6,
-            text: text::Style::new(theme).size(14.0),
+            text: text::Style::new(theme).size(14.0).selectable(false),
             selected_background: theme.colors.primary.l0,
             hover_background: theme.colors.fg.base.gamma_multiply(0.07),
             selected_color: theme.colors.primary.l6,

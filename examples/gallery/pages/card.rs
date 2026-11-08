@@ -23,6 +23,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             .clicked()
             {
                 egui_component::toast::create(
+                    ui.ctx(),
                     locale.text("demo.card:created"),
                     egui_component::toast::ToastKind::Success,
                 );

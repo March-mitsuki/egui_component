@@ -6,21 +6,27 @@ use egui_component::{
     theme::Theme,
 };
 pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
+    let ctx = ui.ctx().clone();
     icon_menu_button::render(
         ui,
         ui.make_persistent_id("icon-actions"),
         vec![
             IconWithTooltip {
-                icon: ICONS.play.clone(),
-                tooltip: locale.text("common:play").into(),
+                icon: ICONS.success.clone(),
+                tooltip: locale.text("common:success").into(),
             },
             IconWithTooltip {
-                icon: ICONS.pause.clone(),
-                tooltip: locale.text("common:pause").into(),
+                icon: ICONS.warning.clone(),
+                tooltip: locale.text("common:warning").into(),
+            },
+            IconWithTooltip {
+                icon: ICONS.error.clone(),
+                tooltip: locale.text("common:error").into(),
             },
         ],
         |index| {
             egui_component::toast::create(
+                &ctx,
                 locale.format(
                     "demo.iconMenuButton:selected",
                     &[("index", &(index + 1).to_string())],

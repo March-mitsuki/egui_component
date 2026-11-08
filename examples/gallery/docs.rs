@@ -6,43 +6,44 @@ pub struct Section {
     pub body: &'static str,
     pub code: Option<(&'static str, &'static str)>,
 }
+static GETTING_STARTED: std::sync::LazyLock<[Section; 4]> = std::sync::LazyLock::new(|| {
+    [
+        Section {
+            id: "installation",
+            title: "docs.installation:title",
+            body: "docs.installation:body",
+            code: Some(("toml", crate::versions::VERSIONS.installation.as_str())),
+        },
+        Section {
+            id: "theme",
+            title: "docs.theme:title",
+            body: "docs.theme:body",
+            code: Some((
+                "rs",
+                "use egui_component::theme::UiTheme;\n\nlet ui_theme = UiTheme::from_json_bytes(\n    include_bytes!(\"theme.json\"),\n)?;\nlet theme = &ui_theme.light;",
+            )),
+        },
+        Section {
+            id: "first-component",
+            title: "docs.firstcomponent:title",
+            body: "docs.firstcomponent:body",
+            code: Some((
+                "rs",
+                "use egui_component::components::button;\n\nif button::render(\n    ui, \"Create project\",\n    button::Style::new_solid_md(theme),\n).clicked() {\n    // Handle the action.\n}",
+            )),
+        },
+        Section {
+            id: "next-steps",
+            title: "docs.nextsteps:title",
+            body: "docs.nextsteps:body",
+            code: None,
+        },
+    ]
+});
+
 pub fn sections(doc: Doc) -> &'static [Section] {
     match doc {
-        Doc::GettingStarted => &[
-            Section {
-                id: "installation",
-                title: "docs.installation:title",
-                body: "docs.installation:body",
-                code: Some((
-                    "toml",
-                    "[dependencies]\negui = \"0.34\"\negui_component = \"0.1.0-alpha.2\"",
-                )),
-            },
-            Section {
-                id: "theme",
-                title: "docs.theme:title",
-                body: "docs.theme:body",
-                code: Some((
-                    "rs",
-                    "use egui_component::theme::UiTheme;\n\nlet ui_theme = UiTheme::from_json_bytes(\n    include_bytes!(\"theme.json\"),\n)?;\nlet theme = &ui_theme.light;",
-                )),
-            },
-            Section {
-                id: "first-component",
-                title: "docs.firstcomponent:title",
-                body: "docs.firstcomponent:body",
-                code: Some((
-                    "rs",
-                    "use egui_component::components::button;\n\nif button::render(\n    ui, \"Create project\",\n    button::Style::new_solid_md(theme),\n).clicked() {\n    // Handle the action.\n}",
-                )),
-            },
-            Section {
-                id: "next-steps",
-                title: "docs.nextsteps:title",
-                body: "docs.nextsteps:body",
-                code: None,
-            },
-        ],
+        Doc::GettingStarted => &*GETTING_STARTED,
         Doc::Styling => &[
             Section {
                 id: "presets",

@@ -71,14 +71,16 @@ impl GalleryApp {
             ui,
             ui.make_persistent_id("gallery-language"),
             |ui| {
-                let mut style = button::Style::new_ghost_sm(theme);
-                style.icon_left =
-                    button::ButtonIcon::Some(egui_component::icon::ICONS.language.clone());
+                let style = button::Style::new_ghost_sm(theme);
+                #[cfg(feature = "lucide_icon")]
+                let style = style.icon_left(button::ButtonIcon::Some(
+                    egui_component::icon::lucide::LANGUAGES,
+                ));
                 button::render(ui, current.name(), style)
             },
             |ui| {
                 for locale in Locale::ALL {
-                    let mut style = button::Style::new_ghost_sm(theme);
+                    let mut style = button::Style::new_ghost_sm(theme).width(Some(100.0));
                     if locale == current {
                         style.palette.normal_bg = theme.colors.primary.l0;
                     }
@@ -206,9 +208,9 @@ impl GalleryApp {
     }
     fn logo(&self, ui: &mut egui::Ui, theme: &Theme, size: f32, clickable: bool) -> egui::Response {
         let source = if self.dark {
-            egui_component::icon::ICONS.logo_dark.clone()
+            egui::include_image!("assets/icons/egui_component-icon-256-dark-transparent.svg")
         } else {
-            egui_component::icon::ICONS.logo_light.clone()
+            egui::include_image!("assets/icons/egui_component-icon-256-light-transparent.svg")
         };
         icon::render(
             ui,
@@ -906,7 +908,14 @@ impl GalleryApp {
             }
         });
         ui.add_space(20.0);
-        muted(ui, locale.text("home:version"), theme);
+        muted(
+            ui,
+            &locale.format(
+                "home:version",
+                &[("version", crate::versions::VERSIONS.component)],
+            ),
+            theme,
+        );
     }
     fn showcase(&mut self, ui: &mut egui::Ui, theme: &Theme) {
         let locale = self.locale();

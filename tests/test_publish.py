@@ -45,6 +45,27 @@ class PublishTests(unittest.TestCase):
         self.assertEqual(main["dependencies"]["egui"]["version"], "0.34")
         self.assertIn('branch = "dev"', (self.root / "README.zh.md").read_text())
 
+    def test_bump_updates_lucide_examples_and_preserves_features(self):
+        with patch.object(release, "run_cmd"):
+            release.bump_version("0.3.0")
+        for filename in ["README.md", "README.zh.md"]:
+            self.assertIn(
+                'egui_component = { version = "0.3.0", features = ["lucide_icon"] }',
+                (self.root / filename).read_text(),
+            )
+
+    def test_stale_lucide_example_prevents_publish(self):
+        for filename in ["README.md", "README.zh.md"]:
+            with self.subTest(filename=filename):
+                path = self.root / filename
+                original = path.read_text()
+                path.write_text(original.replace('version = "0.2.0", features',
+                                                 'version = "0.1.0-alpha.2", features'))
+                with patch.object(release, "run_cmd") as run, self.assertRaises(ValueError):
+                    release.Cli().publish("router", publish=True)
+                run.assert_not_called()
+                path.write_text(original)
+
     def test_mismatch_prevents_any_publish(self):
         release.bump_cargo_toml_version(self.root / "router/Cargo.toml", "9.0.0")
         with patch.object(release, "run_cmd") as run, self.assertRaises(ValueError):
