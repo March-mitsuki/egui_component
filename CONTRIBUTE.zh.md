@@ -83,8 +83,7 @@ cargo install trunk --locked
 trunk serve
 ```
 
-打开 <http://127.0.0.1:8080>。Gallery 下载字体时需要联网；
-字体行为与更多示例见 [README](README.zh.md)。
+打开 <http://127.0.0.1:8080>。详细运行行为见下方的 [Gallery 开发与运行](#gallery-开发与运行)。
 
 ## 检查与代码约定
 
@@ -115,7 +114,60 @@ uv run python -m unittest discover -s tests -p 'test_*.py'
 ```
 
 更新 Lucide 图标时，将生成的图标资源与 Rust 索引一起提交；
-更新脚本和上游许可证声明见 README。
+详见下方的 [Lucide 图标维护](#lucide-图标维护)。
+
+## Gallery 开发与运行
+
+先按[开发环境](#开发环境)中的命令启动 Gallery。
+
+打开 <http://127.0.0.1:8080>。运行 `trunk build --release` 可在 `dist/` 生成静态网站。
+Web Gallery 使用 WebGL，先以默认字体显示页面，再从 GitHub 异步下载多语言字体。右下角 Toast 显示下载进度，失败时可重试；桌面版使用相同的后台下载、进度提示和失败重试流程。
+桌面版本使用 `cargo run --example gallery` 运行。
+
+### 字体交互示例
+
+Gallery 的 **Text** 页面可以运行时切换字体、开关中文 fallback、删除主字体，以及尝试加载错误字体。
+
+该页面也支持输入 HTTP(S) 字体文件直链，通过 `ehttp` 异步下载。默认使用 Google Fonts 的 Black Ops One Latin 字体地址：粘贴字体 URL，再点击 **Load font**。Gallery 使用 `wuff` 将 WOFF2 解压为 OpenType，再调用 `replace_family`；这些依赖仅用于示例。TTF/OTF/TTC 字节直接交给管理器。下载或解析失败时保留当前字体；取消或切换其他字体后，迟到的下载结果不会覆盖新选择。Web 下载需要字体服务器允许 CORS。Google Fonts 的链接可能只包含部分字符，缺少的字符仍会使用配置的 fallback 链。
+
+## Lucide 图标维护
+
+维护者运行 `python3 scripts/update_lucide_icons.py` 可重现固定版本，添加
+`--ref main`（或 tag/commit）可更新。请一起提交生成的 `src/icon/lucide.rs`
+和 `assets/lucide/`。上游 commit 记录在 `assets/lucide/source.json`，完整保留
+Lucide ISC 和 Feather MIT 声明，见 [assets/lucide/LICENSE](assets/lucide/LICENSE)。
+
+## Gallery 部署
+
+1. 打开仓库 **Settings → Pages → Build and deployment**，将 **Source** 设置为
+   **GitHub Actions**。
+2. 将 `.github/workflows/gallery-pages.yml` 和 Gallery 路由修改合并到 `main`。
+   在属于 `main` 的提交上创建并推送 tag，才会构建部署该 tag 对应的版本。
+   普通分支推送和手动运行均不会触发部署；tag 指向的提交不属于 `main` 时会拒绝部署。
+3. 打开 `github-pages` 部署显示的地址。本仓库预期地址为
+   <https://march-mitsuki.github.io/egui_component/>。
+
+例如，更新本地 `main` 后：
+
+```sh
+git switch main
+git pull --ff-only
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+如果 `github-pages` 环境配置了部署限制，还需在 **Settings → Environments →
+github-pages → Deployment branches and tags** 中允许 tag 部署。
+
+Workflow 根据 Pages 元数据同时设置 Trunk 资源路径和 `GALLERY_BASE_PATH`。
+生成的 `404.html` 支持直接打开和刷新子页面；这类回退请求仍返回 HTTP 404。
+Gallery 部署不需要重新发布 crates.io，也不需要提交 `dist/` 构建产物。
+
+本地按相同子目录构建：
+
+```sh
+GALLERY_BASE_PATH=/egui_component/ trunk build --release --locked --public-url /egui_component/
+```
 
 ## Issue 与 Pull Request
 

@@ -55,12 +55,6 @@ Without this feature, only the existing `icon::ICONS` set is compiled in.
 Call `egui_extras::install_image_loaders(ctx)` once to enable SVG rendering.
 Assets are bundled in the crate; builds and applications do not download icons.
 
-Maintainers can run `python3 scripts/update_lucide_icons.py` to reproduce the pinned
-revision, or add `--ref main` (or a tag/commit) to update. Commit the generated
-`src/icon/lucide.rs` and `assets/lucide/` together. The upstream revision is recorded
-in `assets/lucide/source.json`; Lucide's ISC and Feather's MIT notices are retained
-in [assets/lucide/LICENSE](assets/lucide/LICENSE).
-
 ## 📝 Quick Start
 
 `egui_component` follows egui's Immediate Mode design philosophy. If you are familiar with egui, getting started will feel very natural.
@@ -92,37 +86,17 @@ fn my_page(ui: &mut egui::Ui) {
 
 ## 📖 Examples
 
-See `examples/` directory for more examples.
-
-### Gallery in a browser
-
-Install the WASM target and [Trunk](https://github.com/trunk-rs/trunk), then run from the repository root:
+See `examples/` for more examples. Explore components in the [online gallery](https://march-mitsuki.github.io/egui_component/), or run the native gallery from the repository root:
 
 ```sh
-rustup target add wasm32-unknown-unknown
-cargo install trunk --locked
-trunk serve
+cargo run --example gallery
 ```
 
-Open <http://127.0.0.1:8080>. `trunk build --release` produces a static website in `dist/`.
-The Web gallery uses WebGL and starts with default fonts, then asynchronously downloads its CJK fallback from GitHub. A persistent toast shows download progress and offers retry on failure. The native gallery uses the same background download and progress toast.
-Native gallery: `cargo run --example gallery`.
-
-The gallery is also the library's homepage: Home, Docs, and Components share a
-header and use `egui_component_router` on both platforms. Desktop documentation
-pages have a sidebar, scrollable content, and a page outline. Smaller windows
-collapse the sidebar into Browse pages and move the outline above the content.
-Try `/docs/getting-started`, `/components/button`, or
-`/components/button?section=usage`. Unknown paths show an application 404 page.
-For production hosting, serve assets normally and fall back to `index.html` for
-page requests; Trunk's development SPA fallback is already enabled.
-
-
-For your own app, use egui's default fonts or call `FONT_MANAGER.load_from_bytes` with bundled font bytes before `FONT_MANAGER.set_egui_fonts(&cc.egui_ctx)`. File and system font loading are native-only; theme JSON can be loaded on both platforms with `UiTheme::from_json_bytes`.
+For local browser setup and builds, see the [contribution guide](CONTRIBUTE.md#development-setup).
 
 ### Dynamic fonts
 
-Call `FONT_MANAGER.apply(ui.ctx())` before rendering each frame. Unchanged versions are skipped independently for each context. `set_egui_fonts` remains an alias for applying updates. egui activates updates on the next pass; family lookups use the context's active fonts, so pending fonts cannot cause missing-family errors.
+Use egui's default fonts, or load bundled or runtime font bytes through `FONT_MANAGER`. Call `FONT_MANAGER.apply(ctx)` during each egui UI pass before rendering components, and perform font family lookups within the UI pass.
 
 ```rust,ignore
 use egui_component::consts::{DEFAULT_FONT_FAMILY_ALIAS, FONT_MANAGER};
@@ -142,47 +116,11 @@ FONT_MANAGER.apply(ctx);
 let family = FONT_MANAGER.get_egui_font_family(ctx, DEFAULT_FONT_FAMILY_ALIAS, FontWeight::Bold);
 ```
 
-`load_from_bytes` replaces a matching family/weight/italic slot. `replace_family` validates the entire batch before replacing it; malformed data, empty batches and duplicate slots leave the previous family intact. `remove_face` and `remove_family` queue removals for the next `apply`. Fallback uses the closest weight in each configured family, then the base proportional fonts. Regular and italic faces have separate slots; `get_egui_font_family_with_style` selects the style.
+Use `replace_family` to replace a whole family, `load_from_bytes` to add or replace a single font, and `set_fallback_chain` to configure missing-character fallback. Remove fonts with `remove_face` or `remove_family`. After asynchronous loading, call `ctx.request_repaint()` to display the update.
 
-Family lookup methods now take `&egui::Context` as their first argument and must be called during an egui pass. A standalone `FontManager` can serve multiple contexts with its own lookup methods. Components use the global `FONT_MANAGER`. Each context should have one font manager owner; to preserve application-defined fonts, initialize it with `FontManager::with_base_fonts(definitions)` or call `set_base_fonts`. Do not independently overwrite the context's fonts afterwards. Managed fonts do not change the base proportional/monospace chains.
+File and system font loading are native-only; Web applications should supply font bytes. Provide existing application fonts through `FontManager::with_base_fonts` or `set_base_fonts`, then let that manager handle subsequent Context font updates.
 
-Open the Gallery's **Text** page to switch fonts, toggle CJK fallback, remove the primary family, and try an invalid font at runtime.
-
-The same page accepts a direct HTTP(S) font URL and downloads it asynchronously with `ehttp`. It includes Google Fonts Black Ops One as the default URL: paste a font URL and click **Load font**. The Gallery converts WOFF2 to OpenType with `wuff` before calling `replace_family`; these dependencies are confined to the example. TTF/OTF/TTC bytes are passed directly. Failed downloads or invalid fonts preserve the current font, and selecting another font or canceling discards late results. Web downloads require the font server to allow CORS. Google Fonts URLs may contain only a character subset; missing characters still use the configured fallback chain.
-
-### Publish the gallery to GitHub Pages
-
-1. In the repository's **Settings → Pages → Build and deployment**, set **Source**
-   to **GitHub Actions**.
-2. Merge `.github/workflows/gallery-pages.yml` and the gallery routing changes into
-   `main`. Create and push a tag on a commit belonging to `main` to deploy that
-   tagged version. Branch pushes and manual runs do not trigger deployment.
-   The workflow refuses tags whose commits are not contained in `main`.
-3. Open the URL shown by the `github-pages` deployment. For this repository it is
-   <https://march-mitsuki.github.io/egui_component/>.
-
-For example, after updating local `main`:
-
-```sh
-git switch main
-git pull --ff-only
-git tag v0.2.0
-git push origin v0.2.0
-```
-
-If `github-pages` has environment deployment rules, allow tags under **Settings →
-Environments → github-pages → Deployment branches and tags** as well.
-
-The workflow sets both Trunk's asset URL and `GALLERY_BASE_PATH` from Pages
-metadata. A `404.html` copy of the app supports opening or refreshing deep links;
-GitHub Pages still returns HTTP 404 for these fallback requests. No crates.io
-release is needed for gallery deployments. Do not commit generated `dist/` files.
-
-To build the same project-site paths locally:
-
-```sh
-GALLERY_BASE_PATH=/egui_component/ trunk build --release --locked --public-url /egui_component/
-```
+The gallery's **Text** page demonstrates font switching, fallback, and loading fonts from a URL.
 
 ## 🌍 Who's using egui_component ?
 
@@ -192,8 +130,7 @@ If you're using egui_component too, feel free to open an issue to get your proje
 
 ## Contributing
 
-See [the contribution guide](CONTRIBUTE.md) for development setup, checks, and the
-`feature branch → dev → main` workflow.
+Contributions are welcome; see [the contribution guide](CONTRIBUTE.md).
 
 ## 📄 LICENSE
 

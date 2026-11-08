@@ -88,8 +88,7 @@ cargo install trunk --locked
 trunk serve
 ```
 
-Open <http://127.0.0.1:8080>. Gallery font downloads need network access; see the
-[README](README.md) for font behavior and more examples.
+Open <http://127.0.0.1:8080>. See [Gallery development](#gallery-development) below for runtime behavior.
 
 ## Checks and coding expectations
 
@@ -122,7 +121,72 @@ uv run python -m unittest discover -s tests -p 'test_*.py'
 ```
 
 Commit generated Lucide assets and their Rust index together when updating icons;
-see the README for the update script and upstream license notices.
+see [Lucide icon maintenance](#lucide-icon-maintenance) below.
+
+## Gallery development
+
+Start the gallery using the commands in [Development setup](#development-setup).
+
+Open <http://127.0.0.1:8080>. `trunk build --release` produces a static website in `dist/`.
+The Web gallery uses WebGL and starts with default fonts, then asynchronously downloads its CJK fallback from GitHub. A persistent toast shows download progress and offers retry on failure. The native gallery uses the same background download and progress toast.
+Native gallery: `cargo run --example gallery`.
+
+The gallery is also the library's homepage: Home, Docs, and Components share a
+header and use `egui_component_router` on both platforms. Desktop documentation
+pages have a sidebar, scrollable content, and a page outline. Smaller windows
+collapse the sidebar into Browse pages and move the outline above the content.
+Try `/docs/getting-started`, `/components/button`, or
+`/components/button?section=usage`. Unknown paths show an application 404 page.
+For production hosting, serve assets normally and fall back to `index.html` for
+page requests; Trunk's development SPA fallback is already enabled.
+
+### Font interaction example
+
+Open the Gallery's **Text** page to switch fonts, toggle CJK fallback, remove the primary family, and try an invalid font at runtime.
+
+The same page accepts a direct HTTP(S) font URL and downloads it asynchronously with `ehttp`. It includes Google Fonts Black Ops One as the default URL: paste a font URL and click **Load font**. The Gallery converts WOFF2 to OpenType with `wuff` before calling `replace_family`; these dependencies are confined to the example. TTF/OTF/TTC bytes are passed directly. Failed downloads or invalid fonts preserve the current font, and selecting another font or canceling discards late results. Web downloads require the font server to allow CORS. Google Fonts URLs may contain only a character subset; missing characters still use the configured fallback chain.
+
+## Lucide icon maintenance
+
+Maintainers can run `python3 scripts/update_lucide_icons.py` to reproduce the pinned
+revision, or add `--ref main` (or a tag/commit) to update. Commit the generated
+`src/icon/lucide.rs` and `assets/lucide/` together. The upstream revision is recorded
+in `assets/lucide/source.json`; Lucide's ISC and Feather's MIT notices are retained
+in [assets/lucide/LICENSE](assets/lucide/LICENSE).
+
+## Gallery deployment
+
+1. In the repository's **Settings → Pages → Build and deployment**, set **Source**
+   to **GitHub Actions**.
+2. Merge `.github/workflows/gallery-pages.yml` and the gallery routing changes into
+   `main`. Create and push a tag on a commit belonging to `main` to deploy that
+   tagged version. Branch pushes and manual runs do not trigger deployment.
+   The workflow refuses tags whose commits are not contained in `main`.
+3. Open the URL shown by the `github-pages` deployment. For this repository it is
+   <https://march-mitsuki.github.io/egui_component/>.
+
+For example, after updating local `main`:
+
+```sh
+git switch main
+git pull --ff-only
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+If `github-pages` has environment deployment rules, allow tags under **Settings →
+Environments → github-pages → Deployment branches and tags** as well.
+
+The workflow sets both Trunk's asset URL and `GALLERY_BASE_PATH` from Pages
+metadata. A `404.html` copy of the app supports opening or refreshing deep links;
+GitHub Pages still returns HTTP 404 for these fallback requests. No crates.io
+release is needed for gallery deployments. Do not commit generated `dist/` files.
+
+To build the same project-site paths locally:
+
+```sh
+GALLERY_BASE_PATH=/egui_component/ trunk build --release --locked --public-url /egui_component/
+```
 
 ## Issues and pull requests
 
