@@ -8,6 +8,7 @@ pub struct Style {
     pub frame: egui::Frame,
     pub title: String,
     pub size: (f32, f32),
+    pub backdrop_color: egui::Color32,
 }
 impl Style {
     pub fn new(theme: &Theme) -> Self {
@@ -16,6 +17,7 @@ impl Style {
             title: "Dialog".to_string(),
             size: (400.0, 0.0),
             frame: card_frame.frame,
+            backdrop_color: egui::Color32::from_black_alpha(100),
         }
     }
 
@@ -28,15 +30,26 @@ impl Style {
         self.size = size;
         self
     }
+
+    pub fn backdrop_color(mut self, color: egui::Color32) -> Self {
+        self.backdrop_color = color;
+        self
+    }
 }
 
-pub fn render(ctx: &Context, renderer: impl FnOnce(&mut Ui), style: Style) {
-    egui::Window::new(style.title.clone())
-        .collapsible(false)
-        .resizable(false)
-        .title_bar(false)
+/// Shows a centered modal that blocks interaction with the background.
+///
+/// `style.title` identifies the modal and should be unique among dialogs.
+/// The caller owns the open state and may use the returned response's
+/// `should_close()` to handle backdrop clicks and Escape.
+pub fn render(
+    ctx: &Context,
+    renderer: impl FnOnce(&mut Ui),
+    style: Style,
+) -> egui::ModalResponse<()> {
+    egui::Modal::new(egui::Id::new(&style.title))
         .frame(style.frame)
-        .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+        .backdrop_color(style.backdrop_color)
         .show(ctx, |ui| {
             if style.size.0 > 0.0 {
                 ui.set_width(style.size.0);
@@ -49,7 +62,7 @@ pub fn render(ctx: &Context, renderer: impl FnOnce(&mut Ui), style: Style) {
                 // 渲染实际内容
                 renderer(ui);
             });
-        });
+        })
 }
 
 pub fn render_header(ui: &mut Ui, theme: &Theme, title: &str, on_close: impl FnOnce()) {
