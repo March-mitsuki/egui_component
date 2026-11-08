@@ -2,14 +2,16 @@
 
 [English](README.md) | [中文](README.zh.md)
 
+![egui_component_logo](images/logo.png)
+
 [![Crates.io](https://img.shields.io/crates/v/egui_component.svg)](https://crates.io/crates/egui_component)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 [实际案例 & 开发文档](https://march-mitsuki.github.io/egui_component/)
 
-![egui_component dark screenshot](images/key_visual.dark.png)
+![egui_component light screenshot](images/kv_light.png)
 
-![egui_component light screenshot](images/key_visual.light.png)
+![egui_component dark screenshot](images/kv_dark.png)
 
 ## 🚀 简介
 
