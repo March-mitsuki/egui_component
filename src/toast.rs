@@ -5,7 +5,11 @@ use web_time::{Duration, Instant};
 use egui::{Align2, Area, Frame, Id, Order, Ui, Vec2};
 use parking_lot::Mutex;
 
-use crate::{components::text, theme::Theme};
+use crate::{
+    components::{icon, text},
+    icon::ICONS,
+    theme::Theme,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ToastKind {
@@ -287,35 +291,55 @@ fn render_toast_ui(
     alpha: f32,
     content: Option<&Content>,
 ) {
-    let color = match toast.kind {
-        ToastKind::Info => theme.colors.blue.l4,
-        ToastKind::Success => theme.colors.green.l4,
-        ToastKind::Warning => theme.colors.orange.l4,
-        ToastKind::Error => theme.colors.red.l4,
+    let status_icon = match toast.kind {
+        ToastKind::Info => None,
+        ToastKind::Success => Some((ICONS.success.clone(), theme.colors.green.l4)),
+        ToastKind::Warning => Some((ICONS.warning.clone(), theme.colors.orange.l4)),
+        ToastKind::Error => Some((ICONS.error.clone(), theme.colors.red.l4)),
     };
 
-    let bg_color = color.gamma_multiply(alpha);
-    let text_color = egui::Color32::WHITE.gamma_multiply(alpha);
-
-    Frame::NONE
-        .fill(bg_color)
-        .corner_radius(egui::CornerRadius::same(theme.corner_radius.sm as u8))
-        .inner_margin(egui::Margin::symmetric(16, 12))
-        .show(ui, |ui| {
-            if let Some(content) = content {
-                ui.visuals_mut().override_text_color = Some(egui::Color32::WHITE);
-                ui.multiply_opacity(alpha);
-                content(ui, theme);
-                return;
+    ui.scope(|ui| {
+        ui.multiply_opacity(alpha);
+        ui.visuals_mut().override_text_color = Some(theme.colors.fg.base);
+        let frame = Frame::NONE
+            .fill(theme.colors.bg.base)
+            .stroke(egui::Stroke::new(1.0_f32, theme.colors.gray.border()))
+            .corner_radius(egui::CornerRadius::same(theme.corner_radius.sm as u8))
+            .inner_margin(egui::Margin::symmetric(16, 12));
+        // Include padding and border in the shared outer width.
+        let content_width = 320.0 - frame.total_margin().sum().x;
+        frame.show(ui, |ui| {
+            ui.set_width(content_width);
+            let render_content = |ui: &mut Ui| {
+                if let Some(content) = content {
+                    content(ui, theme);
+                } else {
+                    text::render(
+                        ui,
+                        &toast.message,
+                        text::Style::new(theme).size(theme.text_size.sm),
+                    );
+                }
+            };
+            if let Some((source, color)) = status_icon {
+                ui.horizontal_top(|ui| {
+                    ui.spacing_mut().item_spacing.x = 12.0;
+                    icon::render(
+                        ui,
+                        source,
+                        icon::Style::new(theme)
+                            .box_size(20.0)
+                            .icon_size(20.0)
+                            .color(color)
+                            .sense(egui::Sense::hover()),
+                    );
+                    ui.vertical(render_content);
+                });
+            } else {
+                render_content(ui);
             }
-            text::render(
-                ui,
-                &toast.message,
-                text::Style::new(theme)
-                    .color(text_color)
-                    .size(theme.text_size.sm),
-            );
         });
+    });
 }
 
 #[cfg(test)]
