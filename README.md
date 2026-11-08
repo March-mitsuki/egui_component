@@ -30,7 +30,7 @@ Add the following dependency to your `Cargo.toml` file:
 
 ```toml
 [dependencies]
-egui_component = "0.2.0"
+egui_component = "0.3.0"
 ```
 
 ### Optional Lucide icons
@@ -38,7 +38,7 @@ egui_component = "0.2.0"
 Enable `lucide_icon` for the complete vendored Lucide SVG set:
 
 ```toml
-egui_component = { version = "0.2.0", features = ["lucide_icon"] }
+egui_component = { version = "0.3.0", features = ["lucide_icon"] }
 ```
 
 ```rust

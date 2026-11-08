@@ -48,6 +48,8 @@ VERSION_RE = re.compile(
     r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
 )
 
+class ProcessStdIOBroken(Exception):
+    pass
 
 def run_cmd(cmd: list[str], working_dir: Path):
     # An argv list works on POSIX and Windows without shell parsing.
@@ -72,6 +74,8 @@ def run_cmd(cmd: list[str], working_dir: Path):
     return_code = process.wait()
     for thread in threads:
         thread.join()
+    if process.stdout is None or process.stderr is None:
+        raise ProcessStdIOBroken()
     process.stdout.close()
     process.stderr.close()
     if return_code:

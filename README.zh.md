@@ -31,7 +31,7 @@
 
 ```toml
 [dependencies]
-egui_component = "0.2.0"
+egui_component = "0.3.0"
 ```
 
 ### 先行版 (直接添加我们的 dev branch)
@@ -46,7 +46,7 @@ egui_component = { git = "https://github.com/March-mitsuki/egui_component", bran
 启用 `lucide_icon` feature 即可使用完整的 Lucide SVG 图标集：
 
 ```toml
-egui_component = { version = "0.2.0", features = ["lucide_icon"] }
+egui_component = { version = "0.3.0", features = ["lucide_icon"] }
 ```
 
 ```rust
