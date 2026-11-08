@@ -1,6 +1,6 @@
 use egui::{Color32, CornerRadius, Popup, Response, Sense, Stroke, Ui};
 
-use crate::theme::{Theme, Color};
+use crate::theme::{Color, Theme};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SelectSize {
@@ -175,12 +175,14 @@ pub fn render(
     // 2. Query popup open state
     let is_open = egui::Popup::is_id_open(ui.ctx(), id);
 
-
-
     // 4. Animation factors
     let is_hovered = response.hovered() && !style.disabled;
-    let hover_factor = ui.ctx().animate_bool_with_time(response.id.with("hover"), is_hovered, 0.15);
-    let open_factor = ui.ctx().animate_bool_with_time(response.id.with("open"), is_open, 0.15);
+    let hover_factor = ui
+        .ctx()
+        .animate_bool_with_time(response.id.with("hover"), is_hovered, 0.15);
+    let open_factor = ui
+        .ctx()
+        .animate_bool_with_time(response.id.with("open"), is_open, 0.15);
 
     // 5. Draw background
     let bg_color = if style.disabled {
@@ -253,7 +255,9 @@ pub fn render(
     // Layout text
     let font_family = crate::consts::FONT_MANAGER.default_egui_font_family(ui.ctx());
     let font_id = egui::FontId::new(style.text_size, font_family);
-    let galley = ui.painter().layout_no_wrap(display_text.to_string(), font_id, text_color);
+    let galley = ui
+        .painter()
+        .layout_no_wrap(display_text.to_string(), font_id, text_color);
 
     // Calculate text position (vertically centered, left aligned with padding)
     let text_pos = egui::pos2(
@@ -279,12 +283,7 @@ pub fn render(
     let rotation_angle = open_factor * std::f32::consts::PI;
     let cos = rotation_angle.cos();
     let sin = rotation_angle.sin();
-    let rotate_point = |p: egui::Vec2| {
-        egui::vec2(
-            p.x * cos - p.y * sin,
-            p.x * sin + p.y * cos,
-        )
-    };
+    let rotate_point = |p: egui::Vec2| egui::vec2(p.x * cos - p.y * sin, p.x * sin + p.y * cos);
 
     let p0 = arrow_center + rotate_point(egui::vec2(-arrow_size / 2.0, -arrow_size / 4.0));
     let p1 = arrow_center + rotate_point(egui::vec2(0.0, arrow_size / 4.0));
@@ -303,7 +302,10 @@ pub fn render(
         .gap(style.popup_gap)
         .show(|ui| {
             // Match select box width exactly (accounting for frame border/margin)
-            let inner_width = (rect.width() - style.popup_frame.inner_margin.sum().x - style.popup_frame.stroke.width * 2.0).max(0.0);
+            let inner_width = (rect.width()
+                - style.popup_frame.inner_margin.sum().x
+                - style.popup_frame.stroke.width * 2.0)
+                .max(0.0);
             ui.set_width(inner_width);
 
             // Wrap items in ScrollArea
@@ -347,7 +349,13 @@ pub fn render_item(
     if bg_color != Color32::TRANSPARENT {
         // Match popup corner radius but slightly smaller or just use sm
         let corner_radius = CornerRadius::same(theme.corner_radius.xs as u8);
-        ui.painter().rect(rect, corner_radius, bg_color, Stroke::NONE, egui::StrokeKind::Outside);
+        ui.painter().rect(
+            rect,
+            corner_radius,
+            bg_color,
+            Stroke::NONE,
+            egui::StrokeKind::Outside,
+        );
     }
 
     // Draw text
@@ -359,7 +367,9 @@ pub fn render_item(
 
     let font_family = crate::consts::FONT_MANAGER.default_egui_font_family(ui.ctx());
     let font_id = egui::FontId::new(style.text_size, font_family);
-    let galley = ui.painter().layout_no_wrap(text.to_string(), font_id, text_color);
+    let galley = ui
+        .painter()
+        .layout_no_wrap(text.to_string(), font_id, text_color);
 
     let text_pos = egui::pos2(
         rect.left() + style.padding_x - 4.0, // align nicely
@@ -369,10 +379,7 @@ pub fn render_item(
 
     // Draw checkmark icon on the right if selected
     if selected {
-        let checkmark_center = egui::pos2(
-            rect.right() - style.padding_x,
-            rect.center().y,
-        );
+        let checkmark_center = egui::pos2(rect.right() - style.padding_x, rect.center().y);
         let check_stroke = Stroke::new(1.8_f32, style.active_border_stroke.color);
         ui.painter().line_segment(
             [
