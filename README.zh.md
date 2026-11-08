@@ -46,7 +46,7 @@ egui_component = { git = "https://github.com/March-mitsuki/egui_component", bran
 启用 `lucide_icon` feature 即可使用完整的 Lucide SVG 图标集：
 
 ```toml
-egui_component = { version = "0.1.0-alpha.2", features = ["lucide_icon"] }
+egui_component = { version = "0.2.0", features = ["lucide_icon"] }
 ```
 
 ```rust

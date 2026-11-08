@@ -93,14 +93,24 @@ def require_proj_root():
         raise ValueError("Run publish.py from the repository root")
 
 
-def get_version_in_readme(path: Path, install_section_match: str):
+def readme_version_matches(text: str, install_section_match: str):
     in_section = False
-    for line in path.read_text(encoding="utf-8").splitlines():
+    pattern = re.compile(r'^egui_component\s*=\s*(?:\{[^}]*?\bversion\s*=\s*)?"([^"]+)"')
+    for index, line in enumerate(text.splitlines(keepends=True)):
         if line.startswith("## "):
             in_section = line.startswith(install_section_match)
-        if in_section and line.startswith("egui_component = "):
-            return line.split("=", 1)[1].strip().strip('"')
-    raise ValueError(f"Missing installation version in {path}")
+        if in_section and (match := pattern.match(line)):
+            yield index, match
+
+
+def get_version_in_readme(path: Path, install_section_match: str):
+    matches = list(readme_version_matches(path.read_text(encoding="utf-8"), install_section_match))
+    if not matches:
+        raise ValueError(f"Missing installation version in {path}")
+    versions = {match.group(1) for _, match in matches}
+    if len(versions) != 1:
+        raise ValueError(f"Inconsistent installation versions in {path}: {sorted(versions)}")
+    return versions.pop()
 
 
 def get_versions(main: dict, macros: dict, router: dict):
@@ -140,16 +150,15 @@ def bump_cargo_toml_version(path: Path, next_version: str):
 
 
 def bump_readme_version(path: Path, install_section_match: str, next_version: str):
-    lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
-    in_section = False
-    for index, line in enumerate(lines):
-        if line.startswith("## "):
-            in_section = line.startswith(install_section_match)
-        if in_section and line.startswith("egui_component = "):
-            lines[index] = f'egui_component = "{next_version}"\n'
-            path.write_text("".join(lines), encoding="utf-8")
-            return
-    raise ValueError(f"Missing installation version in {path}")
+    text = path.read_text(encoding="utf-8")
+    lines = text.splitlines(keepends=True)
+    matches = list(readme_version_matches(text, install_section_match))
+    if not matches:
+        raise ValueError(f"Missing installation version in {path}")
+    for index, match in matches:
+        start, end = match.span(1)
+        lines[index] = lines[index][:start] + next_version + lines[index][end:]
+    path.write_text("".join(lines), encoding="utf-8")
 
 
 def sync_self_dependency_version():

@@ -38,7 +38,7 @@ egui_component = "0.2.0"
 Enable `lucide_icon` for the complete vendored Lucide SVG set:
 
 ```toml
-egui_component = { version = "0.1.0-alpha.2", features = ["lucide_icon"] }
+egui_component = { version = "0.2.0", features = ["lucide_icon"] }
 ```
 
 ```rust
