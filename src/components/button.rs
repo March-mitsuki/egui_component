@@ -641,7 +641,7 @@ pub fn render(ui: &mut Ui, text: &str, style: Style) -> egui::Response {
         style.corner_radius,
         fill_color,
         stroke,
-        StrokeKind::Outside,
+        StrokeKind::Inside,
     );
 
     // 绘制内容（图标和文字水平居中排列）

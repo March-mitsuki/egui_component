@@ -1,4 +1,11 @@
 {
+  "component.drawer:name": "Drawer",
+  "component.drawer:description": "Animated side panels with a scrollable body and fixed actions.",
+  "demo.drawer:open": "Open drawer",
+  "demo.drawer:heading": "Drawer Title",
+  "demo.drawer:body": "Press Esc or click the backdrop to close.",
+  "demo.drawer:cancel": "Cancel",
+  "demo.drawer:save": "Save",
   "nav:home": "Home",
   "nav:docs": "Docs",
   "nav:components": "Components",

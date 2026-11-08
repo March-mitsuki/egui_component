@@ -1,4 +1,11 @@
 {
+  "component.drawer:name": "抽屉",
+  "component.drawer:description": "带动画的侧边面板，正文可滚动，操作区固定在底部。",
+  "demo.drawer:open": "打开抽屉",
+  "demo.drawer:heading": "抽屉标题",
+  "demo.drawer:body": "按 Esc 或点击遮罩关闭。",
+  "demo.drawer:cancel": "取消",
+  "demo.drawer:save": "保存",
   "nav:home": "首页",
   "nav:docs": "文档",
   "nav:components": "组件",

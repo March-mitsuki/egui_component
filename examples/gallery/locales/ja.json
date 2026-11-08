@@ -1,4 +1,11 @@
 {
+  "component.drawer:name": "ドロワー",
+  "component.drawer:description": "本文のスクロールと固定アクションに対応したアニメーション付きサイドパネル。",
+  "demo.drawer:open": "ドロワーを開く",
+  "demo.drawer:heading": "ドロワーのタイトル",
+  "demo.drawer:body": "Esc キーまたは背景のクリックで閉じます。",
+  "demo.drawer:cancel": "キャンセル",
+  "demo.drawer:save": "保存",
   "nav:home": "ホーム",
   "nav:docs": "ドキュメント",
   "nav:components": "コンポーネント",

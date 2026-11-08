@@ -701,6 +701,7 @@ impl GalleryApp {
             Component::Card => pages::card::show(ui, theme, locale),
             Component::Code => pages::code::show(ui, theme, locale),
             Component::Dialog => pages::dialog::show(ui, theme, locale),
+            Component::Drawer => pages::drawer::show(ui, theme, locale),
             Component::Divider => pages::divider::show(ui, theme, locale),
             Component::Field => pages::field::show(ui, theme, locale),
             Component::Form => self.form_page.show(ui, theme, locale),
