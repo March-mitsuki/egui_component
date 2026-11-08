@@ -11,12 +11,16 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui.make_persistent_id("icon-actions"),
         vec![
             IconWithTooltip {
-                icon: ICONS.play.clone(),
-                tooltip: locale.text("common:play").into(),
+                icon: ICONS.success.clone(),
+                tooltip: locale.text("common:success").into(),
             },
             IconWithTooltip {
-                icon: ICONS.pause.clone(),
-                tooltip: locale.text("common:pause").into(),
+                icon: ICONS.warning.clone(),
+                tooltip: locale.text("common:warning").into(),
+            },
+            IconWithTooltip {
+                icon: ICONS.error.clone(),
+                tooltip: locale.text("common:error").into(),
             },
         ],
         |index| {

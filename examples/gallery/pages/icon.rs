@@ -14,20 +14,13 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui.add_space(8.0);
 
         let icons = [
-            ("no_img", ICONS.no_img.clone()),
-            ("play", ICONS.play.clone()),
-            ("pause", ICONS.pause.clone()),
-            ("stop", ICONS.stop.clone()),
-            ("volume1", ICONS.volume1.clone()),
-            ("add", ICONS.add.clone()),
-            ("language", ICONS.language.clone()),
-            ("trash", ICONS.trash.clone()),
             ("close", ICONS.close.clone()),
             ("arrow_down", ICONS.arrow_down.clone()),
-            ("lock", ICONS.lock.clone()),
-            ("lock_open", ICONS.lock_open.clone()),
             ("eye", ICONS.eye.clone()),
             ("eye_slash", ICONS.eye_slash.clone()),
+            ("success", ICONS.success.clone()),
+            ("warning", ICONS.warning.clone()),
+            ("error", ICONS.error.clone()),
         ];
 
         ui.scope(|ui| {

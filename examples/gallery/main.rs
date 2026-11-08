@@ -34,7 +34,7 @@ fn main() -> eframe::Result {
             .with_title("egui_component")
             .with_icon(
                 eframe::icon_data::from_png_bytes(include_bytes!(
-                    "../../assets/icons/egui_component-icon-256-light.png"
+                    "assets/icons/egui_component-icon-256-light.png"
                 ))
                 .expect("valid gallery logo"),
             ),

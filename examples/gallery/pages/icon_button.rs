@@ -8,9 +8,9 @@ use egui_component::{
 pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
     ui.horizontal_wrapped(|ui| {
         for (label, image) in [
-            (locale.text("common:play"), ICONS.play.clone()),
-            (locale.text("common:pause"), ICONS.pause.clone()),
-            (locale.text("common:add"), ICONS.add.clone()),
+            (locale.text("common:success"), ICONS.success.clone()),
+            (locale.text("common:warning"), ICONS.warning.clone()),
+            (locale.text("common:error"), ICONS.error.clone()),
         ] {
             let response =
                 icon_button::render(ui, image, icon_button::Style::new_outline_md(theme));
