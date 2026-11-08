@@ -23,6 +23,8 @@ include = [
     "/images/**",
     "/README.md",
     "/README.zh.md",
+    "/CHANGELOG.md",
+    "/CHANGELOG.zh.md",
     "/LICENSE",
 ]
 

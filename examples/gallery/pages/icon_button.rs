@@ -16,6 +16,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 icon_button::render(ui, image, icon_button::Style::new_outline_md(theme));
             if response.clicked() {
                 egui_component::toast::create(
+                    ui.ctx(),
                     locale.format("common:clicked", &[("label", label)]),
                     egui_component::toast::ToastKind::Info,
                 );

@@ -33,6 +33,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ] {
             if button::render(ui, label, style).clicked() {
                 egui_component::toast::create(
+                    ui.ctx(),
                     locale.format("common:clicked", &[("label", label)]),
                     egui_component::toast::ToastKind::Info,
                 );

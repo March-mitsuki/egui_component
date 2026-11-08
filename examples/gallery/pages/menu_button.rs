@@ -22,7 +22,11 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 locale.text("demo.menuButton:archive"),
             ] {
                 if button::render(ui, action, button::Style::new_ghost_md(theme)).clicked() {
-                    egui_component::toast::create(action, egui_component::toast::ToastKind::Info);
+                    egui_component::toast::create(
+                        ui.ctx(),
+                        action,
+                        egui_component::toast::ToastKind::Info,
+                    );
                 }
             }
         },

@@ -26,6 +26,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ] {
             if button::render(ui, label, button::Style::new_solid_md(theme)).clicked() {
                 toast::create(
+                    ui.ctx(),
                     locale.format("demo.toast:message", &[("label", label)]),
                     kind,
                 );
@@ -41,6 +42,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
     {
         let label = locale.text("demo.toast:custom").to_owned();
         toast::custom(
+            ui.ctx(),
             toast::ToastKind::Info,
             Some(std::time::Duration::from_secs(6)),
             move |ui, theme| {

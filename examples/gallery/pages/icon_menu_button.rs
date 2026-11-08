@@ -6,6 +6,7 @@ use egui_component::{
     theme::Theme,
 };
 pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
+    let ctx = ui.ctx().clone();
     icon_menu_button::render(
         ui,
         ui.make_persistent_id("icon-actions"),
@@ -25,6 +26,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ],
         |index| {
             egui_component::toast::create(
+                &ctx,
                 locale.format(
                     "demo.iconMenuButton:selected",
                     &[("index", &(index + 1).to_string())],
