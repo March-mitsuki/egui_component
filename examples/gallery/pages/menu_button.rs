@@ -16,12 +16,19 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             )
         },
         |ui| {
+            ui.set_width(240.0);
             for action in [
                 locale.text("demo.menuButton:new"),
                 locale.text("demo.menuButton:duplicate"),
                 locale.text("demo.menuButton:archive"),
             ] {
-                if button::render(ui, action, button::Style::new_ghost_md(theme)).clicked() {
+                if button::render(
+                    ui,
+                    action,
+                    button::Style::new_ghost_md(theme).width(Some(ui.available_width())),
+                )
+                .clicked()
+                {
                     egui_component::toast::create(
                         ui.ctx(),
                         action,
