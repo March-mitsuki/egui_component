@@ -1,7 +1,7 @@
 use crate::i18n::Locale;
 use eframe::egui;
 use egui_component::{
-    components::{icon, scroll_area, text, tooltip},
+    components::{button, code, icon, scroll_area, text, tooltip},
     icon::ICONS,
     theme::Theme,
 };
@@ -68,13 +68,42 @@ pub fn show_lucide(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             locale.text("demo.icon:lucideSupport"),
             text::Style::new(theme),
         );
-        ui.hyperlink_to(
+        // ui.hyperlink_to(
+        //     locale.text("demo.icon:lucideBrowse"),
+        //     "https://lucide.dev/icons/",
+        // );
+        if button::render(
+            ui,
             locale.text("demo.icon:lucideBrowse"),
-            "https://lucide.dev/icons/",
+            button::Style::new_ghost_md(theme),
+        )
+        .clicked()
+        {
+            ui.ctx()
+                .open_url(egui::OpenUrl::new_tab("https://lucide.dev/icons/"));
+        }
+
+        // ui.code(crate::versions::VERSIONS.lucide_installation.as_str());
+        code::render(
+            ui,
+            crate::versions::VERSIONS.lucide_installation.as_str(),
+            "toml",
+            code::Style::new(theme),
         );
-        ui.code(crate::versions::VERSIONS.lucide_installation.as_str());
-        ui.code("egui_component::icon::lucide::HEART");
-        ui.code("egui_component::icon::lucide::get(\"heart\")");
+        // ui.code("egui_component::icon::lucide::HEART");
+        code::render(
+            ui,
+            "egui_component::icon::lucide::HEART",
+            "rust",
+            code::Style::new(theme),
+        );
+        // ui.code("egui_component::icon::lucide::get(\"heart\")");
+        code::render(
+            ui,
+            "egui_component::icon::lucide::get(\"heart\")",
+            "toml",
+            code::Style::new(theme),
+        );
         ui.add_space(8.0);
 
         #[cfg(feature = "lucide_icon")]

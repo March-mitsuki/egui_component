@@ -30,4 +30,36 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             );
         }
     });
+
+    ui.horizontal(|ui| {
+        let style_origin = (**ui.style()).clone();
+        let mut style = style_origin.clone();
+        style.spacing.item_spacing.x = 2.0;
+        ui.set_style(style);
+
+        icon_button::render(
+            ui,
+            ICONS.warning.clone(),
+            icon_button::Style::new_outline_md(theme).corner_radius(egui::CornerRadius {
+                ne: 0,
+                nw: theme.corner_radius.md as u8,
+                se: 0,
+                sw: theme.corner_radius.md as u8,
+            }),
+        );
+        icon_button::render(
+            ui,
+            ICONS.arrow_down.clone(),
+            icon_button::Style::new_outline_md(theme)
+                .corner_radius(egui::CornerRadius {
+                    ne: theme.corner_radius.md as u8,
+                    nw: 0,
+                    se: theme.corner_radius.md as u8,
+                    sw: 0,
+                })
+                .width(16.0),
+        );
+
+        ui.set_style(style_origin);
+    });
 }
