@@ -1517,7 +1517,12 @@ pub fn render_multiline(
     style: Style,
 ) -> egui::Response {
     ui.scope(|ui| {
-        let family = FONT_MANAGER.default_egui_font_family(ui.ctx());
+        let font_id = egui::FontId::new(
+            style.text_size,
+            FONT_MANAGER.default_egui_font_family(ui.ctx()),
+        );
+        // egui lays out the hint separately from the editable text.
+        let hint = egui::RichText::new(style.placeholder).font(font_id.clone());
         let visuals = ui.visuals_mut();
         visuals.override_text_color = Some(style.palette.text_color);
         visuals.extreme_bg_color = style.palette.normal_bg;
@@ -1536,12 +1541,51 @@ pub fn render_multiline(
         ui.visuals_mut().widgets.active.bg_stroke = style.palette.focus_stroke;
         ui.add(
             egui::TextEdit::multiline(text)
-                .font(egui::FontId::new(style.text_size, family))
+                .font(font_id)
                 .text_color(style.palette.text_color)
-                .hint_text(style.placeholder)
+                .hint_text(hint)
                 .desired_width(style.width.unwrap_or(ui.available_width()))
                 .desired_rows(rows),
         )
     })
     .inner
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn multiline_placeholder_uses_editor_font_for_cjk() {
+        let ctx = egui::Context::default();
+        let mut fonts = egui::FontDefinitions::default();
+        let cjk = include_bytes!("../../examples/assets/font-fixtures/GalleryCJK-Test.ttc");
+        let mut font = egui::FontData::from_static(cjk);
+        font.index = 1;
+        let font_name = "test-cjk".to_owned();
+        fonts.font_data.insert(font_name.clone(), font.into());
+        fonts
+            .families
+            .get_mut(&egui::FontFamily::Proportional)
+            .unwrap()
+            .push(font_name);
+        ctx.set_fonts(fonts);
+
+        let theme =
+            crate::theme::UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json"))
+                .unwrap();
+        let style = Style::new_outline_md(&theme.light).placeholder("中");
+        let expected = egui::FontId::proportional(style.text_size);
+        let output = ctx.run_ui(Default::default(), |ui| {
+            ui.style_mut().override_font_id = Some(egui::FontId::monospace(20.0));
+            assert!(ui.fonts_mut(|fonts| fonts.has_glyph(&expected, '中')));
+            render_multiline(ui, &mut String::new(), 4, style.clone());
+        });
+
+        let hint = output.shapes.iter().find_map(|shape| match &shape.shape {
+            egui::Shape::Text(text) if text.galley.text() == "中" => Some(&text.galley),
+            _ => None,
+        });
+        assert_eq!(hint.unwrap().job.sections[0].format.font_id, expected);
+    }
 }
