@@ -6,7 +6,8 @@ use super::button::match_button_palette;
 
 #[derive(Clone)]
 pub struct Style {
-    pub size: f32,
+    pub width: f32,
+    pub height: f32,
     pub icon_size: f32,
     pub corner_radius: CornerRadius,
     pub palette: ButtonPalette,
@@ -43,7 +44,8 @@ impl Style {
         };
         let palette = match_button_palette(theme, color, variant);
         Self {
-            size,
+            width: size,
+            height: size,
             icon_size,
             corner_radius,
             palette,
@@ -178,8 +180,20 @@ impl Style {
         Self::new(theme, Some(color), ButtonSize::Lg, ButtonVariant::Ghost)
     }
 
+    /// Sets both the width and height of the button.
     pub fn size(mut self, size: f32) -> Self {
-        self.size = size;
+        self.width = size;
+        self.height = size;
+        self
+    }
+
+    pub fn width(mut self, width: f32) -> Self {
+        self.width = width;
+        self
+    }
+
+    pub fn height(mut self, height: f32) -> Self {
+        self.height = height;
         self
     }
 
@@ -200,8 +214,7 @@ impl Style {
 }
 
 pub fn render(ui: &mut Ui, icon: egui::ImageSource, style: Style) -> egui::Response {
-    // 预留正方形空间
-    let size = vec2(style.size, style.size);
+    let size = vec2(style.width, style.height);
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
 
     // 绘制背景 (0.2s 渐变)

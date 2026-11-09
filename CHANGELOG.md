@@ -2,6 +2,12 @@
 
 Breaking changes and migration instructions are recorded here.
 
+## 0.4.0
+
+### Breaking changes
+
+- `icon_button::Style` replaces the public `size: f32` field with `width: f32` and `height: f32`. Replace direct reads of `style.size` with the dimension you need. In struct literals, replace `size` with both fields. The `.size(value)` builder still sets both dimensions, while `.width(value)` and `.height(value)` set them independently.
+
 ## 0.3.0
 
 ### Breaking changes

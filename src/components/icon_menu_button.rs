@@ -80,17 +80,17 @@ pub fn render<'a>(
     theme: &Theme,
     style: Style,
 ) {
-    let total_width = style.button.size + style.gap + style.menu_handle_width;
-    let size = vec2(total_width, style.button.size);
+    let total_width = style.button.width + style.gap + style.menu_handle_width;
+    let size = vec2(total_width, style.button.height);
 
     // 1. Allocate space for the entire component
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
 
     // 2. Define sub-rectangles for label and menu handle
-    let label_rect = Rect::from_min_size(rect.min, vec2(style.button.size, style.button.size));
+    let label_rect = Rect::from_min_size(rect.min, vec2(style.button.width, style.button.height));
     let menu_handle_rect = Rect::from_min_size(
-        rect.min + vec2(style.button.size + style.gap, 0.0),
-        vec2(style.menu_handle_width, style.button.size),
+        rect.min + vec2(style.button.width + style.gap, 0.0),
+        vec2(style.menu_handle_width, style.button.height),
     );
 
     // 3. Interactions

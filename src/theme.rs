@@ -175,7 +175,7 @@ pub struct TextSize {
 #[derive(Clone, Copy, Deserialize, Serialize)]
 pub struct ButtonStyle {
     /// 在 button 中是 height
-    /// 在 icon_button 中是 size
+    /// 在 icon_button 中是默认宽度和高度
     pub size: f32,
     /// 在 button 中是 padding_x
     /// 在 icon_button 中是 padding

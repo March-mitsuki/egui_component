@@ -1146,7 +1146,7 @@ pub fn render(ui: &mut Ui, text: &mut String, style: Style) -> egui::Response {
     let mut icon_rect = egui::Rect::NOTHING;
 
     if style.input_type == InputType::Password {
-        let icon_width = style.icon_button_style.size;
+        let icon_width = style.icon_button_style.width;
         icon_rect = egui::Rect::from_min_max(
             egui::pos2(text_rect.right() - icon_width, rect.top()),
             egui::pos2(text_rect.right(), rect.bottom()),
