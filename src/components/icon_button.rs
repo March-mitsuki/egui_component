@@ -224,7 +224,7 @@ pub fn render(ui: &mut Ui, icon: egui::ImageSource, style: Style) -> egui::Respo
         style.corner_radius,
         fill_color,
         style.palette.stroke,
-        StrokeKind::Outside,
+        StrokeKind::Inside,
     );
 
     // 居中绘制图标
