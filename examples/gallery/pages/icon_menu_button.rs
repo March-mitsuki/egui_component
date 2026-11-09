@@ -1,12 +1,20 @@
 use crate::i18n::Locale;
 use eframe::egui;
 use egui_component::{
-    components::icon_menu_button::{self, IconWithTooltip},
+    components::{
+        icon_menu_button::{self, IconWithTooltip},
+        text,
+    },
     icon::ICONS,
     theme::Theme,
 };
 pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
     let ctx = ui.ctx().clone();
+    text::render(
+        ui,
+        locale.text("demo.iconMenuButton:usage"),
+        text::Style::new(theme),
+    );
     icon_menu_button::render(
         ui,
         ui.make_persistent_id("icon-actions"),
