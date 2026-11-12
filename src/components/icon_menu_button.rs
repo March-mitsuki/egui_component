@@ -132,7 +132,7 @@ pub fn render<'a>(
         style.button.corner_radius,
         fill_color,
         style.button.palette.stroke,
-        StrokeKind::Outside,
+        StrokeKind::Inside,
     );
 
     // 7. Draw label icon

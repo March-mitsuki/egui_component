@@ -150,7 +150,7 @@ pub fn render(ui: &mut Ui, on: &mut bool, style: Style) -> Response {
         corner_radius,
         fill_color,
         Stroke::NONE,
-        StrokeKind::Outside,
+        StrokeKind::Inside,
     );
 
     // Draw knob

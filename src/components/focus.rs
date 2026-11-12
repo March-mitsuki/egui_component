@@ -70,7 +70,7 @@ pub(super) fn draw_ring(
             rect.expand(GAP),
             radius + CornerRadius::same(GAP as u8),
             stroke,
-            StrokeKind::Outside,
+            StrokeKind::Inside,
         );
     } else {
         ui.painter().rect_stroke(

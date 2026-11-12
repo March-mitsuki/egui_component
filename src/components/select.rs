@@ -237,7 +237,7 @@ pub fn render(
         style.corner_radius,
         bg_color,
         stroke,
-        egui::StrokeKind::Outside,
+        egui::StrokeKind::Inside,
     );
 
     // 7. Draw content (Selected text + arrow_down icon)
@@ -366,7 +366,7 @@ pub fn render_item(
             corner_radius,
             bg_color,
             Stroke::NONE,
-            egui::StrokeKind::Outside,
+            egui::StrokeKind::Inside,
         );
     }
 
