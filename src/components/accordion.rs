@@ -1,9 +1,11 @@
 //! A themed, keyboard-accessible disclosure with optional controlled open state.
+use super::focus::{self, Placement};
 use crate::theme::Theme;
 use egui::{Color32, Id, Stroke, Ui};
 
 #[derive(Clone)]
 pub struct Style {
+    pub focus_color: egui::Color32,
     pub background: Color32,
     pub hover_background: Color32,
     pub foreground: Color32,
@@ -16,6 +18,7 @@ pub struct Style {
 impl Style {
     pub fn new(theme: &Theme) -> Self {
         Self {
+            focus_color: theme.colors.primary.normal(),
             background: theme.colors.bg.subtle,
             hover_background: theme.colors.gray.l1,
             foreground: theme.colors.fg.base,
@@ -105,6 +108,14 @@ pub fn render<R>(
                 ui.ctx().request_repaint();
             }
         }
+        focus::ring(
+            ui,
+            &response.header_response,
+            response.header_response.rect,
+            style.corner_radius,
+            style.focus_color,
+            Placement::Outside,
+        );
         response
     })
     .inner

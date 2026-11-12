@@ -1,8 +1,10 @@
+use super::focus::{self, Placement};
 use egui::{Response, Ui};
 
 use crate::theme::Theme;
 
 pub struct Style {
+    pub focus_color: egui::Color32,
     pub box_size: f32,
     pub icon_size: f32,
     pub color: egui::Color32,
@@ -11,6 +13,7 @@ pub struct Style {
 impl Style {
     pub fn new(theme: &Theme) -> Self {
         Self {
+            focus_color: theme.colors.primary.normal(),
             box_size: theme.text_size.md,
             icon_size: theme.text_size.md,
             color: theme.colors.fg.base,
@@ -50,5 +53,13 @@ pub fn render(ui: &mut Ui, icon: egui::ImageSource, style: Style) -> Response {
         .tint(style.color)
         .paint_at(ui, icon_rect);
 
+    focus::ring(
+        ui,
+        &response,
+        rect,
+        egui::CornerRadius::same(2),
+        style.focus_color,
+        Placement::Outside,
+    );
     response
 }

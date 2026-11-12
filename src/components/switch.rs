@@ -1,9 +1,11 @@
+use super::focus::{self, Placement};
 use egui::{Color32, CornerRadius, Response, Sense, Stroke, StrokeKind, Ui};
 
 use crate::theme::{Color, Theme};
 
 #[derive(Clone)]
 pub struct Style {
+    pub focus_color: egui::Color32,
     pub height: f32,
     pub width: f32,
     pub on_bg_color: Color32,
@@ -21,6 +23,7 @@ impl Style {
             off_bg_color: theme.colors.gray.l3,
             knob_color: theme.colors.primary.foreground.unwrap_or(Color32::WHITE),
             disabled: false,
+            focus_color: theme.colors.primary.normal(),
         }
     }
 
@@ -32,6 +35,7 @@ impl Style {
             off_bg_color: theme.colors.gray.l3,
             knob_color: theme.colors.primary.foreground.unwrap_or(Color32::WHITE),
             disabled: false,
+            focus_color: theme.colors.primary.normal(),
         }
     }
 
@@ -47,6 +51,7 @@ impl Style {
             off_bg_color: theme.colors.gray.l3,
             knob_color: theme.colors.primary.foreground.unwrap_or(Color32::WHITE),
             disabled: false,
+            focus_color: theme.colors.primary.normal(),
         }
     }
 
@@ -58,6 +63,7 @@ impl Style {
             off_bg_color: theme.colors.gray.l3,
             knob_color: color.foreground.unwrap_or(Color32::WHITE),
             disabled: false,
+            focus_color: theme.colors.primary.normal(),
         }
     }
 
@@ -69,6 +75,7 @@ impl Style {
             off_bg_color: theme.colors.gray.l3,
             knob_color: color.foreground.unwrap_or(Color32::WHITE),
             disabled: false,
+            focus_color: theme.colors.primary.normal(),
         }
     }
 
@@ -80,6 +87,7 @@ impl Style {
             off_bg_color: theme.colors.gray.l3,
             knob_color: color.foreground.unwrap_or(Color32::WHITE),
             disabled: false,
+            focus_color: theme.colors.primary.normal(),
         }
     }
 
@@ -168,6 +176,14 @@ pub fn render(ui: &mut Ui, on: &mut bool, style: Style) -> Response {
 
     ui.painter().circle_filled(knob_center, r, knob_color);
 
+    focus::ring(
+        ui,
+        &response,
+        rect,
+        corner_radius,
+        style.focus_color,
+        Placement::Outside,
+    );
     if style.disabled {
         response.on_hover_cursor(egui::CursorIcon::NotAllowed)
     } else {

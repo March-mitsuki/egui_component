@@ -1,3 +1,4 @@
+use super::focus::{self, Placement};
 use egui::{Color32, CornerRadius, Popup, Response, Sense, Stroke, Ui};
 
 use crate::theme::{Color, Theme};
@@ -12,6 +13,7 @@ pub enum SelectSize {
 
 #[derive(Clone)]
 pub struct Style {
+    pub focus_color: egui::Color32,
     pub height: f32,
     pub padding_x: f32,
     pub corner_radius: CornerRadius,
@@ -72,6 +74,7 @@ impl Style {
         let active_border_stroke = Stroke::new(1.5_f32, focus_color);
 
         Self {
+            focus_color: theme.colors.primary.normal(),
             height,
             padding_x,
             corner_radius: CornerRadius::same(radius),
@@ -293,6 +296,15 @@ pub fn render(
     ui.painter().line_segment([p0, p1], arrow_stroke);
     ui.painter().line_segment([p1, p2], arrow_stroke);
 
+    focus::ring(
+        ui,
+        &response,
+        rect,
+        style.corner_radius,
+        style.focus_color,
+        Placement::Outside,
+    );
+
     // 8. Popup Menu logic
     Popup::menu(&response)
         .id(id)
@@ -397,5 +409,13 @@ pub fn render_item(
         );
     }
 
+    focus::ring(
+        ui,
+        &response,
+        rect,
+        CornerRadius::same(theme.corner_radius.xs as u8),
+        style.focus_color,
+        Placement::Inside,
+    );
     response.on_hover_cursor(egui::CursorIcon::PointingHand)
 }

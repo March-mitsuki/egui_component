@@ -41,7 +41,12 @@ pub fn render<T: Copy + PartialEq>(
                     if !ui.is_enabled() {
                         button_style.state = button::ButtonState::Disable;
                     }
-                    let response = button::render(ui, label, button_style);
+                    let response = button::render_with_focus_placement(
+                        ui,
+                        label,
+                        button_style,
+                        super::focus::Placement::Inside,
+                    );
                     response.widget_info(|| {
                         egui::WidgetInfo::selected(
                             egui::WidgetType::SelectableLabel,

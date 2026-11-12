@@ -1,6 +1,7 @@
 use egui::{Color32, CornerRadius, Image, Popup, Rect, Rgba, Sense, StrokeKind, Ui, vec2};
 use egui_component_style_macros::FrameModifier;
 
+use super::focus::{self, Placement};
 use crate::components::{icon_button, text, tooltip};
 use crate::icon::ICONS;
 use crate::theme::Theme;
@@ -84,7 +85,7 @@ pub fn render<'a>(
     let size = vec2(total_width, style.button.height);
 
     // 1. Allocate space for the entire component
-    let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    let (rect, layout) = ui.allocate_exact_size(size, Sense::hover());
 
     // 2. Define sub-rectangles for label and menu handle
     let label_rect = Rect::from_min_size(rect.min, vec2(style.button.width, style.button.height));
@@ -94,10 +95,10 @@ pub fn render<'a>(
     );
 
     // 3. Interactions
-    // Create an interaction for the menu handle portion specifically
+    let response = ui.interact(label_rect, layout.id.with("main_action"), Sense::click());
     let menu_handle_response = ui.interact(
         menu_handle_rect,
-        response.id.with("menu_handle"),
+        layout.id.with("menu_handle"),
         Sense::click(),
     );
 
@@ -162,13 +163,20 @@ pub fn render<'a>(
         .tint(style.button.palette.text_color)
         .paint_at(ui, menu_icon_rect);
 
-    // 9. Handle interactions
+    for part in [&response, &menu_handle_response] {
+        focus::ring(
+            ui,
+            part,
+            part.rect,
+            style.button.corner_radius,
+            style.button.focus_color,
+            Placement::Inside,
+        );
+    }
+
+    // The main action has its own hit area, so keyboard and pointer clicks share one path.
     if response.clicked() {
-        if let Some(pos) = response.interact_pointer_pos() {
-            if label_rect.contains(pos) {
-                on_click(0);
-            }
-        }
+        on_click(0);
     }
 
     // 10. Popup Menu logic
@@ -199,4 +207,66 @@ pub fn render<'a>(
     // Ensure the pointing hand cursor appears for both the component and its handle
     response.on_hover_cursor(egui::CursorIcon::PointingHand);
     menu_handle_response.on_hover_cursor(egui::CursorIcon::PointingHand);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use egui::{Context, Event, Key, Modifiers, RawInput};
+
+    #[test]
+    fn keyboard_activates_each_part_independently() {
+        let ctx = Context::default();
+        let theme =
+            crate::theme::UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json"))
+                .unwrap()
+                .light;
+        let id = egui::Id::new("split");
+        let mut clicks = Vec::new();
+        let mut run = |key: Option<Key>| {
+            let events = key
+                .into_iter()
+                .map(|key| Event::Key {
+                    key,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers: Modifiers::NONE,
+                })
+                .collect();
+            let _ = ctx.run_ui(
+                RawInput {
+                    events,
+                    ..Default::default()
+                },
+                |ui| {
+                    let icons = vec![
+                        IconWithTooltip {
+                            icon: ICONS.arrow_down.clone(),
+                            tooltip: "Main".into(),
+                        },
+                        IconWithTooltip {
+                            icon: ICONS.close.clone(),
+                            tooltip: "Option".into(),
+                        },
+                    ];
+                    render(
+                        ui,
+                        id,
+                        icons,
+                        |index| clicks.push(index),
+                        &theme,
+                        Style::new(&theme),
+                    );
+                },
+            );
+            (clicks.clone(), Popup::is_id_open(&ctx, id))
+        };
+
+        run(None);
+        assert_eq!(run(Some(Key::Tab)), (vec![], false));
+        assert_eq!(run(Some(Key::Enter)), (vec![0], false));
+        assert_eq!(run(Some(Key::Tab)), (vec![0], false));
+        assert_eq!(run(Some(Key::Space)), (vec![0], true));
+    }
 }

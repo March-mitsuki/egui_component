@@ -1,6 +1,6 @@
 //! A theme-driven slider. Numeric text entry is deliberately left to TextEdit.
 use crate::theme::Theme;
-use egui::{Color32, Response, Sense, Stroke, Ui, WidgetInfo};
+use egui::{Color32, Response, Sense, Ui, WidgetInfo};
 use std::ops::RangeInclusive;
 
 #[derive(Clone)]
@@ -121,15 +121,9 @@ pub fn render(ui: &mut Ui, value: &mut f32, range: RangeInclusive<f32>, style: S
         style.track_height,
         fade(style.fill_color),
     );
-    if response.has_focus() {
-        ui.painter().circle_stroke(
-            center,
-            style.thumb_radius + 3.0,
-            Stroke::new(1.5_f32, style.focus_color),
-        );
-    }
     ui.painter()
         .circle_filled(center, style.thumb_radius, fade(style.thumb_color));
+    super::focus::circle(ui, &response, center, style.thumb_radius, style.focus_color);
     response.on_hover_cursor(if enabled {
         egui::CursorIcon::PointingHand
     } else {

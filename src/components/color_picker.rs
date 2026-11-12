@@ -67,19 +67,16 @@ pub fn render(ui: &mut Ui, id: Id, color: &mut Color32, style: Style) -> Respons
             ui.painter().rect_stroke(
                 rect,
                 theme.corner_radius.sm,
-                Stroke::new(
-                    if response.has_focus() {
-                        2.0_f32
-                    } else {
-                        1.0_f32
-                    },
-                    if response.has_focus() {
-                        theme.colors.primary.l6
-                    } else {
-                        theme.colors.gray.l3
-                    },
-                ),
+                Stroke::new(1.0_f32, theme.colors.gray.l3),
                 StrokeKind::Inside,
+            );
+            super::focus::ring(
+                ui,
+                &response,
+                rect,
+                theme.corner_radius.sm.into(),
+                theme.colors.primary.normal(),
+                super::focus::Placement::Outside,
             );
             response.widget_info(|| {
                 egui::WidgetInfo::labeled(

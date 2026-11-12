@@ -1,3 +1,4 @@
+use super::focus::{self, Placement};
 use egui::util::undoer;
 use egui::{Color32, CornerRadius, CursorIcon, Stroke, StrokeKind, Ui};
 
@@ -1109,37 +1110,17 @@ pub fn render(ui: &mut Ui, text: &mut String, style: Style) -> egui::Response {
         }
     };
 
-    // ── 边框（focus 时切换 stroke）──
-    let stroke = {
-        let normal = style.palette.border_stroke;
-        let focus = style.palette.focus_stroke;
-        if focus_anim > 0.01 {
-            let w = normal.width * (1.0 - focus_anim) + focus.width * focus_anim;
-            let c_normal = egui::Rgba::from(normal.color);
-            let c_focus = egui::Rgba::from(focus.color);
-            let c = Color32::from(c_normal * (1.0 - focus_anim) + c_focus * focus_anim);
-            Stroke::new(w, c)
-        } else {
-            normal
-        }
-    };
-
-    // ── 绘制背景 ──
     let is_flushed = style.variant == TextEditVariant::Flushed;
-    if is_flushed {
-        let bottom_left = egui::pos2(rect.left(), rect.bottom());
-        let bottom_right = egui::pos2(rect.right(), rect.bottom());
-        ui.painter()
-            .line_segment([bottom_left, bottom_right], stroke);
-    } else {
+    if !is_flushed {
         ui.painter().rect(
             rect,
             style.corner_radius,
             bg_color,
-            stroke,
+            style.palette.border_stroke,
             StrokeKind::Inside,
         );
     }
+    paint_focus(ui, &response, rect, &style);
 
     // ── 文字区域 ──
     let mut text_rect = rect.shrink2(egui::vec2(style.padding_x, 0.0));
@@ -1457,6 +1438,27 @@ pub fn render(ui: &mut Ui, text: &mut String, style: Style) -> egui::Response {
     response
 }
 
+fn paint_focus(ui: &Ui, response: &egui::Response, rect: egui::Rect, style: &Style) {
+    let focused = focus::focused(response);
+    if style.variant == TextEditVariant::Flushed {
+        let stroke = if focused {
+            style.palette.focus_stroke
+        } else {
+            style.palette.border_stroke
+        };
+        let y = rect.bottom() - stroke.width / 2.0;
+        ui.painter().hline(rect.x_range(), y, stroke);
+    } else if focused {
+        focus::draw_ring(
+            ui,
+            rect,
+            style.corner_radius,
+            style.palette.focus_stroke,
+            Placement::Outside,
+        );
+    }
+}
+
 pub fn match_text_edit_palette(
     theme: &Theme,
     color: Option<Color>,
@@ -1478,7 +1480,7 @@ pub fn match_text_edit_palette(
                 text_color: theme.colors.fg.base,
                 placeholder_color: theme.colors.fg.base.gamma_multiply(0.35),
                 border_stroke: Stroke::new(1.0_f32, Color32::TRANSPARENT),
-                focus_stroke: Stroke::new(1.5_f32, focus_color),
+                focus_stroke: Stroke::new(focus::WIDTH, focus_color),
             }
         }
         TextEditVariant::Outline => {
@@ -1490,7 +1492,7 @@ pub fn match_text_edit_palette(
                 text_color: theme.colors.fg.base,
                 placeholder_color: theme.colors.fg.base.gamma_multiply(0.35),
                 border_stroke: Stroke::new(1.0_f32, theme.colors.fg.base.gamma_multiply(0.25)),
-                focus_stroke: Stroke::new(1.5_f32, focus_color),
+                focus_stroke: Stroke::new(focus::WIDTH, focus_color),
             }
         }
         TextEditVariant::Flushed => {
@@ -1502,7 +1504,7 @@ pub fn match_text_edit_palette(
                 text_color: theme.colors.fg.base,
                 placeholder_color: theme.colors.fg.base.gamma_multiply(0.35),
                 border_stroke: Stroke::new(1.0_f32, theme.colors.fg.base.gamma_multiply(0.25)),
-                focus_stroke: Stroke::new(2.0_f32, focus_color),
+                focus_stroke: Stroke::new(focus::WIDTH, focus_color),
             }
         }
     }
@@ -1522,31 +1524,34 @@ pub fn render_multiline(
             FONT_MANAGER.default_egui_font_family(ui.ctx()),
         );
         // egui lays out the hint separately from the editable text.
-        let hint = egui::RichText::new(style.placeholder).font(font_id.clone());
+        let hint = egui::RichText::new(&style.placeholder).font(font_id.clone());
         let visuals = ui.visuals_mut();
         visuals.override_text_color = Some(style.palette.text_color);
-        visuals.extreme_bg_color = style.palette.normal_bg;
         visuals.weak_text_color = Some(style.palette.placeholder_color);
         visuals.text_cursor.stroke = style.palette.focus_stroke;
         visuals.selection.bg_fill = style.palette.focus_stroke.color.gamma_multiply(0.25);
-        for widget in [
-            &mut visuals.widgets.inactive,
-            &mut visuals.widgets.hovered,
-            &mut visuals.widgets.active,
-        ] {
-            widget.bg_fill = style.palette.normal_bg;
-            widget.bg_stroke = style.palette.border_stroke;
-            widget.corner_radius = style.corner_radius;
-        }
-        ui.visuals_mut().widgets.active.bg_stroke = style.palette.focus_stroke;
-        ui.add(
+
+        let flushed = style.variant == TextEditVariant::Flushed;
+        let frame = egui::Frame::new()
+            .fill(style.palette.normal_bg)
+            .corner_radius(style.corner_radius)
+            .inner_margin(egui::Margin::symmetric(4, 2))
+            .stroke(if flushed {
+                Stroke::NONE
+            } else {
+                style.palette.border_stroke
+            });
+        let response = ui.add(
             egui::TextEdit::multiline(text)
+                .frame(frame)
                 .font(font_id)
                 .text_color(style.palette.text_color)
                 .hint_text(hint)
                 .desired_width(style.width.unwrap_or(ui.available_width()))
                 .desired_rows(rows),
-        )
+        );
+        paint_focus(ui, &response, response.rect, &style);
+        response
     })
     .inner
 }

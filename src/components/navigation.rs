@@ -1,9 +1,11 @@
 //! Full-width, left-aligned navigation items for sidebars and page outlines.
+use super::focus::{self, Placement};
 use crate::{components::text, theme::Theme};
 use egui::{Color32, CornerRadius, Response, Sense, Ui, Vec2, WidgetInfo, WidgetType};
 
 #[derive(Clone)]
 pub struct Style {
+    pub focus_color: egui::Color32,
     pub height: f32,
     pub padding: f32,
     pub radius: u8,
@@ -15,6 +17,7 @@ pub struct Style {
 impl Style {
     pub fn new(theme: &Theme) -> Self {
         Self {
+            focus_color: theme.colors.primary.normal(),
             height: 34.0,
             padding: 12.0,
             radius: 6,
@@ -69,6 +72,14 @@ pub fn render(ui: &mut Ui, label: &str, selected: bool, style: Style) -> Respons
         |ui| {
             text::render(ui, label, text_style.truncate(true));
         },
+    );
+    focus::ring(
+        ui,
+        &response,
+        rect,
+        CornerRadius::same(style.radius),
+        style.focus_color,
+        Placement::Outside,
     );
     response.on_hover_cursor(egui::CursorIcon::PointingHand)
 }

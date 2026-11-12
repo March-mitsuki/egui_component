@@ -2,10 +2,14 @@ use egui::{Color32, CornerRadius, Image, Rect, Rgba, Sense, StrokeKind, Ui, vec2
 
 use crate::theme::{ButtonPalette, ButtonSize, ButtonVariant, Color, Theme};
 
-use super::button::match_button_palette;
+use super::{
+    button::match_button_palette,
+    focus::{self, Placement},
+};
 
 #[derive(Clone)]
 pub struct Style {
+    pub focus_color: egui::Color32,
     pub width: f32,
     pub height: f32,
     pub icon_size: f32,
@@ -44,6 +48,7 @@ impl Style {
         };
         let palette = match_button_palette(theme, color, variant);
         Self {
+            focus_color: theme.colors.primary.normal(),
             width: size,
             height: size,
             icon_size,
@@ -247,5 +252,13 @@ pub fn render(ui: &mut Ui, icon: egui::ImageSource, style: Style) -> egui::Respo
         .tint(style.palette.text_color)
         .paint_at(ui, icon_rect);
 
+    focus::ring(
+        ui,
+        &response,
+        rect,
+        style.corner_radius,
+        style.focus_color,
+        Placement::Outside,
+    );
     response.on_hover_cursor(egui::CursorIcon::PointingHand)
 }

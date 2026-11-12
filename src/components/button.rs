@@ -1,3 +1,4 @@
+use super::focus::{self, Placement};
 use egui::{Color32, CornerRadius, Stroke, StrokeKind, Ui};
 
 use crate::{
@@ -15,6 +16,7 @@ pub enum ButtonState {
 
 #[derive(Clone)]
 pub struct Style {
+    pub focus_color: egui::Color32,
     pub padding_x: f32,
     pub height: f32,
     pub corner_radius: CornerRadius,
@@ -82,6 +84,7 @@ impl Style {
         };
         let palette = match_button_palette(theme, color, variant);
         Self {
+            focus_color: theme.colors.primary.normal(),
             height,
             padding_x,
             text_size,
@@ -505,6 +508,15 @@ impl Style {
 }
 
 pub fn render(ui: &mut Ui, text: &str, style: Style) -> egui::Response {
+    render_with_focus_placement(ui, text, style, Placement::Outside)
+}
+
+pub(super) fn render_with_focus_placement(
+    ui: &mut Ui,
+    text: &str,
+    style: Style,
+    placement: Placement,
+) -> egui::Response {
     let mut font_id = egui::TextStyle::Button.resolve(ui.style());
     font_id.size = style.text_size;
 
@@ -703,6 +715,15 @@ pub fn render(ui: &mut Ui, text: &str, style: Style) -> egui::Response {
             .tint(text_color)
             .paint_at(ui, icon_rect);
     }
+
+    focus::ring(
+        ui,
+        &response,
+        rect,
+        style.corner_radius,
+        style.focus_color,
+        placement,
+    );
 
     match style.state {
         ButtonState::Disable => response.on_hover_cursor(egui::CursorIcon::NotAllowed),

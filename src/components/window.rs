@@ -1,3 +1,4 @@
+use super::focus::{self, Placement};
 use crate::components::icon_button;
 use crate::icon::ICONS;
 use crate::theme::Theme;
@@ -201,7 +202,7 @@ pub fn render(
         );
 
         // 2. Register the drag detector FIRST
-        let drag_response = ui.interact(header_rect, id.with("header_drag"), egui::Sense::drag());
+        let drag_response = ui.interact(header_rect, id.with("header_drag"), egui::Sense::DRAG);
 
         if drag_response.dragged() {
             state.pos += drag_response.drag_delta();
@@ -224,7 +225,6 @@ pub fn render(
                     if collapse_response.clicked() {
                         state.is_collapsed = !state.is_collapsed;
                     }
-                    collapse_response.on_hover_cursor(egui::CursorIcon::PointingHand);
 
                     // Animate the collapse icon rotation
                     let openness = ui
@@ -237,6 +237,15 @@ pub fn render(
                         .tint(tint)
                         .rotate(angle, egui::vec2(0.5, 0.5))
                         .paint_at(ui, collapse_rect);
+                    focus::ring(
+                        ui,
+                        &collapse_response,
+                        collapse_rect,
+                        style.close_button_style.corner_radius,
+                        style.close_button_style.focus_color,
+                        Placement::Outside,
+                    );
+                    collapse_response.on_hover_cursor(egui::CursorIcon::PointingHand);
                 }
 
                 // 2. Title closure

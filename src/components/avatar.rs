@@ -1,7 +1,9 @@
+use super::focus;
 use crate::theme::{AvatarSize, Theme};
 use egui::{Color32, Response, Sense, Ui};
 
 pub struct Style {
+    pub focus_color: egui::Color32,
     pub size: f32,
     pub bg_color: Color32,
     pub text_color: Color32,
@@ -16,6 +18,7 @@ impl Style {
             AvatarSize::Lg => theme.avatar.lg.size,
         };
         Self {
+            focus_color: theme.colors.primary.normal(),
             size,
             bg_color: theme.colors.primary.l6,
             text_color: theme.colors.fg.base,
@@ -100,5 +103,12 @@ pub fn render(
             .paint_at(ui, rect);
     }
 
+    focus::circle(
+        ui,
+        &response,
+        rect.center(),
+        style.size / 2.0,
+        style.focus_color,
+    );
     response
 }
