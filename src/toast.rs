@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use web_time::{Duration, Instant};
 
-use egui::{Align2, Area, Context, Frame, Id, Order, Ui, Vec2};
+use egui::{Align2, Area, Context, Frame, Id, LayerId, Order, Ui, Vec2};
 
 use crate::{
     components::{icon, text},
@@ -50,12 +50,49 @@ struct SpringState {
     vel: f32,
 }
 
+const EXIT_DURATION: Duration = Duration::from_millis(300);
+
+#[derive(Clone, Default)]
+struct ToastTiming {
+    paused_at: Option<Instant>,
+    paused_for: Duration,
+    exit_started_at: Option<Instant>,
+}
+
+impl ToastTiming {
+    fn update(&mut self, toast: &Toast, now: Instant, hovered: bool) {
+        if self.exit_started_at.is_some() || toast.duration == Duration::MAX {
+            return;
+        }
+        if hovered {
+            self.paused_at.get_or_insert_with(|| {
+                let active = now
+                    .duration_since(toast.created_at)
+                    .saturating_sub(self.paused_for);
+                now - active.saturating_sub(toast.duration)
+            });
+        } else if let Some(paused_at) = self.paused_at.take() {
+            self.paused_for += now.duration_since(paused_at);
+        }
+
+        let elapsed = self
+            .paused_at
+            .unwrap_or(now)
+            .duration_since(toast.created_at);
+        let active = elapsed.saturating_sub(self.paused_for);
+        if active >= toast.duration && !hovered {
+            self.exit_started_at = Some(now - (active - toast.duration));
+        }
+    }
+}
+
 type Content = Arc<dyn Fn(&mut Ui, &Theme) + Send + Sync>;
 
 #[derive(Clone, Default)]
 struct ToastManager {
     contents: HashMap<u64, Content>,
     toasts: Vec<Toast>,
+    timing: HashMap<u64, ToastTiming>,
     next_id: u64,
     position: ToastPosition,
     /// 每个 Toast 的堆叠 Y 轴 spring 状态，key 为 toast.id
@@ -122,8 +159,13 @@ pub fn custom(
 /// Dismiss a toast in this context, allowing its exit animation to complete.
 pub fn dismiss(ctx: &Context, id: u64) {
     with_manager(ctx, |manager| {
-        if let Some(toast) = manager.toasts.iter_mut().find(|toast| toast.id == id) {
-            toast.duration = Instant::now().duration_since(toast.created_at);
+        if manager.toasts.iter().any(|toast| toast.id == id) {
+            manager
+                .timing
+                .entry(id)
+                .or_default()
+                .exit_started_at
+                .get_or_insert_with(Instant::now);
         }
     });
     ctx.request_repaint();
@@ -148,14 +190,33 @@ pub fn error(ctx: &Context, message: impl Into<String>) {
 /// 渲染所有 Toast
 pub fn renderer(ui: &mut Ui, theme: &Theme) {
     let ctx = ui.ctx();
-    let now = Instant::now();
-    let (toasts, pos_config) = with_manager(ctx, |manager| {
-        // 1. 清理完全结束（包括退出动画）的 Toast，同时移除对应的 spring 状态
-        manager.toasts.retain(|t| {
-            let elapsed = now.duration_since(t.created_at).as_secs_f32();
-            elapsed < t.duration.as_secs_f32() + 0.3
+    // 使用上一帧的 Area 范围和当前指针，在清理到期 Toast 之前判定悬停。
+    let toast_ids = with_manager(ctx, |manager| {
+        manager
+            .toasts
+            .iter()
+            .map(|toast| toast.id)
+            .collect::<Vec<_>>()
+    });
+    let hovered = toast_ids.into_iter().find(|&id| {
+        let area_id = Id::new("toast_area").with(id);
+        let rect = ctx.memory(|memory| memory.area_rect(area_id));
+        rect.is_some_and(|rect| {
+            ctx.rect_contains_pointer(LayerId::new(Order::Foreground, area_id), rect)
+        })
+    });
+
+    let (now, toasts, pos_config) = with_manager(ctx, |manager| {
+        let now = Instant::now();
+        manager.toasts.retain(|toast| {
+            let timing = manager.timing.entry(toast.id).or_default();
+            timing.update(toast, now, hovered == Some(toast.id));
+            timing
+                .exit_started_at
+                .is_none_or(|start| now.duration_since(start) < EXIT_DURATION)
         });
         let active_ids: Vec<u64> = manager.toasts.iter().map(|t| t.id).collect();
+        manager.timing.retain(|id, _| active_ids.contains(id));
         manager.contents.retain(|id, _| active_ids.contains(id));
         manager.spring_states.retain(|id, _| {
             active_ids
@@ -163,7 +224,12 @@ pub fn renderer(ui: &mut Ui, theme: &Theme) {
                 .any(|&tid| tid == *id || (tid ^ 0xDEAD_BEEF) == *id)
         });
 
-        (manager.toasts.clone(), manager.position)
+        let toasts = manager
+            .toasts
+            .iter()
+            .map(|toast| (toast.clone(), manager.timing[&toast.id].exit_started_at))
+            .collect::<Vec<_>>();
+        (now, toasts, manager.position)
     });
 
     if toasts.is_empty() {
@@ -200,16 +266,15 @@ pub fn renderer(ui: &mut Ui, theme: &Theme) {
     const SPRING_K: f32 = 200.0;
     const SPRING_C: f32 = 22.0;
 
-    for toast in &toasts {
+    for (toast, exit_started_at) in &toasts {
         let elapsed = now.duration_since(toast.created_at).as_secs_f32();
-        let total_dur = toast.duration.as_secs_f32();
-        let is_exiting = elapsed > total_dur;
+        let is_exiting = exit_started_at.is_some();
 
         // ── 透明度动画（保持原有线性，够用） ──────────────────────────────
-        let alpha = if elapsed < 0.3 {
+        let alpha = if let Some(start) = exit_started_at {
+            1.0 - now.duration_since(*start).as_secs_f32() / EXIT_DURATION.as_secs_f32()
+        } else if elapsed < 0.3 {
             elapsed / 0.3
-        } else if is_exiting {
-            ((total_dur + 0.3) - elapsed).max(0.0) / 0.3
         } else {
             1.0
         };
@@ -366,7 +431,7 @@ mod tests {
         dismiss(&a, first);
         with_manager(&a, |manager| {
             assert_eq!(manager.position, ToastPosition::TopLeft);
-            assert!(manager.toasts[0].duration < Duration::from_secs(10));
+            assert!(manager.timing[&first].exit_started_at.is_some());
         });
         with_manager(&b, |manager| {
             assert_eq!(manager.position, ToastPosition::BottomRight);
@@ -405,10 +470,7 @@ mod tests {
         with_manager(&ctx, |manager| {
             assert_eq!(manager.position, ToastPosition::TopLeft);
             assert_eq!(manager.toasts.len(), 2);
-            assert!(
-                manager.toasts.iter().find(|t| t.id == id).unwrap().duration
-                    < Duration::from_secs(10)
-            );
+            assert!(manager.timing[&id].exit_started_at.is_some());
             assert!(
                 manager
                     .toasts
@@ -419,16 +481,41 @@ mod tests {
         });
         // Expired entries release custom content and animation state together.
         with_manager(&ctx, |manager| {
-            for toast in &mut manager.toasts {
-                toast.created_at = Instant::now() - Duration::from_secs(10);
-                toast.duration = Duration::ZERO;
+            for toast in &manager.toasts {
+                manager.timing.entry(toast.id).or_default().exit_started_at =
+                    Some(Instant::now() - EXIT_DURATION);
             }
         });
         let _ = ctx.run_ui(egui::RawInput::default(), |ui| renderer(ui, &theme.light));
         with_manager(&ctx, |manager| {
             assert!(manager.toasts.is_empty());
             assert!(manager.contents.is_empty());
+            assert!(manager.timing.is_empty());
             assert!(manager.spring_states.is_empty());
         });
+    }
+
+    #[test]
+    fn hover_preserves_remaining_time_until_exit() {
+        let start = Instant::now();
+        let toast = Toast {
+            id: 0,
+            kind: ToastKind::Info,
+            message: String::new(),
+            created_at: start,
+            duration: Duration::from_secs(3),
+        };
+        let at = |seconds| start + Duration::from_secs(seconds);
+        let mut timing = ToastTiming::default();
+
+        timing.update(&toast, at(1), true);
+        timing.update(&toast, at(8), true);
+        timing.update(&toast, at(9), false);
+        timing.update(&toast, at(10), false);
+        assert_eq!(timing.exit_started_at, None);
+
+        timing.update(&toast, at(11), false);
+        timing.update(&toast, at(12), true);
+        assert_eq!(timing.exit_started_at, Some(at(11)));
     }
 }
