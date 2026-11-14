@@ -20,8 +20,8 @@ pub struct Style {
 impl Style {
     pub fn new(theme: &Theme) -> Self {
         Self {
-            width: 32.0,
-            height: 32.0,
+            width: theme.button.md.size,
+            height: theme.button.md.size,
             border_stroke: Stroke::new(1.0_f32, theme.colors.gray.l3),
             corner_radius: theme.corner_radius.sm.into(),
             alpha: false,
