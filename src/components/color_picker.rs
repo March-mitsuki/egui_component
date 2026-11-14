@@ -3,10 +3,16 @@ use crate::{
     components::{slider, text, text_edit},
     theme::Theme,
 };
-use egui::{Color32, Id, Response, Sense, Stroke, StrokeKind, Ui};
+use egui::{
+    Color32, ColorImage, CornerRadius, Id, Pos2, Rect, Response, Sense, Stroke, StrokeKind,
+    TextureHandle, TextureOptions, Ui, epaint::RectShape,
+};
 #[derive(Clone)]
 pub struct Style {
-    pub size: f32,
+    pub width: f32,
+    pub height: f32,
+    pub border_stroke: Stroke,
+    pub corner_radius: CornerRadius,
     pub alpha: bool,
     pub disabled: bool,
     pub theme: Theme,
@@ -14,11 +20,35 @@ pub struct Style {
 impl Style {
     pub fn new(theme: &Theme) -> Self {
         Self {
-            size: 32.0,
+            width: 32.0,
+            height: 32.0,
+            border_stroke: Stroke::new(1.0_f32, theme.colors.gray.l3),
+            corner_radius: theme.corner_radius.sm.into(),
             alpha: false,
             disabled: false,
             theme: theme.clone(),
         }
+    }
+    pub fn size(mut self, size: f32) -> Self {
+        self.width = size;
+        self.height = size;
+        self
+    }
+    pub fn width(mut self, width: f32) -> Self {
+        self.width = width;
+        self
+    }
+    pub fn height(mut self, height: f32) -> Self {
+        self.height = height;
+        self
+    }
+    pub fn border_stroke(mut self, border_stroke: Stroke) -> Self {
+        self.border_stroke = border_stroke;
+        self
+    }
+    pub fn corner_radius(mut self, corner_radius: CornerRadius) -> Self {
+        self.corner_radius = corner_radius;
+        self
     }
     pub fn alpha(mut self, alpha: bool) -> Self {
         self.alpha = alpha;
@@ -29,6 +59,32 @@ impl Style {
         self
     }
 }
+fn paint_checkerboard(ui: &Ui, rect: Rect, radius: CornerRadius, short_side: f32, theme: &Theme) {
+    let colors = [theme.colors.bg.base, theme.colors.gray.l2];
+    let key = Id::new("egui_component_color_picker_checkerboard").with(colors);
+    let ctx = ui.ctx();
+    let cached = ctx.data(|data| data.get_temp::<TextureHandle>(key));
+    let texture = match cached {
+        Some(texture) => texture,
+        _ => {
+            let [light, dark] = colors;
+            let texture = ctx.load_texture(
+                "egui_component_color_picker_checkerboard",
+                ColorImage::new([2, 2], vec![light, dark, dark, light]),
+                TextureOptions::NEAREST_REPEAT,
+            );
+            ctx.data_mut(|data| data.insert_temp(key, texture.clone()));
+            texture
+        }
+    };
+
+    // Each repeat contains two square cells, each a quarter of the short side.
+    let repeats = rect.size() / (short_side / 2.0);
+    let uv = Rect::from_min_size(Pos2::ZERO, repeats);
+    ui.painter()
+        .add(RectShape::filled(rect, radius, Color32::WHITE).with_texture(texture.id(), uv));
+}
+
 /// The caller supplies a stable ID; incomplete HEX edits persist without changing the color.
 pub fn render(ui: &mut Ui, id: Id, color: &mut Color32, style: Style) -> Response {
     let before = *color;
@@ -36,45 +92,26 @@ pub fn render(ui: &mut Ui, id: Id, color: &mut Color32, style: Style) -> Respons
     let mut response = ui
         .add_enabled_ui(!style.disabled, |ui| {
             let (rect, response) =
-                ui.allocate_exact_size(egui::vec2(style.size, style.size), Sense::click());
-            let cell = style.size / 4.0;
-            for row in 0..4 {
-                for col in 0..4 {
-                    let tile = egui::Rect::from_min_size(
-                        rect.min + egui::vec2(col as f32 * cell, row as f32 * cell),
-                        egui::vec2(cell, cell),
-                    );
-                    ui.painter().rect_filled(
-                        tile,
-                        0.0,
-                        if (row + col) % 2 == 0 {
-                            theme.colors.bg.base
-                        } else {
-                            theme.colors.gray.l2
-                        },
-                    );
+                ui.allocate_exact_size(egui::vec2(style.width, style.height), Sense::click());
+            let short_side = rect.width().min(rect.height());
+            let radius = style.corner_radius.at_most((short_side / 2.0) as u8);
+            let fill = if ui.is_enabled() {
+                *color
+            } else {
+                color.gamma_multiply(0.4)
+            };
+            if short_side > 0.0 && ui.is_rect_visible(rect) {
+                if fill.a() < 255 {
+                    paint_checkerboard(ui, rect, radius, short_side, theme);
                 }
+                ui.painter()
+                    .rect(rect, radius, fill, style.border_stroke, StrokeKind::Inside);
             }
-            ui.painter().rect_filled(
-                rect,
-                theme.corner_radius.sm,
-                if ui.is_enabled() {
-                    *color
-                } else {
-                    color.gamma_multiply(0.4)
-                },
-            );
-            ui.painter().rect_stroke(
-                rect,
-                theme.corner_radius.sm,
-                Stroke::new(1.0_f32, theme.colors.gray.l3),
-                StrokeKind::Inside,
-            );
             super::focus::ring(
                 ui,
                 &response,
                 rect,
-                theme.corner_radius.sm.into(),
+                radius,
                 theme.colors.primary.normal(),
                 super::focus::Placement::Outside,
             );
