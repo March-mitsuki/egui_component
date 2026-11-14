@@ -8,6 +8,7 @@ Breaking changes and migration instructions are recorded here.
 
 - `icon_button::Style` replaces the public `size: f32` field with `width: f32` and `height: f32`. Replace direct reads of `style.size` with the dimension you need. In struct literals, replace `size` with both fields. The `.size(value)` builder still sets both dimensions, while `.width(value)` and `.height(value)` set them independently.
 - `button::Style` adds the public `content_align: egui::Align` field. Add `content_align: egui::Align::Center` to struct literals that list every field to preserve centered alignment. Include the field or use `..` in exhaustive destructuring patterns. Constructors default to `Center`. Use `.content_align(...)` with `Min`, `Center`, or `Max` to align the entire content group to the left, center, or right.
+- The `Style` structs in `accordion`, `avatar`, `button`, `icon`, `icon_button`, `navigation`, `select`, `switch` add the public field `focus_color: egui::Color32`. In struct literals that list every field, add `focus_color: theme.colors.primary.normal()` to match the constructor default. In exhaustive destructuring patterns, include `focus_color` or use `..`.
 
 ## 0.3.0
 
