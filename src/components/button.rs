@@ -29,6 +29,8 @@ pub struct Style {
     pub gap: f32,
     /// 是否强制固定宽度
     pub width: Option<f32>,
+    /// 整组内容的水平对齐方式，默认居中。
+    pub content_align: egui::Align,
     pub state: ButtonState,
 }
 
@@ -95,6 +97,7 @@ impl Style {
             icon_right,
             gap,
             width: None,
+            content_align: egui::Align::Center,
             state: ButtonState::None,
         }
     }
@@ -501,6 +504,11 @@ impl Style {
         self
     }
 
+    pub fn content_align(mut self, align: egui::Align) -> Self {
+        self.content_align = align;
+        self
+    }
+
     pub fn state(mut self, state: ButtonState) -> Self {
         self.state = state;
         self
@@ -524,23 +532,17 @@ pub(super) fn render_with_focus_placement(
     let has_text = !text.is_empty();
     let is_loading = style.state == ButtonState::Loading;
 
-    // 计算图标占用的宽度
-    let mut icon_width = 0.0_f32;
-    if is_loading {
-        icon_width += icon_size + style.gap;
-    }
-    if let ButtonIcon::Some(_) = &style.icon_left {
-        icon_width += icon_size;
-        if has_text || is_loading {
-            icon_width += style.gap;
-        }
-    }
-    if let ButtonIcon::Some(_) = &style.icon_right {
-        icon_width += icon_size;
-        if has_text || is_loading || matches!(style.icon_left, ButtonIcon::Some(_)) {
-            icon_width += style.gap;
-        }
-    }
+    let has_left_icon = matches!(style.icon_left, ButtonIcon::Some(_));
+    let has_right_icon = matches!(style.icon_right, ButtonIcon::Some(_));
+    let gap_after_spinner = has_left_icon || has_text;
+    let gap_before_text = has_left_icon && has_text;
+    let gap_before_right = has_right_icon && (is_loading || has_left_icon || has_text);
+
+    let icon_count = u8::from(is_loading) + u8::from(has_left_icon) + u8::from(has_right_icon);
+    let gap_count = u8::from(is_loading && gap_after_spinner)
+        + u8::from(gap_before_text)
+        + u8::from(gap_before_right);
+    let icon_width = f32::from(icon_count) * icon_size + f32::from(gap_count) * style.gap;
 
     // 固定宽度模式下限制文字可用宽度，否则不限制（自动撑开）
     let max_text_width = style
@@ -592,22 +594,7 @@ pub(super) fn render_with_focus_placement(
     };
 
     // 用截断后的实际宽度计算内容总宽度
-    let mut content_width = if has_text { galley.size().x } else { 0.0 };
-    if is_loading {
-        content_width += icon_size + style.gap;
-    }
-    if let ButtonIcon::Some(_) = &style.icon_left {
-        content_width += icon_size;
-        if has_text || is_loading {
-            content_width += style.gap;
-        }
-    }
-    if let ButtonIcon::Some(_) = &style.icon_right {
-        content_width += icon_size;
-        if has_text || is_loading || matches!(style.icon_left, ButtonIcon::Some(_)) {
-            content_width += style.gap;
-        }
-    }
+    let content_width = icon_width + if has_text { galley.size().x } else { 0.0 };
 
     let total_width = style.width.unwrap_or(content_width + style.padding_x * 2.0);
     let size = egui::vec2(total_width, style.height);
@@ -656,8 +643,11 @@ pub(super) fn render_with_focus_placement(
         StrokeKind::Inside,
     );
 
-    // 绘制内容（图标和文字水平居中排列）
-    let mut cursor_x = rect.center().x - content_width / 2.0;
+    let mut cursor_x = match style.content_align {
+        egui::Align::Min => rect.left() + style.padding_x,
+        egui::Align::Center => rect.center().x - content_width / 2.0,
+        egui::Align::Max => rect.right() - style.padding_x - content_width,
+    };
 
     // Loading spinner（始终在最左边，icon_left 紧随其后）
     if is_loading {
@@ -677,7 +667,10 @@ pub(super) fn render_with_focus_placement(
         ui.painter()
             .add(egui::Shape::line(points, Stroke::new(1.5_f32, text_color)));
         ui.ctx().request_repaint();
-        cursor_x += icon_size + style.gap;
+        cursor_x += icon_size;
+        if gap_after_spinner {
+            cursor_x += style.gap;
+        }
     }
 
     // 左侧图标
@@ -690,7 +683,7 @@ pub(super) fn render_with_focus_placement(
             .tint(text_color)
             .paint_at(ui, icon_rect);
         cursor_x += icon_size;
-        if has_text {
+        if gap_before_text {
             cursor_x += style.gap;
         }
     }
@@ -704,7 +697,7 @@ pub(super) fn render_with_focus_placement(
 
     // 右侧图标
     if let ButtonIcon::Some(icon) = style.icon_right {
-        if has_text || is_loading || matches!(style.icon_left, ButtonIcon::Some(_)) {
+        if gap_before_right {
             cursor_x += style.gap;
         }
         let icon_rect = egui::Rect::from_center_size(

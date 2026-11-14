@@ -64,4 +64,25 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             button::Style::new_solid_md(theme).state(button::ButtonState::Loading),
         );
     });
+    ui.add_space(20.0);
+    text::render(
+        ui,
+        locale.text("demo.button:content_alignment"),
+        text::Style::new_heading(theme).size(14.0),
+    );
+    ui.add_space(8.0);
+    for (align, label) in [
+        (egui::Align::Min, "demo.button:align_left"),
+        (egui::Align::Center, "demo.button:align_center"),
+        (egui::Align::Max, "demo.button:align_right"),
+    ] {
+        let style = button::Style::new_outline_md(theme)
+            .width(Some(220.0))
+            .content_align(align);
+        #[cfg(feature = "lucide_icon")]
+        let style = style.icon_left(button::ButtonIcon::Some(
+            egui_component::icon::lucide::LANGUAGES,
+        ));
+        button::render(ui, locale.text(label), style);
+    }
 }
