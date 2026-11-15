@@ -30,6 +30,22 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         text_edit::Style::new_subtle_md(theme).placeholder(locale.text("demo.textEdit:sameValue")),
     );
     ui.data_mut(|data| data.insert_temp(id, value));
+    ui.add_space(12.0);
+    let id = ui.make_persistent_id("password-demo");
+    let mut value = ui.data_mut(|data| data.get_temp::<String>(id).unwrap_or_default());
+    text::render(
+        ui,
+        locale.text("demo.textEdit:password"),
+        text::Style::new(theme),
+    );
+    text_edit::render(
+        ui,
+        &mut value,
+        text_edit::Style::new_outline_md(theme)
+            .input_type(text_edit::InputType::Password)
+            .placeholder(locale.text("demo.textEdit:passwordPlaceholder")),
+    );
+    ui.data_mut(|data| data.insert_temp(id, value));
     ui.add_space(16.0);
     text::render(
         ui,

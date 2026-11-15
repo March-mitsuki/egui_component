@@ -130,6 +130,8 @@
   "demo.tooltip:body": "Helpful details, right where you need them.",
   "demo.textEdit:placeholder": "Your next idea",
   "demo.textEdit:quiet": "A quieter style",
+  "demo.textEdit:password": "Password",
+  "demo.textEdit:passwordPlaceholder": "Enter a sample password",
   "demo.textEdit:sameValue": "Same value, different style",
   "demo.divider:before": "Content before the divider",
   "demo.divider:continue": "or continue",

@@ -130,6 +130,8 @@
   "demo.tooltip:body": "必要な場所に役立つ情報を。",
   "demo.textEdit:placeholder": "次のアイデア",
   "demo.textEdit:quiet": "控えめなスタイル",
+  "demo.textEdit:password": "パスワード",
+  "demo.textEdit:passwordPlaceholder": "サンプルのパスワードを入力",
   "demo.textEdit:sameValue": "同じ値、異なるスタイル",
   "demo.divider:before": "区切りの前のコンテンツ",
   "demo.divider:continue": "または続ける",

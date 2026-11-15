@@ -130,6 +130,8 @@
   "demo.tooltip:body": "在需要的地方提供有用的细节。",
   "demo.textEdit:placeholder": "你的下一个创意",
   "demo.textEdit:quiet": "更柔和的样式",
+  "demo.textEdit:password": "密码",
+  "demo.textEdit:passwordPlaceholder": "输入示例密码",
   "demo.textEdit:sameValue": "相同的值，不同的样式",
   "demo.divider:before": "分隔内容之前",
   "demo.divider:continue": "或继续",
