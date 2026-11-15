@@ -17,7 +17,7 @@ pub(super) fn focused(response: &Response) -> bool {
 pub(super) fn keyboard_focus(response: &Response) -> bool {
     let ctx = &response.ctx;
     let frame = ctx.cumulative_frame_nr();
-    let id = Id::new("egui_component_focus_input").with(ctx.viewport_id());
+    let id = Id::unique("egui_component_focus_input").with(ctx.viewport_id());
     let previous = ctx.data(|data| data.get_temp::<(u64, bool)>(id));
 
     let keyboard = match previous {
@@ -117,7 +117,7 @@ mod tests {
         let color = Color32::from_rgb(1, 2, 3);
         let button_rect = std::cell::Cell::new(egui::Rect::NOTHING);
         let run = |events, state: button::ButtonState| {
-            let output = ctx.run_ui(
+            let mut output = ctx.run_ui(
                 RawInput {
                     events,
                     ..Default::default()
@@ -128,6 +128,7 @@ mod tests {
                     button_rect.set(button::render(ui, "Action", style).rect);
                 },
             );
+            output.textures_delta.clear();
             output.shapes.iter().any(|shape| {
                 matches!(&shape.shape, Shape::Rect(rect) if rect.stroke == Stroke::new(WIDTH, color))
             })

@@ -80,7 +80,7 @@ pub enum ScrollAxes {
 
 pub fn render_global(
     ui: &mut Ui,
-    id_salt: impl std::hash::Hash,
+    id_salt: impl egui::AsIdSalt,
     scroll_axes: ScrollAxes,
     renderer: impl FnOnce(&mut Ui),
     style: Style,
@@ -115,7 +115,7 @@ pub fn render_global(
 
 pub fn render(
     ui: &mut Ui,
-    id_salt: impl std::hash::Hash,
+    id_salt: impl egui::AsIdSalt,
     scroll_axes: ScrollAxes,
     renderer: impl FnOnce(&mut Ui),
     style: Style,
@@ -190,7 +190,7 @@ mod tests {
     #[test]
     fn padding_keeps_the_viewport_at_the_parent_edges() {
         let ctx = Context::default();
-        let _ = ctx.run_ui(
+        ctx.run_ui(
             egui::RawInput {
                 screen_rect: Some(egui::Rect::from_min_size(
                     egui::Pos2::ZERO,
@@ -220,13 +220,15 @@ mod tests {
                 assert!((content_origin.x - available.left() - 24.0).abs() < 1.0);
                 assert!((content_origin.y - available.top() - 24.0).abs() < 1.0);
             },
-        );
+        )
+        .textures_delta
+        .clear();
     }
 
     #[test]
     fn nested_viewport_respects_explicit_minimum_height() {
         let ctx = Context::default();
-        let _ = ctx.run_ui(Default::default(), |ui| {
+        ctx.run_ui(Default::default(), |ui| {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 let response = ui.scope(|ui| {
                     render(
@@ -244,6 +246,8 @@ mod tests {
                 });
                 assert!((response.response.rect.height() - 180.0).abs() < 1.0);
             });
-        });
+        })
+        .textures_delta
+        .clear();
     }
 }

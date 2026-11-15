@@ -41,7 +41,7 @@ impl eframe::App for MyApp {
 
         let theme = &self.ui_theme.light;
 
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             ui.heading("Custom Window Component Example");
             ui.add_space(8.0);
 
@@ -61,7 +61,7 @@ impl eframe::App for MyApp {
                 ui.label("Use the custom header bar (the dark top bar) to drag, collapse, or close the window.");
             }
 
-            let window_id = egui::Id::new("custom_drag_window");
+            let window_id = egui::Id::unique("custom_drag_window");
 
             // Render the window using the new reusable component
             window::render(

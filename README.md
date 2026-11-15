@@ -26,6 +26,14 @@ Thanks to its non-intrusive design, you can seamlessly use it in any `eframe` or
 - **🎨 Flexible Styling System**: Highly decoupled; every visual attribute of each component is fully customizable.
 - **🌓 Color Mode Friendly**: Native support for dark/light mode switching.
 
+## Supported egui versions
+
+| `egui_component` | Supported egui version |
+| --- | --- |
+| 0.4.0 | 0.37 |
+| 0.3.0 | 0.34 |
+| 0.2.0 | 0.34 |
+
 ## 📦 Installation
 
 Add the following dependency to your `Cargo.toml` file:

@@ -6,6 +6,8 @@
 
 ### 不兼容变更
 
+- 从 `egui_component` 0.4.0 开始，支持的 egui 版本为 0.37。如果项目直接依赖 `egui`、`eframe` 或 `egui_extras`，请将这些依赖同步升级至 0.37。
+- 表单和滚动区的 ID 参数现在要求 `egui::AsIdSalt`，`drawer::render` 的 ID 参数现在要求 `Hash + Debug`。如果自定义 ID 类型原先只实现了 `Hash`，请添加 `#[derive(Debug)]` 或手动实现 `Debug`。
 - `color_picker::Style` 将 `size: f32` 拆分为 `width: f32` 和 `height: f32`。要保持正方形，请将两者都设为原来的尺寸。逐项列出字段的结构体字面量还需补上 `border_stroke` 和 `corner_radius`。可用 `Style::new(theme).width(...).height(...)` 保留默认边框和圆角，也可通过同名构建方法覆盖。色块默认仍为 32 × 32，透明度棋盘格在圆角轮廓内保持方格。
 - `icon_button::Style` 的公开字段 `size: f32` 拆分为 `width: f32` 和 `height: f32`。直接读取 `style.size` 的代码应改为读取所需的宽度或高度。使用结构体字面量时，应将 `size` 替换为这两个字段。`.size(value)` 仍可同时设置宽高，`.width(value)` 和 `.height(value)` 可分别设置宽度和高度。
 - `button::Style` 新增公开字段 `content_align: egui::Align`。逐项列出字段的结构体字面量需补上 `content_align: egui::Align::Center` 以保持居中。穷尽解构时需列出该字段或使用 `..`。构造函数默认使用 `Center`。可通过 `.content_align(...)` 选择 `Min`、`Center` 或 `Max`，将整组内容左对齐、居中或右对齐。

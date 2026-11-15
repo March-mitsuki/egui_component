@@ -30,7 +30,6 @@
 
 use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
-use std::hash::Hash;
 use std::str::FromStr;
 
 use egui::{Id, Response, Ui};
@@ -54,13 +53,13 @@ impl FormState {
 
 /// A form instance, scoped to the parent UI's ID.
 pub struct Form {
-    id_salt: Id,
+    id_salt: egui::IdSalt,
 }
 
 impl Form {
-    pub fn new(id_salt: impl Hash) -> Self {
+    pub fn new(id_salt: impl egui::AsIdSalt) -> Self {
         Self {
-            id_salt: Id::new(id_salt),
+            id_salt: egui::IdSalt::new(id_salt),
         }
     }
 
@@ -208,7 +207,7 @@ pub struct FormUi<'a> {
 }
 
 impl FormUi<'_> {
-    pub fn field_id(&self, key: impl Hash) -> Id {
+    pub fn field_id(&self, key: impl egui::AsIdSalt) -> Id {
         self.id.with(key)
     }
 
@@ -218,7 +217,7 @@ impl FormUi<'_> {
     pub fn field<V>(
         &mut self,
         ui: &mut Ui,
-        key: impl Hash,
+        key: impl egui::AsIdSalt,
         value: &mut V,
         render: impl FnOnce(&mut Ui, &mut V) -> Response,
         validate: impl FnOnce(&V) -> Result<(), String>,
@@ -232,7 +231,7 @@ impl FormUi<'_> {
     pub fn field_with_error<V>(
         &mut self,
         ui: &mut Ui,
-        key: impl Hash,
+        key: impl egui::AsIdSalt,
         value: &mut V,
         render: impl FnOnce(&mut Ui, &mut V) -> Response,
         validate: impl FnOnce(&V) -> Result<(), String>,
@@ -318,7 +317,7 @@ mod tests {
     fn managed_draft_survives_frames_resets_and_can_be_removed() {
         let ctx = egui::Context::default();
         for stage in 0..4 {
-            let _ = ctx.run_ui(Default::default(), |ui| {
+            ctx.run_ui(Default::default(), |ui| {
                 let result = Form::new("managed").show::<String, _>(ui, |form, _, draft| {
                     match stage {
                         0 => {
@@ -354,7 +353,9 @@ mod tests {
                     );
                     assert!(ui.data(|d| d.get_temp::<FormState>(id)).is_none());
                 }
-            });
+            })
+            .textures_delta
+            .clear();
         }
     }
 
@@ -363,11 +364,13 @@ mod tests {
         // Rc<Cell<_>> is neither Send nor Sync.
         let mut data = std::rc::Rc::new(std::cell::Cell::new(7));
         let ctx = egui::Context::default();
-        let _ = ctx.run_ui(Default::default(), |ui| {
+        ctx.run_ui(Default::default(), |ui| {
             Form::new("borrowed").show_with_data(ui, &mut data, |_, _, value| {
                 value.set(8);
             });
-        });
+        })
+        .textures_delta
+        .clear();
         assert_eq!(data.get(), 8);
     }
 
@@ -375,8 +378,8 @@ mod tests {
     fn cached_state_is_scoped_to_form_and_context() {
         let ctx = egui::Context::default();
         let mut draft = String::new();
-        let _ = ctx.run_ui(Default::default(), |ui| {
-            egui::CentralPanel::default().show_inside(ui, |ui| {
+        ctx.run_ui(Default::default(), |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
                 let a = Form::new("a").id(ui);
                 let b = Form::new("b").id(ui);
                 let result = Form::new("a").show_with_data(ui, &mut draft, |form, ui, draft| {
@@ -405,7 +408,9 @@ mod tests {
                 Form::new("a").remove_state(ui);
                 assert!(ui.data(|d| d.get_temp::<FormState>(a)).is_none());
             });
-        });
+        })
+        .textures_delta
+        .clear();
     }
 
     #[test]
@@ -413,8 +418,8 @@ mod tests {
         let ctx = egui::Context::default();
         let mut state = FormState::default();
         let mut draft = 42;
-        let _ = ctx.run_ui(Default::default(), |ui| {
-            egui::CentralPanel::default().show_inside(ui, |ui| {
+        ctx.run_ui(Default::default(), |ui| {
+            egui::CentralPanel::default().show(ui, |ui| {
                 let result = Form::new("explicit").show_with_state(
                     ui,
                     &mut draft,
@@ -443,6 +448,8 @@ mod tests {
                         .is_none()
                 );
             });
-        });
+        })
+        .textures_delta
+        .clear();
     }
 }

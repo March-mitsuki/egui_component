@@ -116,6 +116,35 @@ uv run python -m unittest discover -s tests -p 'test_*.py'
 更新 Lucide 图标时，将生成的图标资源与 Rust 索引一起提交；
 详见下方的 [Lucide 图标维护](#lucide-图标维护)。
 
+## 升级 egui 和 eframe
+
+切换支持的 egui 版本系列时，一起更新下表中的 9 处依赖声明。
+各目标原有的 feature 配置应保留，迁移需要调整时再改。
+
+| 清单文件 | 需要更新的声明 |
+| --- | --- |
+| [`Cargo.toml`](Cargo.toml) | 常规依赖里的 `egui`、`egui_extras`，以及原生和 WASM 开发依赖各自的 `eframe` |
+| [`examples/router/Cargo.toml`](examples/router/Cargo.toml) | 原生和 WASM 依赖各自的 `eframe` |
+| [`examples/gallery/web/Cargo.toml`](examples/gallery/web/Cargo.toml) | 公共依赖里的 `egui_extras`，以及原生和 WASM 依赖各自的 `eframe` |
+
+在仓库根目录搜索所有清单，也能查到这份清单写成后新增的声明。
+
+```sh
+rg -n '^\s*(egui|egui_extras|eframe)\s*=' -g Cargo.toml
+```
+
+1. 查阅上游发布说明中的 API 变更和最低 Rust 版本要求。如果新版本有要求，
+   同步调整工具链配置。
+2. 运行 `cargo check --workspace --all-targets --all-features` 解析依赖并更新
+   根目录的 `Cargo.lock`。用 `cargo tree --workspace --target all -d --locked`
+   检查是否解析出了多个 egui 版本系列。排查仍引入旧版本的第三方依赖，
+   尤其是会与本库交换 egui 类型的依赖。
+3. 执行[工作区检查](#检查与代码约定)，用 `cargo run --example gallery --locked`
+   启动原生 Gallery，用 `trunk build --release --locked` 构建浏览器版。
+   验证两个版本的 Gallery，并将更新后的锁文件与依赖清单一起提交。
+4. 在中英文 changelog 中记录新支持的 egui 版本系列，提醒下游应用同步升级
+   会交换 `egui::Ui`、`egui::Context` 等类型的依赖。
+
 ## Gallery 开发与运行
 
 先按[开发环境](#开发环境)中的命令启动 Gallery。

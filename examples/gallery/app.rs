@@ -155,7 +155,7 @@ impl GalleryApp {
                     .fill(theme.colors.bg.base)
                     .inner_margin(Margin::symmetric(20, 12)),
             )
-            .show_inside(ui, |ui| {
+            .show(ui, |ui| {
                 let narrow = ui.available_width() < 1000.0;
                 let compact = ui.available_width() < 440.0;
                 ui.horizontal(|ui| {
@@ -425,7 +425,7 @@ impl GalleryApp {
                 .exact_size(218.0)
                 .resizable(false)
                 .frame(egui::Frame::NONE.fill(theme.colors.bg.base))
-                .show_inside(ui, |ui| {
+                .show(ui, |ui| {
                     scroll_area::render(
                         ui,
                         "sidebar-scroll",
@@ -439,7 +439,7 @@ impl GalleryApp {
         }
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE.fill(theme.colors.bg.base))
-            .show_inside(ui, |ui| {
+            .show(ui, |ui| {
                 if !sidebar {
                     egui::Frame::NONE
                         .inner_margin(Margin::symmetric(18, 12))
@@ -724,7 +724,7 @@ impl GalleryApp {
         let locale = self.locale();
         egui::CentralPanel::default()
             .frame(egui::Frame::NONE.fill(theme.colors.bg.base))
-            .show_inside(ui, |ui| {
+            .show(ui, |ui| {
                 main_scroll(
                     ui,
                     self.reset_main_scroll,
@@ -1065,7 +1065,7 @@ impl GalleryApp {
                             .fill(theme.colors.bg.base)
                             .inner_margin(Margin::same(36)),
                     )
-                    .show_inside(ui, |ui| {
+                    .show(ui, |ui| {
                         ui.add_space(60.0);
                         eyebrow(ui, locale.text("error:eyebrow"), &theme);
                         ui.add_space(18.0);
@@ -1094,7 +1094,7 @@ impl GalleryApp {
         }
         if let Some(error) = &self.error {
             egui::Window::new(locale.text("error:navigation"))
-                .id(egui::Id::new("navigation-error"))
+                .id(egui::Id::unique("navigation-error"))
                 .show(ui.ctx(), |ui| {
                     text::render(ui, error, text::Style::new(&theme));
                 });
@@ -1139,7 +1139,7 @@ mod layout_tests {
         let mut app = GalleryApp::new(theme, &ctx).unwrap();
         let mut events = Vec::new();
         let frame = |events: Vec<egui::Event>, app: &mut GalleryApp| {
-            ctx.run_ui(
+            let mut output = ctx.run_ui(
                 egui::RawInput {
                     events,
                     screen_rect: Some(egui::Rect::from_min_size(
@@ -1149,7 +1149,9 @@ mod layout_tests {
                     ..Default::default()
                 },
                 |ui| app.render(ui),
-            )
+            );
+            output.textures_delta.clear();
+            output
         };
         for _ in 0..2 {
             frame(events.clone(), &mut app);
@@ -1190,7 +1192,7 @@ mod layout_tests {
             let mut app = GalleryApp::new(theme, &ctx).unwrap();
             app.go(Page::ThemeGenerator);
             for _ in 0..2 {
-                let output = ctx.run_ui(
+                let mut output = ctx.run_ui(
                     egui::RawInput {
                         screen_rect: Some(egui::Rect::from_min_size(
                             egui::Pos2::ZERO,
@@ -1200,6 +1202,7 @@ mod layout_tests {
                     },
                     |ui| app.render(ui),
                 );
+                output.textures_delta.clear();
                 assert!(
                     red_rects(&output.shapes).is_empty(),
                     "layout errors at {width}"
@@ -1227,7 +1230,7 @@ mod layout_tests {
         ] {
             app.go(page.clone());
             for _ in 0..2 {
-                let output = ctx.run_ui(
+                let mut output = ctx.run_ui(
                     egui::RawInput {
                         screen_rect: Some(egui::Rect::from_min_size(
                             egui::Pos2::ZERO,
@@ -1237,6 +1240,7 @@ mod layout_tests {
                     },
                     |ui| app.render(ui),
                 );
+                output.textures_delta.clear();
                 assert!(
                     red_rects(&output.shapes).is_empty(),
                     "debug borders on {page:?}: {:?}",
@@ -1259,7 +1263,7 @@ fn main_scroll(
         style = style.scroll_offset(egui::Vec2::ZERO);
     }
     ui.scope_builder(
-        egui::UiBuilder::new().id(egui::Id::new("site-main-viewport")),
+        egui::UiBuilder::new().scope_id(egui::Id::unique("site-main-viewport")),
         |ui| {
             scroll_area::render(
                 ui,

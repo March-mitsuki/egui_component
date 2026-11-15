@@ -102,7 +102,7 @@ struct ToastManager {
 // All toast state belongs to this Context and is never serialized.
 fn with_manager<R>(ctx: &Context, f: impl FnOnce(&mut ToastManager) -> R) -> R {
     ctx.data_mut(|data| {
-        f(data.get_temp_mut_or_default::<ToastManager>(Id::new("egui_component/toast")))
+        f(data.get_temp_mut_or_default::<ToastManager>(Id::unique("egui_component/toast")))
     })
 }
 
@@ -199,7 +199,7 @@ pub fn renderer(ui: &mut Ui, theme: &Theme) {
             .collect::<Vec<_>>()
     });
     let hovered = toast_ids.into_iter().find(|&id| {
-        let area_id = Id::new("toast_area").with(id);
+        let area_id = Id::unique("toast_area").with(id);
         let rect = ctx.memory(|memory| memory.area_rect(area_id));
         rect.is_some_and(|rect| {
             ctx.rect_contains_pointer(LayerId::new(Order::Foreground, area_id), rect)
@@ -334,7 +334,7 @@ pub fn renderer(ui: &mut Ui, theme: &Theme) {
             // ── 渲染 ──────────────────────────────────────────────────────────
             (final_offset, manager.contents.get(&toast.id).cloned())
         });
-        let area_id = Id::new("toast_area").with(toast.id);
+        let area_id = Id::unique("toast_area").with(toast.id);
         let response = Area::new(area_id)
             .anchor(anchor, final_offset)
             .order(Order::Foreground)
@@ -463,9 +463,11 @@ mod tests {
         let theme =
             crate::theme::UiTheme::from_json_bytes(include_bytes!("../examples/theme.json"))
                 .unwrap();
-        let _ = ctx.run_ui(egui::RawInput::default(), |ui| {
+        ctx.run_ui(egui::RawInput::default(), |ui| {
             renderer(ui, &theme.light);
-        });
+        })
+        .textures_delta
+        .clear();
         assert!(calls.load(Ordering::Relaxed) > 0);
         with_manager(&ctx, |manager| {
             assert_eq!(manager.position, ToastPosition::TopLeft);
@@ -486,7 +488,9 @@ mod tests {
                     Some(Instant::now() - EXIT_DURATION);
             }
         });
-        let _ = ctx.run_ui(egui::RawInput::default(), |ui| renderer(ui, &theme.light));
+        ctx.run_ui(egui::RawInput::default(), |ui| renderer(ui, &theme.light))
+            .textures_delta
+            .clear();
         with_manager(&ctx, |manager| {
             assert!(manager.toasts.is_empty());
             assert!(manager.contents.is_empty());

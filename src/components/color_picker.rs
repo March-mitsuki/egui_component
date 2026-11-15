@@ -61,7 +61,7 @@ impl Style {
 }
 fn paint_checkerboard(ui: &Ui, rect: Rect, radius: CornerRadius, short_side: f32, theme: &Theme) {
     let colors = [theme.colors.bg.base, theme.colors.gray.l2];
-    let key = Id::new("egui_component_color_picker_checkerboard").with(colors);
+    let key = Id::unique("egui_component_color_picker_checkerboard").with(colors);
     let ctx = ui.ctx();
     let cached = ctx.data(|data| data.get_temp::<TextureHandle>(key));
     let texture = match cached {
@@ -116,11 +116,7 @@ pub fn render(ui: &mut Ui, id: Id, color: &mut Color32, style: Style) -> Respons
                 super::focus::Placement::Outside,
             );
             response.widget_info(|| {
-                egui::WidgetInfo::labeled(
-                    egui::WidgetType::ColorButton,
-                    ui.is_enabled(),
-                    color.to_hex(),
-                )
+                egui::WidgetInfo::labeled(egui::Role::ColorWell, ui.is_enabled(), color.to_hex())
             });
             egui::Popup::menu(&response)
                 .id(id)
@@ -216,7 +212,7 @@ mod tests {
         let visuals = ctx.global_style().visuals.clone();
         let mut run = |events| {
             let mut rect = egui::Rect::NOTHING;
-            let _ = ctx.run_ui(
+            ctx.run_ui(
                 egui::RawInput {
                     events,
                     ..Default::default()
@@ -224,13 +220,15 @@ mod tests {
                 |ui| {
                     rect = render(
                         ui,
-                        Id::new("color"),
+                        Id::unique("color"),
                         &mut color,
                         Style::new(&theme.dark).alpha(true),
                     )
                     .rect;
                 },
-            );
+            )
+            .textures_delta
+            .clear();
             assert_eq!(color, original);
             assert_eq!(ctx.global_style().visuals, visuals);
             rect
@@ -248,6 +246,6 @@ mod tests {
             ]);
         }
         run(vec![]);
-        assert!(egui::Popup::is_id_open(&ctx, Id::new("color")));
+        assert!(egui::Popup::is_id_open(&ctx, Id::unique("color")));
     }
 }

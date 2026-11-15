@@ -76,7 +76,7 @@ impl eframe::App for App {
         let theme = &self.theme.dark;
         ui.ctx().set_visuals(egui::Visuals::dark());
         egui_component::consts::FONT_MANAGER.apply(ui.ctx());
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.set_min_height(56.0);
                 text::render(

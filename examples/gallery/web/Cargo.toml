@@ -19,7 +19,7 @@ ehttp = { version = "0.7", features = ["streaming"] }
 wuff = { version = "0.2.9", default-features = false, features = ["brotli"] }
 egui_component = { path = "../../.." }
 egui_component_router = { path = "../../../router" }
-egui_extras = { version = "0.34", features = ["syntect", "all_loaders"] }
+egui_extras = { version = "0.37", features = ["syntect", "all_loaders"] }
 log = "0.4"
 tracing = "0.1"
 wasm-bindgen = "0.2"
@@ -28,9 +28,9 @@ console_error_panic_hook = "0.1"
 web-sys = { version = "0.3", features = ["Window", "Document", "Element", "HtmlElement", "HtmlCanvasElement"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-eframe = { version = "0.34", default-features = false, features = ["default_fonts", "glow"] }
+eframe = { version = "0.37", default-features = false, features = ["default_fonts", "glow"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-eframe = "0.34"
+eframe = "0.37"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-appender = "0.2"

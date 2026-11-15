@@ -43,7 +43,7 @@ pub fn render(ui: &mut Ui, value: Option<f32>, style: Style) -> Response {
         Sense::hover(),
     );
     response.widget_info(|| {
-        let mut info = egui::WidgetInfo::new(egui::WidgetType::ProgressIndicator);
+        let mut info = egui::WidgetInfo::new(egui::Role::ProgressIndicator);
         info.value = value.map(|value| (fraction(value) * 100.0) as f64);
         info
     });

@@ -80,7 +80,7 @@ impl Generator {
                     .fill(shell.colors.bg.base)
                     .inner_margin(24),
             )
-            .show_inside(ui, |ui| {
+            .show(ui, |ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(8.0, 8.0);
                 ui.visuals_mut().widgets.noninteractive.bg_stroke =
                     egui::Stroke::new(1.0_f32, shell.colors.gray.l2);
@@ -833,7 +833,7 @@ mod tests {
         for mode in [0, 1, 2, 0, 2, 1] {
             generator.mode = mode;
             for _ in 0..2 {
-                let output = ctx.run_ui(
+                let mut output = ctx.run_ui(
                     egui::RawInput {
                         time: Some(1.0),
                         screen_rect: Some(egui::Rect::from_min_size(
@@ -846,6 +846,7 @@ mod tests {
                         generator.show(ui, &shell, Locale::En);
                     },
                 );
+                output.textures_delta.clear();
                 assert_eq!(
                     ctx.global_style().visuals,
                     initial,

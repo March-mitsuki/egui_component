@@ -144,7 +144,7 @@ mod tests {
         let mut value = 0.0;
         let mut run = |events: Vec<egui::Event>, disabled: bool, focus: bool| {
             let mut rect = egui::Rect::NOTHING;
-            let _ = ctx.run_ui(
+            ctx.run_ui(
                 egui::RawInput {
                     events,
                     ..Default::default()
@@ -161,7 +161,9 @@ mod tests {
                         r.request_focus();
                     }
                 },
-            );
+            )
+            .textures_delta
+            .clear();
             (value, rect)
         };
         let (_, rect) = run(vec![], false, false);

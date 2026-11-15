@@ -42,7 +42,7 @@ class PublishTests(unittest.TestCase):
         main = release.load_toml(self.root / "Cargo.toml")
         self.assertEqual(main["dependencies"]["egui_component_style_macros"]["path"], "style_macros")
         self.assertEqual(main["dev-dependencies"]["egui_component_router"]["path"], "router")
-        self.assertEqual(main["dependencies"]["egui"]["version"], "0.34")
+        self.assertEqual(main["dependencies"]["egui"]["version"], "0.37")
         self.assertIn('branch = "dev"', (self.root / "README.zh.md").read_text())
 
     def test_bump_updates_lucide_examples_and_preserves_features(self):
@@ -55,11 +55,12 @@ class PublishTests(unittest.TestCase):
             )
 
     def test_stale_lucide_example_prevents_publish(self):
+        version = release.validate_release()
         for filename in ["README.md", "README.zh.md"]:
             with self.subTest(filename=filename):
                 path = self.root / filename
                 original = path.read_text()
-                path.write_text(original.replace('version = "0.2.0", features',
+                path.write_text(original.replace(f'version = "{version}", features',
                                                  'version = "0.1.0-alpha.2", features'))
                 with patch.object(release, "run_cmd") as run, self.assertRaises(ValueError):
                     release.Cli().publish("router", publish=True)

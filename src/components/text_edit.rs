@@ -342,7 +342,6 @@ struct CursorState {
     /// Timestamp of the last user interaction — controls cursor blink.
     last_interaction_time: f64,
     /// True while the OS IME composition session is active (Enabled → Disabled/Commit).
-    ime_enabled: bool,
     /// IME preedit text currently shown inline. Empty = not in IME composition.
     ime_preedit: String,
     /// Char index where the preedit text starts (for replacement on Commit).
@@ -360,7 +359,6 @@ impl Default for CursorState {
             anchor: 0,
             scroll_offset: 0.0,
             last_interaction_time: f64::NEG_INFINITY,
-            ime_enabled: false,
             ime_preedit: String::new(),
             ime_start: 0,
             undoer: undoer::Undoer::default(),
@@ -377,7 +375,7 @@ impl CursorState {
 
     #[inline]
     fn ime_active(&self) -> bool {
-        self.ime_enabled || !self.ime_preedit.is_empty()
+        !self.ime_preedit.is_empty()
     }
 
     /// Returns `(start, end)` in ascending order (character indices).
@@ -923,91 +921,57 @@ fn handle_events(
             // ── IME composition ───────────────────────────────────
             egui::Event::Ime(ime_event) => {
                 match ime_event {
-                    egui::ImeEvent::Enabled => {
-                        // Begin IME composition: remember where preedit starts.
-                        // First delete any existing selection.
-                        if state.has_selection() {
-                            let (s, e) = state.ordered_range();
-                            delete_range(text, s, e);
-                            state.set_cursor(s);
+                    egui::ImeEvent::Preedit { text: preedit, .. }
+                        if preedit != "\n" && preedit != "\r" =>
+                    {
+                        if !state.ime_active() && !preedit.is_empty() {
+                            if state.has_selection() {
+                                let (start, end) = state.ordered_range();
+                                delete_range(text, start, end);
+                                state.set_cursor(start);
+                            }
+                            state.ime_start = state.cursor;
+                        }
+                        // Remove old preedit text from the buffer.
+                        let old_len = state.ime_preedit.chars().count();
+                        if old_len > 0 {
+                            let preedit_end = state.ime_start + old_len;
+                            delete_range(text, state.ime_start, preedit_end);
                             changed = true;
                         }
-                        state.ime_enabled = true;
-                        state.ime_start = state.cursor;
-                        state.ime_preedit = String::new();
-                    }
-                    egui::ImeEvent::Preedit(preedit) => {
-                        if preedit == "\n" || preedit == "\r" {
-                            // ignore
-                        } else {
-                            // Remove old preedit text from the buffer.
-                            let old_len = state.ime_preedit.chars().count();
-                            if old_len > 0 {
-                                let preedit_end = state.ime_start + old_len;
-                                delete_range(text, state.ime_start, preedit_end);
-                                changed = true;
-                            }
-                            state.ime_preedit = preedit.clone();
-
-                            if !preedit.is_empty() {
-                                // Insert new preedit text and move cursor to its end.
-                                state.last_interaction_time = now;
-                                insert_at(text, state.ime_start, preedit);
-                                state.set_cursor(state.ime_start + preedit.chars().count());
-                                changed = true;
-                            } else {
-                                // Empty preedit: the IME is clearing composition state
-                                // (e.g. after a Commit, or when the user presses Escape
-                                // inside the IME). We deleted any stale preedit text above;
-                                // do NOT reset the cursor — an ArrowLeft/Right event may
-                                // have just moved it and must not be overridden here.
-                                if old_len > 0 {
-                                    // Cursor was inside the now-deleted preedit range;
-                                    // bring it back to the insertion point.
-                                    state.set_cursor(state.ime_start);
-                                }
-                                // If old_len == 0 the cursor is already where it should
-                                // be (user might have moved it with an arrow).
-                            }
+                        state.ime_preedit = preedit.clone();
+                        if !preedit.is_empty() {
+                            // Insert new preedit text and move cursor to its end.
+                            state.last_interaction_time = now;
+                            insert_at(text, state.ime_start, preedit);
+                            state.set_cursor(state.ime_start + preedit.chars().count());
+                            changed = true;
+                        } else if old_len > 0 {
+                            state.set_cursor(state.ime_start);
                         }
                     }
                     egui::ImeEvent::Commit(commit) => {
-                        state.last_interaction_time = now;
-                        state.ime_enabled = false;
-                        // Remove in-progress preedit.
-                        let old_len = state.ime_preedit.chars().count();
-                        if old_len > 0 {
-                            let preedit_end = state.ime_start + old_len;
-                            delete_range(text, state.ime_start, preedit_end);
-                        }
-                        state.ime_preedit = String::new();
-                        // Insert the committed text (filter newlines for singleline).
-                        if !commit.is_empty() && commit != "\n" && commit != "\r" {
-                            let filtered: String = commit
-                                .chars()
-                                .filter(|c| *c != '\n' && *c != '\r')
-                                .collect();
-                            if !filtered.is_empty() {
-                                insert_at(text, state.ime_start, &filtered);
-                                state.set_cursor(state.ime_start + filtered.chars().count());
-                            }
+                        let filtered: String = commit
+                            .chars()
+                            .filter(|c| !matches!(c, '\n' | '\r'))
+                            .collect();
+                        let (start, end) = if state.ime_active() {
+                            let start = state.ime_start;
+                            (start, start + state.ime_preedit.chars().count())
+                        } else if filtered.is_empty() {
+                            continue;
                         } else {
-                            state.set_cursor(state.ime_start);
-                        }
+                            state.ordered_range()
+                        };
+
+                        delete_range(text, start, end);
+                        state.ime_preedit.clear();
+                        insert_at(text, start, &filtered);
+                        state.set_cursor(start + filtered.chars().count());
+                        state.last_interaction_time = now;
                         changed = true;
                     }
-                    egui::ImeEvent::Disabled => {
-                        state.ime_enabled = false;
-                        // IME disabled without commit — discard preedit.
-                        let old_len = state.ime_preedit.chars().count();
-                        if old_len > 0 {
-                            let preedit_end = state.ime_start + old_len;
-                            delete_range(text, state.ime_start, preedit_end);
-                            state.set_cursor(state.ime_start);
-                            changed = true;
-                        }
-                        state.ime_preedit = String::new();
-                    }
+                    _ => {}
                 }
             }
 
@@ -1169,7 +1133,7 @@ pub fn render(ui: &mut Ui, text: &mut String, style: Style) -> egui::Response {
                 let galley_x = pointer_pos.x - text_rect.left() + cstate.scroll_offset;
                 let pos_in_galley = egui::vec2(galley_x, text_height / 2.0);
                 let hit = galley.cursor_from_pos(pos_in_galley);
-                let char_idx = hit.index;
+                let char_idx = hit.index.0;
 
                 if response.double_clicked() {
                     // Double-click → select word
@@ -1253,7 +1217,7 @@ pub fn render(ui: &mut Ui, text: &mut String, style: Style) -> egui::Response {
             cstate.cursor
         };
         let ccursor = egui::epaint::text::cursor::CCursor {
-            index: track_index,
+            index: egui::text::CharIndex(track_index),
             prefer_next_row: false,
         };
         let cursor_x = galley.pos_from_cursor(ccursor).min.x;
@@ -1288,11 +1252,11 @@ pub fn render(ui: &mut Ui, text: &mut String, style: Style) -> egui::Response {
         if is_focused && cstate.has_selection() {
             let (sel_start, sel_end) = cstate.ordered_range();
             let start_ccursor = egui::epaint::text::cursor::CCursor {
-                index: sel_start,
+                index: egui::text::CharIndex(sel_start),
                 prefer_next_row: false,
             };
             let end_ccursor = egui::epaint::text::cursor::CCursor {
-                index: sel_end,
+                index: egui::text::CharIndex(sel_end),
                 prefer_next_row: false,
             };
             let sx = galley.pos_from_cursor(start_ccursor).min.x;
@@ -1324,11 +1288,11 @@ pub fn render(ui: &mut Ui, text: &mut String, style: Style) -> egui::Response {
         if is_focused && cstate.ime_active() {
             let preedit_len = cstate.ime_preedit.chars().count();
             let start_ccursor = egui::epaint::text::cursor::CCursor {
-                index: cstate.ime_start,
+                index: egui::text::CharIndex(cstate.ime_start),
                 prefer_next_row: false,
             };
             let end_ccursor = egui::epaint::text::cursor::CCursor {
-                index: cstate.ime_start + preedit_len,
+                index: egui::text::CharIndex(cstate.ime_start + preedit_len),
                 prefer_next_row: false,
             };
             let px = galley.pos_from_cursor(start_ccursor).min.x;
@@ -1362,7 +1326,7 @@ pub fn render(ui: &mut Ui, text: &mut String, style: Style) -> egui::Response {
                     cstate.cursor
                 };
                 let ccursor = egui::epaint::text::cursor::CCursor {
-                    index: cursor_index,
+                    index: egui::text::CharIndex(cursor_index),
                     prefer_next_row: false,
                 };
                 let cx = galley.pos_from_cursor(ccursor).min.x;
@@ -1408,7 +1372,7 @@ pub fn render(ui: &mut Ui, text: &mut String, style: Style) -> egui::Response {
         };
         let cursor_screen_x = {
             let ccursor = egui::epaint::text::cursor::CCursor {
-                index: track_index,
+                index: egui::text::CharIndex(track_index),
                 prefer_next_row: false,
             };
             let galley_x = galley.pos_from_cursor(ccursor).min.x;
@@ -1419,8 +1383,21 @@ pub fn render(ui: &mut Ui, text: &mut String, style: Style) -> egui::Response {
             egui::pos2(cursor_screen_x, rect.top()),
             egui::pos2(cursor_screen_x + 1.0, rect.bottom()),
         );
+        let to_global = ui
+            .ctx()
+            .layer_transform_to_global(ui.layer_id())
+            .unwrap_or_default();
         ui.output_mut(|o| {
-            o.ime = Some(egui::output::IMEOutput { rect, cursor_rect });
+            o.ime = Some(egui::output::IMEOutput {
+                rect: to_global * rect,
+                cursor_rect: to_global * cursor_rect,
+                purpose: if style.input_type == InputType::Password {
+                    egui::IMEPurpose::Password
+                } else {
+                    egui::IMEPurpose::Normal
+                },
+                should_interrupt_composition: false,
+            });
             o.mutable_text_under_cursor = true;
         });
     }
@@ -1561,6 +1538,57 @@ mod tests {
     use super::*;
 
     #[test]
+    fn ime_composition_replaces_selection_without_enabled_event() {
+        let ctx = egui::Context::default();
+        let mut text = String::from("甲乙丙");
+        let mut state = CursorState {
+            cursor: 2,
+            anchor: 1,
+            ..Default::default()
+        };
+
+        for (event, expected) in [
+            (
+                egui::ImeEvent::Preedit {
+                    text: String::new(),
+                    active_range_chars: None,
+                },
+                "甲乙丙",
+            ),
+            (
+                egui::ImeEvent::Preedit {
+                    text: "に".into(),
+                    active_range_chars: None,
+                },
+                "甲に丙",
+            ),
+            (egui::ImeEvent::Commit("日".into()), "甲日丙"),
+            (egui::ImeEvent::Commit("本".into()), "甲日本丙"),
+        ] {
+            ctx.run_ui(
+                egui::RawInput {
+                    events: vec![egui::Event::Ime(event)],
+                    ..Default::default()
+                },
+                |ui| {
+                    handle_events(
+                        ui,
+                        egui::Id::unique("ime-test"),
+                        &mut text,
+                        &mut state,
+                        &egui::EventFilter::default(),
+                    );
+                },
+            )
+            .textures_delta
+            .clear();
+            assert_eq!(text, expected);
+        }
+        assert_eq!(state.cursor, 3);
+        assert!(!state.ime_active());
+    }
+
+    #[test]
     fn multiline_placeholder_uses_editor_font_for_cjk() {
         let ctx = egui::Context::default();
         let mut fonts = egui::FontDefinitions::default();
@@ -1581,11 +1609,12 @@ mod tests {
                 .unwrap();
         let style = Style::new_outline_md(&theme.light).placeholder("中");
         let expected = egui::FontId::proportional(style.text_size);
-        let output = ctx.run_ui(Default::default(), |ui| {
+        let mut output = ctx.run_ui(Default::default(), |ui| {
             ui.style_mut().override_font_id = Some(egui::FontId::monospace(20.0));
             assert!(ui.fonts_mut(|fonts| fonts.has_glyph(&expected, '中')));
             render_multiline(ui, &mut String::new(), 4, style.clone());
         });
+        output.textures_delta.clear();
 
         let hint = output.shapes.iter().find_map(|shape| match &shape.shape {
             egui::Shape::Text(text) if text.galley.text() == "中" => Some(&text.galley),

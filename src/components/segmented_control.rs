@@ -49,7 +49,7 @@ pub fn render<T: Copy + PartialEq>(
                     );
                     response.widget_info(|| {
                         egui::WidgetInfo::selected(
-                            egui::WidgetType::SelectableLabel,
+                            egui::Role::Button,
                             ui.is_enabled(),
                             selected,
                             *label,

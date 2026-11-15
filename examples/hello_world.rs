@@ -58,7 +58,7 @@ impl eframe::App for MyApp {
             }
         };
 
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(80.0);
                 ui.text_edit_singleline(&mut self.test_text);

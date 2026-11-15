@@ -1,7 +1,7 @@
 //! Full-width, left-aligned navigation items for sidebars and page outlines.
 use super::focus::{self, Placement};
 use crate::{components::text, theme::Theme};
-use egui::{Color32, CornerRadius, Response, Sense, Ui, Vec2, WidgetInfo, WidgetType};
+use egui::{Color32, CornerRadius, Response, Role, Sense, Ui, Vec2, WidgetInfo};
 
 #[derive(Clone)]
 pub struct Style {
@@ -34,14 +34,7 @@ pub fn render(ui: &mut Ui, label: &str, selected: bool, style: Style) -> Respons
         Vec2::new(ui.available_width(), style.height),
         Sense::click(),
     );
-    response.widget_info(|| {
-        WidgetInfo::selected(
-            WidgetType::SelectableLabel,
-            ui.is_enabled(),
-            selected,
-            label,
-        )
-    });
+    response.widget_info(|| WidgetInfo::selected(Role::Button, ui.is_enabled(), selected, label));
     let hover = ui.ctx().animate_bool_with_time(
         response.id.with("hover"),
         ui.is_enabled() && (response.hovered() || response.has_focus()),

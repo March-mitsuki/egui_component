@@ -47,7 +47,7 @@ pub fn render(
     renderer: impl FnOnce(&mut Ui),
     style: Style,
 ) -> egui::ModalResponse<()> {
-    egui::Modal::new(egui::Id::new(&style.title))
+    egui::Modal::new(egui::Id::unique(&style.title))
         .frame(style.frame)
         .backdrop_color(style.backdrop_color)
         .show(ctx, |ui| {

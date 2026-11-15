@@ -8,7 +8,13 @@ fn bytes(name: &str) -> Vec<u8> {
 }
 
 fn finish(ctx: &egui::Context) {
-    let _ = ctx.end_pass();
+    ctx.end_pass().textures_delta.clear();
+}
+
+fn layout_text(ctx: &egui::Context) {
+    ctx.fonts_mut(|fonts| {
+        fonts.layout_no_wrap("test".into(), egui::FontId::default(), egui::Color32::WHITE);
+    });
 }
 
 #[test]
@@ -19,6 +25,7 @@ fn latest_update_wins_when_reverting_to_active_fonts_in_the_same_pass() {
     manager.replace_family("main", &[(&regular, 0)]).unwrap();
     manager.apply(&ctx);
     ctx.begin_pass(Default::default());
+    layout_text(&ctx);
     manager
         .replace_family("main", &[(&bytes("Ubuntu-Light"), 0)])
         .unwrap();
@@ -57,14 +64,13 @@ fn replaces_faces_without_duplicates_and_skips_unchanged_updates() {
     manager
         .load_from_bytes("ui", &bytes("Ubuntu-Light"), 0)
         .unwrap();
-    manager
-        .load_from_bytes("ui", &bytes("NotoEmoji-Regular"), 0)
-        .unwrap();
+    let replacement = include_bytes!("../../examples/assets/font-fixtures/GalleryCJK-Test.ttc");
+    manager.load_from_bytes("ui", replacement, 0).unwrap();
     let state = manager.state.read();
     let faces = &state.families[&FamilyKey::new("ui")];
     assert_eq!(faces.len(), 2); // Light and Regular, with Regular replaced.
     assert_eq!(faces[1].face.weight, FontWeight::Regular);
-    assert_eq!(faces[1].face.data.as_ref(), bytes("NotoEmoji-Regular"));
+    assert_eq!(faces[1].face.data.as_ref(), replacement);
     drop(state);
     assert!(manager.apply(&ctx));
     let updated = manager.snapshot();
@@ -129,6 +135,7 @@ fn contexts_activate_independently_and_queries_never_return_pending_names() {
         .unwrap();
 
     first.begin_pass(Default::default());
+    layout_text(&first);
     assert!(manager.apply(&first));
     assert!(!manager.apply(&first));
     assert_eq!(
@@ -153,6 +160,7 @@ fn contexts_activate_independently_and_queries_never_return_pending_names() {
         family
     );
 
+    layout_text(&first);
     assert!(manager.remove_family("custom"));
     assert!(manager.apply(&first));
     // First still has the old active snapshot, despite queuing its removal.
@@ -205,6 +213,7 @@ fn late_fallback_load_and_removal_change_actual_glyph_availability() {
             .glyph_index('中')
             .is_some()
     );
+    layout_text(&ctx);
     manager.load_from_bytes("cjk", fixture, 1).unwrap();
     assert!(manager.apply(&ctx));
     assert!(!has_chinese(&manager, &ctx));

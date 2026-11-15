@@ -123,6 +123,40 @@ uv run python -m unittest discover -s tests -p 'test_*.py'
 Commit generated Lucide assets and their Rust index together when updating icons;
 see [Lucide icon maintenance](#lucide-icon-maintenance) below.
 
+## Upgrading egui and eframe
+
+Update all nine dependency declarations below together when changing the supported
+egui release series. Keep the existing feature flags for each target unless the
+migration requires changing them.
+
+| Manifest | Declarations to update |
+| --- | --- |
+| [`Cargo.toml`](Cargo.toml) | `egui` and `egui_extras` in dependencies, plus `eframe` in both native and WASM dev-dependencies |
+| [`examples/router/Cargo.toml`](examples/router/Cargo.toml) | `eframe` in both native and WASM dependencies |
+| [`examples/gallery/web/Cargo.toml`](examples/gallery/web/Cargo.toml) | `egui_extras` in shared dependencies, plus `eframe` in both native and WASM dependencies |
+
+Scan all manifests for these declarations, including any added since this list
+was written.
+
+```sh
+rg -n '^\s*(egui|egui_extras|eframe)\s*=' -g Cargo.toml
+```
+
+1. Check the upstream release notes for API changes and the minimum Rust version.
+   Update toolchain settings if the new release requires it.
+2. Run `cargo check --workspace --all-targets --all-features` to resolve the
+   dependencies and refresh the root `Cargo.lock`. Check
+   `cargo tree --workspace --target all -d --locked` for multiple egui release
+   series. Review third-party dependencies that still pull in the old series,
+   especially those that exchange egui types with this library.
+3. Run the [workspace checks](#checks-and-coding-expectations), launch the native
+   gallery with `cargo run --example gallery --locked`, and build the browser
+   gallery with `trunk build --release --locked`. Exercise both galleries and
+   commit the updated lockfile with the manifests.
+4. Record the new supported egui series in both changelogs and note that downstream
+   applications must align dependencies that exchange egui types, such as
+   `egui::Ui` and `egui::Context`.
+
 ## Gallery development
 
 Start the gallery using the commands in [Development setup](#development-setup).

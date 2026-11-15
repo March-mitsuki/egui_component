@@ -87,6 +87,7 @@ mod tests {
                     show(ui, &theme.light, Locale::En);
                 },
             );
+            output.textures_delta.clear();
         }
         let mut body_visible = false;
         let mut save_at_bottom = false;

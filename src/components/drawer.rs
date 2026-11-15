@@ -127,7 +127,7 @@ pub fn render_header(ui: &mut Ui, theme: &Theme, title: &str) -> bool {
         });
     });
     if clicked {
-        ui.data_mut(|data| data.insert_temp(ui.id().with("drawer-close-button"), true));
+        ui.data_mut(|data| data.insert_temp(ui.scope_id().with("drawer-close-button"), true));
     }
     clicked
 }
@@ -136,12 +136,12 @@ pub fn render_header(ui: &mut Ui, theme: &Theme, title: &str) -> bool {
 /// Close requests never change `open`; the caller can accept or veto them.
 pub fn render<'a, R>(
     ctx: &Context,
-    id: impl std::hash::Hash,
+    id: impl std::hash::Hash + std::fmt::Debug,
     open: bool,
     renderer: impl FnOnce(&mut Drawer<'a>) -> R,
     style: Style,
 ) -> DrawerResponse<R> {
-    let id = Id::new(id);
+    let id = Id::unique(id);
     let animation_id = id.with("animation");
     let initialized = ctx.data_mut(|data| {
         let initialized = data.get_temp::<bool>(animation_id).unwrap_or(false);
@@ -226,7 +226,7 @@ pub fn render<'a, R>(
                     header(ui);
                     header_closed = ui
                         .data_mut(|data| {
-                            data.remove_temp::<bool>(ui.id().with("drawer-close-button"))
+                            data.remove_temp::<bool>(ui.scope_id().with("drawer-close-button"))
                         })
                         .unwrap_or(false);
                 });
@@ -277,7 +277,7 @@ mod tests {
     use std::cell::Cell;
 
     fn frame(ctx: &Context, time: f64, mut run: impl FnMut(&Context)) {
-        let _ = ctx.run_ui(
+        ctx.run_ui(
             egui::RawInput {
                 screen_rect: Some(egui::Rect::from_min_size(
                     egui::Pos2::ZERO,
@@ -287,7 +287,9 @@ mod tests {
                 ..Default::default()
             },
             |ui| run(ui.ctx()),
-        );
+        )
+        .textures_delta
+        .clear();
     }
 
     #[test]
@@ -453,7 +455,7 @@ mod tests {
                     ],
                     _ => vec![],
                 };
-                let _ = ctx.run_ui(
+                ctx.run_ui(
                     egui::RawInput {
                         screen_rect: Some(egui::Rect::from_min_size(
                             egui::Pos2::ZERO,
@@ -476,7 +478,9 @@ mod tests {
                         );
                         reason.set(r.close_reason());
                     },
-                );
+                )
+                .textures_delta
+                .clear();
                 if n == 2 {
                     assert_eq!(reason.get(), enabled.then_some(CloseReason::Escape));
                 }

@@ -71,7 +71,8 @@ struct SubmittedFonts {
 
 /// Mutable font catalog. Call [`Self::apply`] before rendering each frame.
 ///
-/// Updates are atomic; egui activates submitted definitions on its next pass.
+/// Updates are atomic. egui activates submitted definitions immediately if its
+/// fonts are initialized and unused this pass, or at the start of the next pass.
 /// One manager may serve multiple contexts. A context has one font catalog owner:
 /// supply application fonts through [`Self::set_base_fonts`] rather than calling
 /// `Context::set_fonts` independently after applying this manager.
@@ -473,15 +474,15 @@ impl FontManager {
     }
 
     /// Submit changed fonts once per context/version. Safe to call every frame.
-    /// Returns true when a new catalog was queued. egui activates it next pass;
-    /// queries below keep using the currently active definitions in the meantime.
+    /// Returns true when a new catalog was submitted. Family queries use the
+    /// definitions currently active in this context.
     pub fn apply(&self, ctx: &egui::Context) -> bool {
         let snapshot = self.snapshot();
         let submitted = SubmittedFonts {
             manager_id: self.id,
             revision: snapshot.revision,
         };
-        let id = egui::Id::new("egui_component/font_catalog");
+        let id = egui::Id::unique("egui_component/font_catalog");
         if ctx.data(|data| data.get_temp::<SubmittedFonts>(id)) == Some(submitted) {
             return false;
         }

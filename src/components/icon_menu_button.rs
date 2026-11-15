@@ -221,7 +221,7 @@ mod tests {
             crate::theme::UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json"))
                 .unwrap()
                 .light;
-        let id = egui::Id::new("split");
+        let id = egui::Id::unique("split");
         let mut clicks = Vec::new();
         let mut run = |key: Option<Key>| {
             let events = key
@@ -234,7 +234,7 @@ mod tests {
                     modifiers: Modifiers::NONE,
                 })
                 .collect();
-            let _ = ctx.run_ui(
+            ctx.run_ui(
                 RawInput {
                     events,
                     ..Default::default()
@@ -259,7 +259,9 @@ mod tests {
                         Style::new(&theme),
                     );
                 },
-            );
+            )
+            .textures_delta
+            .clear();
             (clicks.clone(), Popup::is_id_open(&ctx, id))
         };
 

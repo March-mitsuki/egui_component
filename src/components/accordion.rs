@@ -134,7 +134,7 @@ mod tests {
         let mut open = false;
         let mut header = egui::Rect::NOTHING;
         let mut run = |events: Vec<egui::Event>, disabled: bool, focus: bool| {
-            let _ = ctx.run_ui(
+            ctx.run_ui(
                 egui::RawInput {
                     events,
                     screen_rect: Some(egui::Rect::from_min_size(
@@ -146,7 +146,7 @@ mod tests {
                 |ui| {
                     let r = render(
                         ui,
-                        Id::new("test"),
+                        Id::unique("test"),
                         "Details",
                         None,
                         Some(&mut open),
@@ -160,7 +160,9 @@ mod tests {
                         r.header_response.request_focus();
                     }
                 },
-            );
+            )
+            .textures_delta
+            .clear();
             (open, header)
         };
         let (_, header) = run(vec![], false, false);

@@ -330,7 +330,7 @@ mod tests {
             assert!(fonts.has_glyph(&font, 'H'));
             assert!(fonts.has_glyph(&font, '0'));
         });
-        let _ = ctx.end_pass();
+        ctx.end_pass().textures_delta.clear();
     }
 
     #[test]
