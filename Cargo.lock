@@ -717,16 +717,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "concat-idents"
-version = "1.1.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f76990911f2267d837d9d0ad060aa63aaad170af40904b29461734c339030d4d"
-dependencies = [
- "quote",
- "syn 2.0.119",
-]
-
-[[package]]
 name = "concurrent-queue"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1080,17 +1070,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "egui_animation"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd9bc6d586df44e01b90715eec1eb8d73a61c3c3f554edffb01eb0894a8107ef"
-dependencies = [
- "egui",
- "hello_egui_utils",
- "simple-easing",
-]
-
-[[package]]
 name = "egui_component"
 version = "0.3.0"
 dependencies = [
@@ -1098,7 +1077,6 @@ dependencies = [
  "console_error_panic_hook",
  "eframe",
  "egui",
- "egui_animation",
  "egui_component",
  "egui_component_router",
  "egui_component_style_macros",
@@ -1786,16 +1764,6 @@ name = "hashbrown"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
-
-[[package]]
-name = "hello_egui_utils"
-version = "0.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c34bfd8bff6f6df43b0b73ed7949a7aff0c98c2c1bd4c2f2771f5f2f6d98ced0"
-dependencies = [
- "concat-idents",
- "egui",
-]
 
 [[package]]
 name = "hermit-abi"
@@ -3517,12 +3485,6 @@ name = "simdutf8"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
-
-[[package]]
-name = "simple-easing"
-version = "1.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "99968bca2a24946625e54935909e9c1c314066a1005f5a302a5e4bfc83b0239a"
 
 [[package]]
 name = "simplecss"
