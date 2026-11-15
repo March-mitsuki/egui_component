@@ -28,6 +28,8 @@ pub struct Style {
 
     pub variant: TextEditVariant,
     pub input_type: InputType,
+    pub disabled: bool,
+    pub read_only: bool,
     pub icon_button_style: icon_button::Style,
 }
 
@@ -101,6 +103,8 @@ impl Style {
             width: None,
             variant,
             input_type: InputType::Text,
+            disabled: false,
+            read_only: false,
             icon_button_style,
         }
     }
@@ -308,9 +312,26 @@ impl Style {
         self.input_type = input_type;
         self
     }
+
+    /// Disable focus and interaction for the entire input.
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+
+    /// Allow selection and copying while preventing edits.
+    pub fn read_only(mut self, read_only: bool) -> Self {
+        self.read_only = read_only;
+        self
+    }
 }
 
 pub fn render(ui: &mut Ui, text: &mut String, style: Style) -> egui::Response {
+    ui.add_enabled_ui(!style.disabled, |ui| render_singleline(ui, text, style))
+        .inner
+}
+
+fn render_singleline(ui: &mut Ui, text: &mut String, style: Style) -> egui::Response {
     let font_id = egui::FontId::new(
         style.text_size,
         FONT_MANAGER.default_egui_font_family(ui.ctx()),
@@ -370,8 +391,15 @@ pub fn render(ui: &mut Ui, text: &mut String, style: Style) -> egui::Response {
     let hint = egui::RichText::new(&style.placeholder)
         .font(font_id.clone())
         .color(style.palette.placeholder_color);
+    let mut read_only_text;
+    let buffer: &mut dyn egui::TextBuffer = if style.read_only {
+        read_only_text = text.as_str();
+        &mut read_only_text
+    } else {
+        text
+    };
     let mut response = editor_ui.add(
-        egui::TextEdit::singleline(text)
+        egui::TextEdit::singleline(buffer)
             .id(id)
             .interactive(enabled)
             .password(password && !password_visible)
@@ -507,7 +535,7 @@ pub fn render_multiline(
     rows: usize,
     style: Style,
 ) -> egui::Response {
-    ui.scope(|ui| {
+    ui.add_enabled_ui(!style.disabled, |ui| {
         let font_id = egui::FontId::new(
             style.text_size,
             FONT_MANAGER.default_egui_font_family(ui.ctx()),
@@ -530,8 +558,16 @@ pub fn render_multiline(
             } else {
                 style.palette.border_stroke
             });
+        let mut read_only_text;
+        let buffer: &mut dyn egui::TextBuffer = if style.read_only {
+            read_only_text = text.as_str();
+            &mut read_only_text
+        } else {
+            text
+        };
         let response = ui.add(
-            egui::TextEdit::multiline(text)
+            egui::TextEdit::multiline(buffer)
+                .interactive(ui.is_enabled())
                 .frame(frame)
                 .font(font_id)
                 .text_color(style.palette.text_color)
@@ -548,6 +584,56 @@ pub fn render_multiline(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn input_modes_control_editing_and_interaction() {
+        let theme =
+            crate::theme::UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json"))
+                .unwrap();
+
+        for multiline in [false, true] {
+            let ctx = egui::Context::default();
+            let mut text = String::new();
+            for (read_only, disabled, input, expected) in [
+                (false, false, "", ""),
+                (false, false, "a", "a"),
+                (true, false, "b", "a"),
+                (true, true, "c", "a"),
+                (false, false, "", "a"),
+                (false, false, "d", "ad"),
+            ] {
+                let style = Style::new_outline_md(&theme.light)
+                    .read_only(read_only)
+                    .disabled(disabled);
+                let events = if input.is_empty() {
+                    vec![]
+                } else {
+                    vec![egui::Event::Text(input.into())]
+                };
+                ctx.run_ui(
+                    egui::RawInput {
+                        events,
+                        ..Default::default()
+                    },
+                    |ui| {
+                        let response = if multiline {
+                            render_multiline(ui, &mut text, 4, style.clone())
+                        } else {
+                            render(ui, &mut text, style.clone())
+                        };
+                        assert_eq!(response.enabled(), !disabled);
+                        assert_eq!(response.sense.is_focusable(), !disabled);
+                        if !disabled {
+                            response.request_focus();
+                        }
+                    },
+                )
+                .textures_delta
+                .clear();
+                assert_eq!(text, expected);
+            }
+        }
+    }
 
     #[test]
     fn singleline_accepts_native_ime_composition() {

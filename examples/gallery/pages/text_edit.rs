@@ -46,6 +46,23 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             .placeholder(locale.text("demo.textEdit:passwordPlaceholder")),
     );
     ui.data_mut(|data| data.insert_temp(id, value));
+    for (label, sample, style) in [
+        (
+            "demo.textEdit:readOnly",
+            "demo.textEdit:readOnlyValue",
+            text_edit::Style::new_outline_md(theme).read_only(true),
+        ),
+        (
+            "common:disabled",
+            "demo.textEdit:disabledValue",
+            text_edit::Style::new_outline_md(theme).disabled(true),
+        ),
+    ] {
+        ui.add_space(12.0);
+        text::render(ui, locale.text(label), text::Style::new(theme));
+        let mut value = locale.text(sample).to_string();
+        text_edit::render(ui, &mut value, style);
+    }
     ui.add_space(16.0);
     text::render(
         ui,
