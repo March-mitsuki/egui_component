@@ -19,11 +19,29 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         data.get_temp::<egui::Color32>(id)
             .unwrap_or(egui::Color32::from_rgba_unmultiplied(107, 101, 245, 150))
     });
-    color_picker::render(
+    let error_message = |error: &color_picker::ColorInputError| {
+        use color_picker::ColorInputError::*;
+        locale
+            .text(match error {
+                Empty { .. } => "colorPicker:errorEmpty",
+                InvalidHexLength { .. } => "colorPicker:errorHexLength",
+                InvalidHexDigit => "colorPicker:errorHexDigit",
+                InvalidNumber { .. } => "colorPicker:errorNumber",
+                OutOfRange {
+                    field: color_picker::ColorField::Alpha,
+                } => "colorPicker:errorAlphaRange",
+                OutOfRange { .. } => "colorPicker:errorRgbRange",
+            })
+            .to_owned()
+    };
+    color_picker::render_with_options(
         ui,
         id,
         &mut alpha,
         color_picker::Style::new(theme).alpha(true),
+        color_picker::Options {
+            error_message: Some(&error_message),
+        },
     );
     ui.data_mut(|data| data.insert_temp(id, alpha));
     color_picker::render(

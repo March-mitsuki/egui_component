@@ -16,6 +16,12 @@ Breaking changes and migration instructions are recorded here.
 - `accordion::Style` adds the public field `show_body_guide: bool`. Add `show_body_guide: false` to full struct literals. In exhaustive destructuring patterns, include the field or use `..`. The guide defaults to off. Enable it with `.show_body_guide(true)`.
 - `accordion::Style` replaces `padding: i8` with `header_padding_y: i8` for the padding above and below the title and `body_indent: i8` for the left indent when the guide is enabled. Both default to `12` and clamp negative values to zero. Replace `padding` with the two new fields in full struct literals and exhaustive destructuring patterns. Accordion titles now accept any `Into<egui::WidgetText>`. Pass `egui::RichText` to customize the title, and its explicit color also applies to the hover underline. The default header is transparent and borderless, with a title underline on hover. If you customize `hover_background`, a transparent value now inherits `background`.
 
+### Color picker behavior changes
+
+- The color picker popup now uses a saturation/value plane, hue and optional alpha bars, and a ghost button to switch between HEX and RGB(A) inputs. Alpha input uses `0–1` instead of the previous `0–255` slider scale; RGB inputs remain integers in `0–255`. Update UI automation and user instructions that depend on the old popup layout or alpha scale.
+- HEX input accepts an optional `#` and normalizes valid edits on Enter or focus loss. With alpha disabled, it displays `#rrggbb`; with alpha enabled, it displays `#rrggbbaa`. Valid edits still update the color immediately; invalid drafts preserve the last valid color. Validation outlines appear on Enter or focus loss. Error text is opt-in through `render_with_options` and `Options::error_message`, which maps `ColorInputError` to an application-localized `String`.
+- This redesign introduces no source-breaking API changes: `render(ui, id, &mut Color32, Style)` and the existing `Style` fields/builders remain unchanged. The new options API and lossless `hex_to_rgba` / `rgba_to_hex` helpers are additive; existing callers need no code migration.
+
 ## 0.3.0
 
 ### Breaking changes
