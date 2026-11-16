@@ -1,17 +1,25 @@
 //! A themed, keyboard-accessible disclosure with optional controlled open state.
 use super::focus::{self, Placement};
-use crate::theme::Theme;
-use egui::{Color32, Id, Stroke, Ui};
+use crate::{
+    consts::{DEFAULT_FONT_FAMILY_ALIAS, FONT_MANAGER},
+    font::weight::FontWeight,
+    theme::Theme,
+};
+use egui::{Color32, Id, RichText, Shape, Stroke, TextStyle, TextWrapMode, Ui};
 
 #[derive(Clone)]
 pub struct Style {
     pub focus_color: egui::Color32,
     pub background: Color32,
+    /// Optional hover fill. Transparent uses the normal background.
     pub hover_background: Color32,
     pub foreground: Color32,
     pub stroke: Stroke,
     pub corner_radius: egui::CornerRadius,
+    /// Vertical padding on each side of the title, and the body indent when the guide is shown.
     pub padding: i8,
+    /// Draws a vertical guide beside the expanded body.
+    pub show_body_guide: bool,
     pub default_open: bool,
     pub disabled: bool,
 }
@@ -19,16 +27,22 @@ impl Style {
     pub fn new(theme: &Theme) -> Self {
         Self {
             focus_color: theme.colors.primary.normal(),
-            background: theme.colors.bg.subtle,
-            hover_background: theme.colors.gray.l1,
+            background: Color32::TRANSPARENT,
+            hover_background: Color32::TRANSPARENT,
             foreground: theme.colors.fg.base,
-            stroke: Stroke::new(1.0_f32, theme.colors.gray.l2),
+            stroke: Stroke::NONE,
             corner_radius: egui::CornerRadius::same(theme.corner_radius.md as u8),
             padding: 12,
+            show_body_guide: false,
             default_open: false,
             disabled: false,
         }
     }
+    pub fn show_body_guide(mut self, value: bool) -> Self {
+        self.show_body_guide = value;
+        self
+    }
+
     pub fn default_open(mut self, value: bool) -> Self {
         self.default_open = value;
         self
@@ -50,7 +64,7 @@ pub fn render<R>(
     style: Style,
 ) -> egui::CollapsingResponse<R> {
     ui.scope(|ui| {
-        let family = crate::consts::FONT_MANAGER.default_egui_font_family(ui.ctx());
+        let family = FONT_MANAGER.default_egui_font_family(ui.ctx());
         for (text_style, font) in &mut ui.style_mut().text_styles {
             if *text_style != egui::TextStyle::Monospace {
                 font.family = family.clone();
@@ -63,8 +77,13 @@ pub fn render<R>(
         visuals.override_text_color = Some(style.foreground);
         visuals.collapsing_header_frame = true;
         visuals.widgets.inactive.weak_bg_fill = style.background;
-        visuals.widgets.hovered.weak_bg_fill = style.hover_background;
-        visuals.widgets.active.weak_bg_fill = style.hover_background;
+        let hover_background = if style.hover_background == Color32::TRANSPARENT {
+            style.background
+        } else {
+            style.hover_background
+        };
+        visuals.widgets.hovered.weak_bg_fill = hover_background;
+        visuals.widgets.active.weak_bg_fill = hover_background;
         visuals.widgets.inactive.bg_stroke = style.stroke;
         for widget in [
             &mut visuals.widgets.inactive,
@@ -74,33 +93,88 @@ pub fn render<R>(
             widget.corner_radius = style.corner_radius;
             widget.bg_stroke = style.stroke;
         }
-        let mut header = egui::CollapsingHeader::new(title)
+        let body_spacing = ui.spacing().clone();
+        let header_spacing = ui.spacing_mut();
+        header_spacing.indent = 0.0;
+        header_spacing.item_spacing.y = 0.0;
+        header_spacing.button_padding.y = f32::from(style.padding.max(0));
+        let title_family = FONT_MANAGER.get_egui_font_family(
+            ui.ctx(),
+            DEFAULT_FONT_FAMILY_ALIAS,
+            FontWeight::SemiBold,
+        );
+        let title = egui::WidgetText::from(RichText::new(title).family(title_family)).into_galley(
+            ui,
+            Some(TextWrapMode::Wrap),
+            (ui.available_width() - 28.0).max(0.0),
+            TextStyle::Button,
+        );
+        let header_foreground = style.foreground;
+        let mut header = egui::CollapsingHeader::new(title.clone())
             .id_salt(id)
             .default_open(style.default_open)
             .show_background(true)
-            .icon(|ui, openness, response| {
-                let mut rect = response.rect;
-                rect.set_center(egui::pos2(ui.max_rect().right() - 14.0, rect.center().y));
-                egui::collapsing_header::paint_default_icon(
-                    ui,
-                    openness,
-                    &response.clone().with_new_rect(rect),
-                );
+            .icon(move |ui, openness, response| {
+                // With zero header indent, egui centers the icon slot at the title's left edge.
+                let title_anchor = response.rect.center();
+                if response.enabled() && response.hovered() {
+                    let title_top = title_anchor - egui::vec2(0.0, title.size().y / 2.0);
+                    for row in &title.rows {
+                        let rect = row
+                            .rect_without_leading_space()
+                            .translate(title_top.to_vec2());
+                        if rect.width() > 0.0 {
+                            let y = rect.bottom() - 1.0;
+                            ui.painter().hline(
+                                rect.x_range(),
+                                y,
+                                Stroke::new(1.0, header_foreground),
+                            );
+                        }
+                    }
+                }
+
+                let center = egui::pos2(ui.max_rect().right() - 14.0, title_anchor.y);
+                let rotation = egui::emath::Rot2::from_angle(std::f32::consts::PI * openness);
+                let color = ui.style().interact(response).fg_stroke.color;
+                let points = [
+                    egui::vec2(-4.0, -2.0),
+                    egui::vec2(0.0, 2.0),
+                    egui::vec2(4.0, -2.0),
+                ];
+                ui.painter().add(Shape::line(
+                    points.map(|point| center + rotation * point).to_vec(),
+                    Stroke::new(1.5, color),
+                ));
             });
         if let Some(value) = open.as_deref() {
             header = header.open(Some(*value));
         }
-        let response = header.show(ui, |ui| {
-            egui::Frame::new()
-                .inner_margin(style.padding)
+        let response = header.show_unindented(ui, |ui| {
+            *ui.spacing_mut() = body_spacing;
+            let frame = egui::Frame::new()
+                .inner_margin(egui::Margin {
+                    left: if style.show_body_guide {
+                        style.padding.max(6)
+                    } else {
+                        0
+                    },
+                    ..egui::Margin::ZERO
+                })
                 .show(ui, |ui| {
                     if let Some(description) = description {
                         ui.label(description);
                         ui.add_space(8.0);
                     }
                     body(ui)
-                })
-                .inner
+                });
+            if style.show_body_guide {
+                let stroke = Stroke::new(1.0, ui.visuals().widgets.noninteractive.bg_stroke.color);
+                let start = frame.response.rect.left_top() + egui::vec2(0.5, 0.0);
+                let end = egui::pos2(start.x, frame.response.rect.bottom());
+                ui.painter().line_segment([start, end], stroke);
+            }
+            frame.inner
         });
         if let Some(open) = open {
             if response.header_response.clicked() {

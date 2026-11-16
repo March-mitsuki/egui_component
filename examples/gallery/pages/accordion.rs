@@ -1,8 +1,16 @@
 use crate::i18n::Locale;
 use eframe::egui;
-use egui_component::{components::accordion, theme::Theme};
+use egui_component::{
+    components::{accordion, separator, text},
+    theme::Theme,
+};
 
 pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
+    let style_origin = (**ui.style()).clone();
+    let mut style = style_origin.clone();
+    style.spacing.item_spacing.y = 0.0;
+    ui.set_style(style);
+
     let id = ui.make_persistent_id("accordion-basic");
     accordion::render(
         ui,
@@ -15,7 +23,8 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         },
         accordion::Style::new(theme).default_open(true),
     );
-    ui.add_space(12.0);
+    separator::render(ui, 1.0);
+
     let id = ui.make_persistent_id("accordion-second");
     accordion::render(
         ui,
@@ -27,9 +36,10 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             ui.label(locale.text("accordion:independent"));
             let _ = ui.button(locale.text("accordion:action"));
         },
-        accordion::Style::new(theme),
+        accordion::Style::new(theme).show_body_guide(true),
     );
-    ui.add_space(12.0);
+    separator::render(ui, 1.0);
+
     let id = ui.make_persistent_id("accordion-disabled");
     accordion::render(
         ui,
@@ -42,12 +52,15 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         },
         accordion::Style::new(theme).disabled(true),
     );
+
     ui.add_space(20.0);
-    egui_component::components::text::render(
+    text::render(
         ui,
         locale.text("accordion:exclusive"),
-        egui_component::components::text::Style::new(theme),
+        text::Style::new(theme),
     );
+    ui.add_space(10.0);
+
     let group = ui.make_persistent_id("exclusive-accordion");
     let mut selected = ui.data_mut(|data| data.get_temp::<Option<usize>>(group).unwrap_or(Some(0)));
     for (index, title) in [
@@ -57,6 +70,9 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
     .into_iter()
     .enumerate()
     {
+        if index > 0 {
+            separator::render(ui, 1.0);
+        }
         let mut open = selected == Some(index);
         accordion::render(
             ui,
@@ -69,6 +85,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             },
             accordion::Style::new(theme),
         );
+
         if open {
             selected = Some(index);
         } else if selected == Some(index) {
@@ -76,4 +93,6 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         }
     }
     ui.data_mut(|data| data.insert_temp(group, selected));
+
+    ui.set_style(style_origin);
 }

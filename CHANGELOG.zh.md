@@ -13,6 +13,8 @@
 - `button::Style` 新增公开字段 `content_align: egui::Align`。逐项列出字段的结构体字面量需补上 `content_align: egui::Align::Center` 以保持居中。穷尽解构时需列出该字段或使用 `..`。构造函数默认使用 `Center`。可通过 `.content_align(...)` 选择 `Min`、`Center` 或 `Max`，将整组内容左对齐、居中或右对齐。
 - `accordion`、`avatar`、`button`、`icon`、`icon_button`、`navigation`、`select`、`switch` 的 `Style` 新增公开字段 `focus_color: egui::Color32`。逐项列出字段的结构体字面量需补上 `focus_color: theme.colors.primary.normal()`，与构造函数的默认值一致。穷尽解构时需列出 `focus_color` 或使用 `..`。
 - `text_edit::Style` 新增公开字段 `disabled: bool` 和 `read_only: bool`。逐项列出字段的结构体字面量需补上这两个字段，并将两者设为 `false` 以保持可编辑。穷尽解构时需列出这两个字段或使用 `..`。构造函数默认将两者设为 `false`，单行和多行输入框均支持 `.disabled(...)` 和 `.read_only(...)`。
+- `accordion::Style` 新增公开字段 `show_body_guide: bool`。逐项列出字段的结构体字面量需补上 `show_body_guide: false`。穷尽解构时需列出该字段或使用 `..`。正文竖线默认关闭，可通过 `.show_body_guide(true)` 开启。
+- 折叠组件的 `padding` 现在用于标题上下内边距，以及开启竖线时的正文缩进。标题栏默认透明、无描边，悬停时标题文字显示下划线。自定义 `hover_background` 时，透明值现在会沿用 `background`。
 
 ## 0.3.0
 
