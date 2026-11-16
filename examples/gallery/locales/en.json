@@ -141,6 +141,7 @@
   "demo.divider:after": "Content after the divider",
   "demo.separator:first": "A section of content",
   "demo.separator:second": "A new section, with a quiet boundary",
+  "demo.separator:third": "Or you can choose a separator of any length",
   "demo.code:heading": "Read-only syntax highlighting",
   "demo.select:choose": "Choose Option:",
   "demo.select:selected": "Selected: {selected}",

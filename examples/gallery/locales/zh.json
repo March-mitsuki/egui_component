@@ -141,6 +141,7 @@
   "demo.divider:after": "分隔内容之后",
   "demo.separator:first": "一段内容",
   "demo.separator:second": "新的段落，柔和的边界",
+  "demo.separator:third": "或者你可以选择任意长度的分割线",
   "demo.code:heading": "只读语法高亮",
   "demo.select:choose": "选择选项：",
   "demo.select:selected": "已选择：{selected}",

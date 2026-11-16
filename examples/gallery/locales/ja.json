@@ -141,6 +141,7 @@
   "demo.divider:after": "区切りの後のコンテンツ",
   "demo.separator:first": "コンテンツのセクション",
   "demo.separator:second": "控えめな境界で区切った次のセクション",
+  "demo.separator:third": "または、任意の長さの区切り線を選べます",
   "demo.code:heading": "読み取り専用の構文ハイライト",
   "demo.select:choose": "選択してください：",
   "demo.select:selected": "選択中：{selected}",

@@ -10,12 +10,28 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         locale.text("demo.separator:first"),
         text::Style::new(theme),
     );
+
     ui.add_space(12.0);
     separator::render(ui, 1.0);
     ui.add_space(12.0);
+
     text::render(
         ui,
         locale.text("demo.separator:second"),
         text::Style::new(theme),
     );
+
+    ui.add_space(12.0);
+    separator::render(ui, 0.5);
+    ui.add_space(12.0);
+
+    text::render(
+        ui,
+        locale.text("demo.separator:third"),
+        text::Style::new(theme),
+    );
+
+    ui.add_space(12.0);
+    separator::render(ui, 0.2);
+    ui.add_space(12.0);
 }
