@@ -5,7 +5,7 @@ use crate::{
     font::weight::FontWeight,
     theme::Theme,
 };
-use egui::{Color32, Id, RichText, Shape, Stroke, TextStyle, TextWrapMode, Ui};
+use egui::{Color32, Id, RichText, Shape, Stroke, TextStyle, TextWrapMode, Ui, WidgetText};
 
 #[derive(Clone)]
 pub struct Style {
@@ -57,15 +57,17 @@ impl Style {
 }
 /// Use a unique ID per item. `open` enables externally controlled, exclusive groups.
 /// Without it, egui stores each item's independent state. Returns the header and optional body.
+/// Plain titles use the component's semibold font. Pass [`RichText`] to customize the title.
 pub fn render<R>(
     ui: &mut Ui,
     id: Id,
-    title: &str,
+    title: impl Into<WidgetText>,
     description: Option<&str>,
     open: Option<&mut bool>,
     body: impl FnOnce(&mut Ui) -> R,
     style: Style,
 ) -> egui::CollapsingResponse<R> {
+    let title = title.into();
     ui.scope(|ui| {
         let family = FONT_MANAGER.default_egui_font_family(ui.ctx());
         for (text_style, font) in &mut ui.style_mut().text_styles {
@@ -101,18 +103,27 @@ pub fn render<R>(
         header_spacing.indent = 0.0;
         header_spacing.item_spacing.y = 0.0;
         header_spacing.button_padding.y = f32::from(style.header_padding_y.max(0));
-        let title_family = FONT_MANAGER.get_egui_font_family(
-            ui.ctx(),
-            DEFAULT_FONT_FAMILY_ALIAS,
-            FontWeight::SemiBold,
-        );
-        let title = egui::WidgetText::from(RichText::new(title).family(title_family)).into_galley(
+        let (title, underline_color) = match title {
+            WidgetText::Text(text) => {
+                let family = FONT_MANAGER.get_egui_font_family(
+                    ui.ctx(),
+                    DEFAULT_FONT_FAMILY_ALIAS,
+                    FontWeight::SemiBold,
+                );
+                (RichText::new(text).family(family).into(), style.foreground)
+            }
+            WidgetText::RichText(ref text) => {
+                let color = text.color_override().unwrap_or(style.foreground);
+                (title, color)
+            }
+            _ => (title, style.foreground),
+        };
+        let title = title.into_galley(
             ui,
             Some(TextWrapMode::Wrap),
             (ui.available_width() - 28.0).max(0.0),
             TextStyle::Button,
         );
-        let header_foreground = style.foreground;
         let mut header = egui::CollapsingHeader::new(title.clone())
             .id_salt(id)
             .default_open(style.default_open)
@@ -131,7 +142,7 @@ pub fn render<R>(
                             ui.painter().hline(
                                 rect.x_range(),
                                 y,
-                                Stroke::new(1.0, header_foreground),
+                                Stroke::new(1.0, underline_color),
                             );
                         }
                     }
