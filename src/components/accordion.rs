@@ -16,8 +16,10 @@ pub struct Style {
     pub foreground: Color32,
     pub stroke: Stroke,
     pub corner_radius: egui::CornerRadius,
-    /// Vertical padding on each side of the title, and the body indent when the guide is shown.
-    pub padding: i8,
+    /// Vertical padding on each side of the title. Negative values are treated as zero.
+    pub header_padding_y: i8,
+    /// Left indent of the body when the guide is shown. Negative values are treated as zero.
+    pub body_indent: i8,
     /// Draws a vertical guide beside the expanded body.
     pub show_body_guide: bool,
     pub default_open: bool,
@@ -32,7 +34,8 @@ impl Style {
             foreground: theme.colors.fg.base,
             stroke: Stroke::NONE,
             corner_radius: egui::CornerRadius::same(theme.corner_radius.md as u8),
-            padding: 12,
+            header_padding_y: 12,
+            body_indent: 12,
             show_body_guide: false,
             default_open: false,
             disabled: false,
@@ -97,7 +100,7 @@ pub fn render<R>(
         let header_spacing = ui.spacing_mut();
         header_spacing.indent = 0.0;
         header_spacing.item_spacing.y = 0.0;
-        header_spacing.button_padding.y = f32::from(style.padding.max(0));
+        header_spacing.button_padding.y = f32::from(style.header_padding_y.max(0));
         let title_family = FONT_MANAGER.get_egui_font_family(
             ui.ctx(),
             DEFAULT_FONT_FAMILY_ALIAS,
@@ -155,7 +158,7 @@ pub fn render<R>(
             let frame = egui::Frame::new()
                 .inner_margin(egui::Margin {
                     left: if style.show_body_guide {
-                        style.padding.max(6)
+                        style.body_indent.max(0)
                     } else {
                         0
                     },

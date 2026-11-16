@@ -14,7 +14,7 @@
 - `accordion`、`avatar`、`button`、`icon`、`icon_button`、`navigation`、`select`、`switch` 的 `Style` 新增公开字段 `focus_color: egui::Color32`。逐项列出字段的结构体字面量需补上 `focus_color: theme.colors.primary.normal()`，与构造函数的默认值一致。穷尽解构时需列出 `focus_color` 或使用 `..`。
 - `text_edit::Style` 新增公开字段 `disabled: bool` 和 `read_only: bool`。逐项列出字段的结构体字面量需补上这两个字段，并将两者设为 `false` 以保持可编辑。穷尽解构时需列出这两个字段或使用 `..`。构造函数默认将两者设为 `false`，单行和多行输入框均支持 `.disabled(...)` 和 `.read_only(...)`。
 - `accordion::Style` 新增公开字段 `show_body_guide: bool`。逐项列出字段的结构体字面量需补上 `show_body_guide: false`。穷尽解构时需列出该字段或使用 `..`。正文竖线默认关闭，可通过 `.show_body_guide(true)` 开启。
-- 折叠组件的 `padding` 现在用于标题上下内边距，以及开启竖线时的正文缩进。标题栏默认透明、无描边，悬停时标题文字显示下划线。自定义 `hover_background` 时，透明值现在会沿用 `background`。
+- `accordion::Style` 将 `padding: i8` 拆为 `header_padding_y: i8` 和 `body_indent: i8`，分别控制标题上下各自的内边距，以及开启竖线时的正文左缩进。两者默认均为 `12`，负值按 `0` 处理。逐项列出字段的结构体字面量和穷尽解构需用这两个字段替换 `padding`。标题栏默认透明、无描边，悬停时标题文字显示下划线。自定义 `hover_background` 时，透明值现在会沿用 `background`。
 
 ## 0.3.0
 
