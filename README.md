@@ -36,11 +36,22 @@ Thanks to its non-intrusive design, you can seamlessly use it in any `eframe` or
 
 ## 📦 Installation
 
+### Stable Version (via crates.io)
+
 Add the following dependency to your `Cargo.toml` file:
 
-```toml
+```
 [dependencies]
 egui_component = "0.3.0"
+```
+
+### Development Version (from the dev branch)
+
+Add the following dependency to your `Cargo.toml` file:
+
+```
+[dependencies]
+egui_component = { git = "https://github.com/March-mitsuki/egui_component", branch = "dev" }
 ```
 
 ### Optional Lucide icons
@@ -75,7 +86,10 @@ use egui_component::theme::{UiTheme, ColorMode};
 
 fn my_page(ui: &mut egui::Ui) {
     // 1. Load theme configuration (Recommended to load once during app initialization and store in global or persistent state)
+    // 
     // Example code assumes you have a valid theme.json
+    // If you don't have one yet, you can generate it using our online tool:
+    // https://march-mitsuki.github.io/egui_component/en/theme-generator
     let ui_theme = UiTheme::from_json_bytes(include_bytes!("theme.json")).unwrap();
 
     // 2. Select the current color mode (e.g., using the dark theme)
@@ -103,6 +117,10 @@ cargo run --example gallery
 ```
 
 For local browser setup and builds, see the [contribution guide](CONTRIBUTE.md#development-setup).
+
+### Using with Bevy
+
+See the [examples/bevy](examples/bevy/) directory.
 
 ### Dynamic fonts
 

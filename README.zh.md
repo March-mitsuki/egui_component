@@ -83,6 +83,8 @@ use egui_component::theme::{UiTheme, ColorMode};
 fn my_page(ui: &mut egui::Ui) {
     // 1. 加载主题配置 (建议在应用初始化时加载一次并存储在全局或持久化状态中)
     // 示例代码假定你有一个合法的 theme.json
+    // 如果你还没有，那么可以去我们的官网生成一个:
+    // https://march-mitsuki.github.io/egui_component/zh/theme-generator
     let ui_theme = UiTheme::from_json_bytes(include_bytes!("theme.json")).unwrap();
 
     // 2. 选择当前使用的颜色模式（例如使用暗色主题）
@@ -103,13 +105,17 @@ fn my_page(ui: &mut egui::Ui) {
 
 ## 📖 示例
 
-更多示例请查看 `examples/` 目录。可以通过[在线 Gallery](https://march-mitsuki.github.io/egui_component/)体验组件，也可以在仓库根目录运行桌面版：
+更多示例请查看 [examples/](examples/) 目录。可以通过[在线 Gallery](https://march-mitsuki.github.io/egui_component/)体验组件，也可以在仓库根目录运行桌面版：
 
 ```sh
 cargo run --example gallery
 ```
 
 浏览器版的本地运行与构建方法见[贡献指南](CONTRIBUTE.zh.md#开发环境)。
+
+### 在 bevy 中使用
+
+请查看 [examples/bevy](examples/bevy/) 目录。
 
 ### 动态字体
 
