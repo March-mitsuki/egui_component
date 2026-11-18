@@ -15,6 +15,7 @@
 - `text_edit::Style` 新增公开字段 `disabled: bool` 和 `read_only: bool`。逐项列出字段的结构体字面量需补上这两个字段，并将两者设为 `false` 以保持可编辑。穷尽解构时需列出这两个字段或使用 `..`。构造函数默认将两者设为 `false`，单行和多行输入框均支持 `.disabled(...)` 和 `.read_only(...)`。
 - `accordion::Style` 新增公开字段 `show_body_guide: bool`。逐项列出字段的结构体字面量需补上 `show_body_guide: false`。穷尽解构时需列出该字段或使用 `..`。正文竖线默认关闭，可通过 `.show_body_guide(true)` 开启。
 - `accordion::Style` 将 `padding: i8` 拆为 `header_padding_y: i8` 和 `body_indent: i8`，分别控制标题上下各自的内边距，以及开启竖线时的正文左缩进。两者默认均为 `12`，负值按 `0` 处理。逐项列出字段的结构体字面量和穷尽解构需用这两个字段替换 `padding`。折叠组件的标题现在接受可转换为 `egui::WidgetText` 的值。可传入 `egui::RichText` 自定义标题样式，显式设置的标题颜色也会用于悬停下划线。标题栏默认透明、无描边，悬停时标题文字显示下划线。自定义 `hover_background` 时，透明值现在会沿用 `background`。
+- `egui_component` 不再启用 `egui_extras` 的 `all_loaders` feature，只启用内置图标所需的 `svg`。需要加载其他图片的应用，例如 `avatar` 通过 `http(s)://` 或 `file://` 加载的头像，以及 PNG/JPEG、GIF、WebP，请在自己的 `egui_extras` 依赖中启用对应的加载器，例如 `egui_extras = { version = "0.37", features = ["all_loaders"] }`，并继续调用 `egui_extras::install_image_loaders(ctx)`。未启用时，`avatar` 会回退为显示名字首字母。
 
 ### 颜色选择器行为变更
 

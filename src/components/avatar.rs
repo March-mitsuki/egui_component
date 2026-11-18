@@ -61,7 +61,9 @@ impl Style {
 
 /// ## Arguments
 ///   - `ui`: The UI to render the avatar on.
-///   - `url`: The URL of the avatar. Supports 'http(s)://' or 'file://'.
+///   - `url`: The URL of the avatar, e.g. 'http(s)://' or 'file://'. Loading it requires the
+///     matching egui_extras image loaders (e.g. `http`, `file`, `image`) enabled in your app
+///     and `egui_extras::install_image_loaders` called once.
 ///   - `name`: The name of the avatar. Uses the first character as default if image fails.
 ///   - `style`: The style of the avatar.
 pub fn render(

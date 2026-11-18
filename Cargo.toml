@@ -35,8 +35,14 @@ resolver = "3"
 
 [features]
 default = []
+# Enables every optional feature.
+full = ["lucide_icon", "ecml", "calendar", "code"]
 lucide_icon = []
 ecml = []
+# Calendar and date picker components; pulls in the `time` date library.
+calendar = ["dep:time"]
+# Syntax-highlighted code component; pulls in `syntect` through egui_extras.
+code = ["egui_extras/syntect"]
 
 [[example]]
 name = "router"
@@ -52,10 +58,12 @@ parking_lot = "0.12"
 
 ttf-parser = "0.25"
 web-time = "1"
-time = { version = "0.3", default-features = false, features = ["std"] }
+time = { version = "0.3", default-features = false, features = ["std"], optional = true }
 
 egui = { version = "0.37", features = ["serde"] }
-egui_extras = { version = "0.37", features = ["syntect", "all_loaders"] }
+# Built-in icons are SVG, so the SVG loader is always enabled. Apps choose any
+# other image loaders (http, file, png, ...) on their own egui_extras dependency.
+egui_extras = { version = "0.37", features = ["svg"] }
 
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -64,7 +72,8 @@ serde_json = "1"
 font-kit = "0.14"
 
 [dev-dependencies]
-egui_component = { path = ".", features = ["lucide_icon"] }
+egui_component = { path = ".", features = ["full"] }
+egui_extras = { version = "0.37", features = ["all_loaders"] }
 egui_component_router = { version = "0.3.0", path = "router" }
 ehttp = { version = "0.7", features = ["streaming"] }
 wuff = { version = "0.2.9", default-features = false, features = ["brotli"] }

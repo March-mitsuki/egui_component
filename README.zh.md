@@ -51,6 +51,48 @@ egui_component = "0.3.0"
 egui_component = { git = "https://github.com/March-mitsuki/egui_component", branch = "dev" }
 ```
 
+### 可选 feature
+
+| Feature | 提供的功能 |
+| --- | --- |
+| `calendar` | `calendar` 和 `date_picker` 组件（引入 `time`） |
+| `code` | 带语法高亮的 `code` 组件（引入 `syntect`） |
+| `lucide_icon` | 完整的 Lucide SVG 图标集 |
+| `ecml` | 实验性的 ECML 标记语言运行时 |
+| `full` | 以上全部 |
+
+```toml
+egui_component = { version = "0.3.0", features = ["full"] }
+```
+
+### 可选日历组件
+
+`calendar` 和 `date_picker` 依赖日期库 [`time`](https://crates.io/crates/time)，因此放在 `calendar` feature 之后：
+
+```toml
+egui_component = { version = "0.3.0", features = ["calendar"] }
+```
+
+未启用该 feature 时，这两个组件和 `time` 依赖都不会被编译。
+
+### 可选代码组件
+
+带语法高亮的 `code` 组件依赖开启了 [`syntect`](https://crates.io/crates/syntect) 的 `egui_extras`，体积较大，因此放在 `code` feature 之后：
+
+```toml
+egui_component = { version = "0.3.0", features = ["code"] }
+```
+
+### 图片加载器
+
+`egui_component` 只启用 `egui_extras` 的 SVG 加载器，供内置图标使用。初始化时调用一次 `egui_extras::install_image_loaders(ctx)`。如需加载其他图片，例如 `avatar` 通过 `http(s)://` 或 `file://` 加载的头像，请在你自己的 `egui_extras` 依赖中启用对应的加载器：
+
+```toml
+egui_extras = { version = "0.37", features = ["http", "file", "image"] }
+# 或启用全部加载器：
+# egui_extras = { version = "0.37", features = ["all_loaders"] }
+```
+
 ### 可选 Lucide 图标
 
 启用 `lucide_icon` feature 即可使用完整的 Lucide SVG 图标集：

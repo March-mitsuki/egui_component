@@ -4,6 +4,7 @@ pub mod accordion;
 pub mod avatar;
 pub mod button;
 pub mod card;
+#[cfg(feature = "code")]
 pub mod code;
 pub mod dialog;
 pub mod divider;
@@ -30,6 +31,8 @@ pub mod slider;
 
 pub mod progress;
 
+#[cfg(feature = "calendar")]
 pub mod calendar;
 
+#[cfg(feature = "calendar")]
 pub mod date_picker;

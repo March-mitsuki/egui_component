@@ -54,6 +54,48 @@ Add the following dependency to your `Cargo.toml` file:
 egui_component = { git = "https://github.com/March-mitsuki/egui_component", branch = "dev" }
 ```
 
+### Optional features
+
+| Feature | Provides |
+| --- | --- |
+| `calendar` | `calendar` and `date_picker` components (adds `time`) |
+| `code` | Syntax-highlighted `code` component (adds `syntect`) |
+| `lucide_icon` | The complete Lucide SVG icon set |
+| `ecml` | Experimental ECML markup runtime |
+| `full` | All of the above |
+
+```toml
+egui_component = { version = "0.3.0", features = ["full"] }
+```
+
+### Optional calendar components
+
+`calendar` and `date_picker` depend on the [`time`](https://crates.io/crates/time) date library, so they live behind the `calendar` feature:
+
+```toml
+egui_component = { version = "0.3.0", features = ["calendar"] }
+```
+
+Without the feature, neither the components nor the `time` dependency are compiled.
+
+### Optional code component
+
+The syntax-highlighted `code` component uses `egui_extras` with [`syntect`](https://crates.io/crates/syntect), which is heavy, so it lives behind the `code` feature:
+
+```toml
+egui_component = { version = "0.3.0", features = ["code"] }
+```
+
+### Image loaders
+
+`egui_component` only enables the SVG loader of `egui_extras`, which the built-in icons need. Call `egui_extras::install_image_loaders(ctx)` once at startup. To load other images, such as `avatar` URLs over `http(s)://` or `file://`, enable the matching loaders on your own `egui_extras` dependency:
+
+```toml
+egui_extras = { version = "0.37", features = ["http", "file", "image"] }
+# or every loader:
+# egui_extras = { version = "0.37", features = ["all_loaders"] }
+```
+
 ### Optional Lucide icons
 
 Enable `lucide_icon` for the complete vendored Lucide SVG set:
