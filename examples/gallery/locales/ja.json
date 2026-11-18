@@ -106,6 +106,7 @@
   "demo.dialog:title": "Gallery ダイアログ",
   "demo.field:name": "ワークスペース名",
   "demo.field:placeholder": "マイワークスペース",
+  "demo.field:notifications": "メール通知",
   "common:play": "再生",
   "common:pause": "一時停止",
   "common:add": "追加",

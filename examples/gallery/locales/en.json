@@ -106,6 +106,7 @@
   "demo.dialog:title": "Gallery dialog",
   "demo.field:name": "Workspace name",
   "demo.field:placeholder": "My workspace",
+  "demo.field:notifications": "Email notifications",
   "common:play": "Play",
   "common:pause": "Pause",
   "common:add": "Add",

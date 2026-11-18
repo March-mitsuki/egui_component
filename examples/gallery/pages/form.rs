@@ -204,7 +204,7 @@ fn fields(
                         text::Style::new(theme).color(theme.colors.red.normal()),
                     );
                 },
-            );
+            )
         },
         style.clone(),
     );
@@ -231,7 +231,7 @@ fn fields(
                         text::Style::new(theme).color(theme.colors.red.normal()),
                     );
                 },
-            );
+            )
         },
         style,
     );

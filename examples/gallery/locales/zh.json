@@ -106,6 +106,7 @@
   "demo.dialog:title": "Gallery 对话框",
   "demo.field:name": "工作空间名称",
   "demo.field:placeholder": "我的工作空间",
+  "demo.field:notifications": "邮件通知",
   "common:play": "播放",
   "common:pause": "暂停",
   "common:add": "添加",

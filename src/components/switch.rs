@@ -121,7 +121,9 @@ pub fn render(ui: &mut Ui, on: &mut bool, style: Style) -> Response {
     };
     let (rect, mut response) = ui.allocate_exact_size(size, sense);
 
-    if response.clicked() && !style.disabled {
+    // Always consume label activation so a disabled switch cannot toggle later.
+    let label_activated = super::activation::take(ui.ctx(), response.id);
+    if (response.clicked() || label_activated) && !style.disabled {
         *on = !*on;
         response.mark_changed();
     }
