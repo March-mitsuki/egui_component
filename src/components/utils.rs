@@ -1,4 +1,4 @@
-use egui::{Color32, Context, CornerRadius, Frame, Margin, Shadow, Stroke, Ui};
+use egui::{Color32, CornerRadius, Frame, Margin, Shadow, Stroke, Ui};
 use egui_component_style_macros::FrameModifier;
 
 use crate::theme::{CardSize, Theme};
@@ -44,21 +44,4 @@ impl CardFrame {
     pub fn show(&self, ui: &mut Ui, renderer: impl FnOnce(&mut Ui)) {
         self.frame.show(ui, renderer);
     }
-}
-
-/// change style for current ui
-///
-/// ### Returns
-/// the style before change. can be used to restore style
-pub fn change_style(ui: &mut Ui, change_fn: impl FnOnce(&mut egui::Style)) -> egui::Style {
-    let style_origin = (**ui.style()).clone();
-    let mut style = style_origin.clone();
-    change_fn(&mut style);
-    ui.set_style(style);
-    style_origin
-}
-
-/// mutate style for global context
-pub fn mutate_style(ctx: &Context, change_fn: impl FnOnce(&mut egui::Style)) {
-    ctx.global_style_mut(change_fn);
 }

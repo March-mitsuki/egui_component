@@ -1,5 +1,5 @@
 use eframe::egui;
-use egui_component::components::{self, button};
+use egui_component::components::button;
 use egui_component::theme::UiTheme;
 
 fn main() -> eframe::Result {
@@ -83,40 +83,37 @@ impl eframe::App for MyApp {
 
                 ui.add_space(24.0);
 
-                // change egui spacing
-                let style_origin = components::utils::change_style(ui, |s| {
-                    s.spacing.item_spacing.y = 12.0;
+                // change egui spacing only inside this scope
+                ui.scope(|ui| {
+                    ui.spacing_mut().item_spacing.y = 12.0;
+
+                    // Native egui button
+                    if ui.button("Native egui button").clicked() {
+                        println!("Button clicked!");
+                    }
+
+                    // egui_component button
+                    button::render(
+                        ui,
+                        "Solid",
+                        button::Style::new_solid_md(theme).width(Some(button_width)),
+                    );
+                    button::render(
+                        ui,
+                        "Surface",
+                        button::Style::new_surface_md(theme).width(Some(button_width)),
+                    );
+                    button::render(
+                        ui,
+                        "Outline",
+                        button::Style::new_outline_md(theme).width(Some(button_width)),
+                    );
+                    button::render(
+                        ui,
+                        "Ghost",
+                        button::Style::new_ghost_md(theme).width(Some(button_width)),
+                    );
                 });
-
-                // Native egui button
-                if ui.button("Native egui button").clicked() {
-                    println!("Button clicked!");
-                }
-
-                // egui_component button
-                button::render(
-                    ui,
-                    "Solid",
-                    button::Style::new_solid_md(theme).width(Some(button_width)),
-                );
-                button::render(
-                    ui,
-                    "Surface",
-                    button::Style::new_surface_md(theme).width(Some(button_width)),
-                );
-                button::render(
-                    ui,
-                    "Outline",
-                    button::Style::new_outline_md(theme).width(Some(button_width)),
-                );
-                button::render(
-                    ui,
-                    "Ghost",
-                    button::Style::new_ghost_md(theme).width(Some(button_width)),
-                );
-
-                // restore egui spacing
-                ui.set_style(style_origin);
             });
         });
     }

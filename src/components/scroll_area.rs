@@ -113,6 +113,13 @@ pub fn render_global(
     });
 }
 
+/// Render a scroll area with this crate's scrollbar style.
+///
+/// The scrollbar style is applied to the `Ui` that hosts the content, so any
+/// native `egui::ScrollArea` nested inside `renderer` inherits it as well
+/// (non-floating, 6px bar, opaque handle). Wrap the nested area in
+/// `ui.scope(|ui| { ui.spacing_mut().scroll = ...; ... })` if it needs a
+/// different look.
 pub fn render(
     ui: &mut Ui,
     id_salt: impl egui::AsIdSalt,
@@ -121,7 +128,9 @@ pub fn render(
     style: Style,
 ) {
     style.outer_frame.show(ui, |ui| {
-        let style_origin = change_style(ui);
+        // `Frame::show` gives us a child `Ui`, so this style change stays
+        // inside the frame and never leaks to the caller's `ui`.
+        set_style(ui.style_mut());
         let scroll_axes = match scroll_axes {
             ScrollAxes::Vertical => [false, true],
             ScrollAxes::Horizontal => [true, false],
@@ -146,21 +155,7 @@ pub fn render(
                 renderer(ui);
             });
         });
-        ui.set_style(style_origin);
     });
-}
-
-/// change style for current ui
-///
-/// ### Returns
-///
-/// the style before change. can be used to restore style
-pub fn change_style(ui: &mut Ui) -> egui::Style {
-    let style_origin = (**ui.style()).clone();
-    let mut style = style_origin.clone();
-    set_style(&mut style);
-    ui.set_style(style);
-    style_origin
 }
 
 /// mutate style for global context
