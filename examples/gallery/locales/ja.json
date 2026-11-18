@@ -378,5 +378,11 @@
   "component.progress:name": "プログレス",
   "component.progress:description": "確定または不確定のタスク進捗を表示します。",
   "demo.progress:indeterminate": "不確定の進捗",
-  "demo.toast:custom": "カスタムコンテンツと進捗"
+  "demo.toast:custom": "カスタムコンテンツと進捗",
+  "component.calendar:name": "カレンダー",
+  "component.calendar:description": "日付または開始日・終了日を含む期間を選択します。",
+  "calendar:single": "日付選択 · 年月ドロップダウン",
+  "calendar:range": "期間選択 · 週末は選択不可",
+  "calendar:rangeSingle": "期間選択 · 1か月表示と年月ドロップダウン",
+  "calendar:rangeDropdowns": "期間選択 · 2か月表示と連動する年月ドロップダウン"
 }

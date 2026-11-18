@@ -28,3 +28,5 @@ pub mod segmented_control;
 pub mod slider;
 
 pub mod progress;
+
+pub mod calendar;

@@ -258,9 +258,13 @@ pub fn render(
     // Layout text
     let font_family = crate::consts::FONT_MANAGER.default_egui_font_family(ui.ctx());
     let font_id = egui::FontId::new(style.text_size, font_family);
-    let galley = ui
-        .painter()
-        .layout_no_wrap(display_text.to_string(), font_id, text_color);
+    let text_width =
+        (rect.width() - style.padding_x * 2.0 - style.arrow_icon_size - style.gap).max(0.0);
+    let mut job =
+        egui::text::LayoutJob::simple(display_text.to_owned(), font_id, text_color, text_width);
+    job.wrap.max_rows = 1;
+    job.wrap.break_anywhere = true;
+    let galley = ui.painter().layout_job(job);
 
     // Calculate text position (vertically centered, left aligned with padding)
     let text_pos = egui::pos2(

@@ -378,5 +378,11 @@
   "component.progress:name": "进度条",
   "component.progress:description": "显示确定进度或未知总量的任务进度。",
   "demo.progress:indeterminate": "未知总量",
-  "demo.toast:custom": "自定义内容与进度条"
+  "demo.toast:custom": "自定义内容与进度条",
+  "component.calendar:name": "日历",
+  "component.calendar:description": "选择日期或包含起止日期的区间。",
+  "calendar:single": "单选 · 年月下拉",
+  "calendar:range": "区间选择 · 禁用周末",
+  "calendar:rangeSingle": "单月区间选择 · 年月下拉",
+  "calendar:rangeDropdowns": "双月区间选择 · 年月联动跳转"
 }

@@ -378,5 +378,11 @@
   "component.progress:name": "Progress",
   "component.progress:description": "Display determinate or indeterminate task progress.",
   "demo.progress:indeterminate": "Indeterminate",
-  "demo.toast:custom": "Custom content with progress"
+  "demo.toast:custom": "Custom content with progress",
+  "component.calendar:name": "Calendar",
+  "component.calendar:description": "Select a date or an inclusive date range.",
+  "calendar:single": "Single date · month and year dropdowns",
+  "calendar:range": "Date range · weekends disabled",
+  "calendar:rangeSingle": "Date range · single month with month and year dropdowns",
+  "calendar:rangeDropdowns": "Date range · two months with linked month and year dropdowns"
 }

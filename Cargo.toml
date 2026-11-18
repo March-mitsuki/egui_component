@@ -50,6 +50,7 @@ parking_lot = "0.12"
 
 ttf-parser = "0.25"
 web-time = "1"
+time = { version = "0.3", default-features = false, features = ["std"] }
 
 egui = { version = "0.37", features = ["serde"] }
 egui_extras = { version = "0.37", features = ["syntect", "all_loaders"] }
