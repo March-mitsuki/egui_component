@@ -175,6 +175,7 @@
   "demo.form:title": "フォーム",
   "demo.form:managed": "show が下書きと操作状態を管理します。",
   "demo.form:validation": "フィールドを離れるか保存を試みるとエラーを表示します。リセットで初期値に戻ります。",
+  "demo.form:enter": "単一行の入力欄で Enter キーを押すと保存します。",
   "demo.form:userA": "ユーザー A · 管理された下書き",
   "demo.form:userB": "ユーザー B · 同じ型、独立した ID",
   "demo.form:userC": "ユーザー C · show_with_data でアプリのデータを借用",

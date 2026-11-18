@@ -175,6 +175,7 @@
   "demo.form:title": "Form",
   "demo.form:managed": "show manages the draft and interaction state for you.",
   "demo.form:validation": "Errors appear after leaving a field or attempting to save. Reset restores defaults.",
+  "demo.form:enter": "Press Enter in a single-line input to save.",
   "demo.form:userA": "User A · managed draft",
   "demo.form:userB": "User B · same type, independent ID",
   "demo.form:userC": "User C · show_with_data borrows application data",

@@ -16,13 +16,21 @@
 - `accordion::Style` 新增公开字段 `show_body_guide: bool`。逐项列出字段的结构体字面量需补上 `show_body_guide: false`。穷尽解构时需列出该字段或使用 `..`。正文竖线默认关闭，可通过 `.show_body_guide(true)` 开启。
 - `accordion::Style` 将 `padding: i8` 拆为 `header_padding_y: i8` 和 `body_indent: i8`，分别控制标题上下各自的内边距，以及开启竖线时的正文左缩进。两者默认均为 `12`，负值按 `0` 处理。逐项列出字段的结构体字面量和穷尽解构需用这两个字段替换 `padding`。折叠组件的标题现在接受可转换为 `egui::WidgetText` 的值。可传入 `egui::RichText` 自定义标题样式，显式设置的标题颜色也会用于悬停下划线。标题栏默认透明、无描边，悬停时标题文字显示下划线。自定义 `hover_background` 时，透明值现在会沿用 `background`。
 - `egui_component` 不再启用 `egui_extras` 的 `all_loaders` feature，只启用内置图标所需的 `svg`。需要加载其他图片的应用，例如 `avatar` 通过 `http(s)://` 或 `file://` 加载的头像，以及 PNG/JPEG、GIF、WebP，请在自己的 `egui_extras` 依赖中启用对应的加载器，例如 `egui_extras = { version = "0.37", features = ["all_loaders"] }`，并继续调用 `egui_extras::install_image_loaders(ctx)`。未启用时，`avatar` 会回退为显示名字首字母。
-- `field::render` 的 `input_content` 闭包现在必须返回输入控件的 `egui::Response`，返回值也从 `InnerResponse<R>` 改为 `InnerResponse<Response>`。点击 label 会聚焦该控件，`switch` 等开关类控件还会同时切换。大多数情况下，只需去掉闭包末尾的 `;`，把控件的 Response 返回即可；`form.field` 和 `form.field_with_error` 本身已返回该值。如需从闭包中带出其他数据，请赋值给闭包外声明的变量。无论 `label_style.selectable` 如何设置，field 的 label 都不再可选中文本。
+- `field::render` 的 `input_content` 闭包现在必须返回输入控件的 `egui::Response`，返回值也从 `InnerResponse<R>` 改为 `InnerResponse<Response>`。点击 label 会聚焦该控件，`switch` 等开关类控件还会同时切换。大多数情况下，只需去掉闭包末尾的 `;`，把控件的 Response 返回即可；`form.field` 和 `form.field_with_error` 本身已返回该值。如需从闭包中带出其他数据，请赋值给闭包外声明的变量。无论 `label_style.selectable` 如何设置，field 的 label 都不再可选中文本，也不会成为 Tab 停留点。
 
 ### 颜色选择器行为变更
 
 - 颜色选择器弹窗改为饱和度／明度色板、色相条、可选透明度条，以及用于切换 HEX 和 RGB(A) 输入的 ghost button。透明度输入使用 `0–1`，替代原先透明度滑块的 `0–255` 刻度；RGB 输入仍为 `0–255` 整数。依赖旧弹窗布局或透明度刻度的 UI 自动化和使用说明需要相应更新。
 - HEX 输入允许省略 `#`，合法输入在按 Enter 或失焦时规范化。关闭透明度时显示 `#rrggbb`，开启时显示 `#rrggbbaa`。合法输入仍实时更新颜色，非法草稿保留最后一个合法颜色，并在 Enter 或失焦时显示错误边框。错误文字需通过 `render_with_options` 的 `Options::error_message` 回调启用，由应用将 `ColorInputError` 转换为本地化的 `String`。
 - 本次重设计没有源码层面的破坏性 API 变更：`render(ui, id, &mut Color32, Style)` 及现有 `Style` 字段和构建方法均保持不变。选项 API 和无损转换函数 `hex_to_rgba` / `rgba_to_hex` 均为新增，现有调用代码无需迁移。
+
+### 表单行为变更
+
+- 在通过 `form.field` 或 `form.field_with_error` 注册的单行输入框中按回车，现在会请求提交；表单校验通过时，`submitted` 为 `true`。提交后焦点仍留在该输入框中。多行输入框按回车仍然换行，用输入法确认候选词时按下的回车也不会触发提交。如需保持原有行为，请使用 `Form::new(id).submit_on_enter(false)`。
+
+### 文本输入框行为变更
+
+- 密码输入框的 Tab 顺序改为先到输入框，再到显示/隐藏按钮，然后到下一个控件；之前是先到按钮。用鼠标点击该按钮时，焦点仍留在输入框中；用键盘切换时，焦点留在按钮上。
 
 ## 0.3.0
 

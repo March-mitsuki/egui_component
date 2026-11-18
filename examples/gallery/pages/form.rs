@@ -49,6 +49,7 @@ impl FormPage {
                     locale.text("demo.form:validation"),
                     text::Style::new(theme),
                 );
+                text::render(ui, locale.text("demo.form:enter"), text::Style::new(theme));
                 ui.add_space(12.0);
                 for index in 0..3 {
                     card::render(
@@ -144,6 +145,8 @@ let result = Form::new(("edit_user", user_id))
     });
 if result.submitted { save(result.data); }
 // 托管模式重置会自动恢复 UserDraft::default()
+// 单行输入框中按回车会提交；不需要时可关闭
+Form::new("no_enter").submit_on_enter(false);
 
 // 应用持有数据：无 Default / Clone / Send / Sync 要求
 Form::new("external").show_with_data(ui, &mut self.draft, fields);

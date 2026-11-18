@@ -58,7 +58,9 @@ pub fn render(
     let label_style = style.label_style.selectable(false);
     let render_label = |ui: &mut Ui| {
         let text = text::render(ui, label, label_style);
-        ui.interact(text.rect, text.id.with("field_label"), Sense::click())
+        // `Sense::CLICK` without `FOCUSABLE`: like an HTML <label>, the label
+        // reacts to clicks but is not a Tab stop.
+        ui.interact(text.rect, text.id.with("field_label"), Sense::CLICK)
     };
     let body = |ui: &mut Ui, label: Response| {
         let input = input_content(ui);
@@ -191,5 +193,66 @@ mod tests {
             );
         }
         assert!(!on, "a second label click toggles back exactly once");
+    }
+
+    #[test]
+    fn tab_skips_labels() {
+        let ctx = egui::Context::default();
+        let theme = UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json"))
+            .unwrap()
+            .light;
+        let (mut first, mut second) = (String::new(), String::new());
+        let mut ids = (egui::Id::NULL, egui::Id::NULL);
+        for (pass, events) in [vec![], vec![]]
+            .into_iter()
+            .chain([vec![Event::Key {
+                key: egui::Key::Tab,
+                physical_key: None,
+                pressed: true,
+                repeat: false,
+                modifiers: Modifiers::NONE,
+            }]])
+            .enumerate()
+        {
+            ctx.run_ui(
+                RawInput {
+                    events,
+                    ..Default::default()
+                },
+                |ui| {
+                    let a = render(
+                        ui,
+                        "First",
+                        |ui| {
+                            text_edit::render(
+                                ui,
+                                &mut first,
+                                text_edit::Style::new_outline_md(&theme),
+                            )
+                        },
+                        Style::new(&theme),
+                    );
+                    let b = render(
+                        ui,
+                        "Second",
+                        |ui| {
+                            text_edit::render(
+                                ui,
+                                &mut second,
+                                text_edit::Style::new_outline_md(&theme),
+                            )
+                        },
+                        Style::new(&theme),
+                    );
+                    if pass == 0 {
+                        a.inner.request_focus();
+                    }
+                    ids = (a.inner.id, b.inner.id);
+                },
+            )
+            .textures_delta
+            .clear();
+        }
+        assert_eq!(ctx.memory(|m| m.focused()), Some(ids.1));
     }
 }

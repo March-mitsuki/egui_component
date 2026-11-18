@@ -16,13 +16,21 @@ Breaking changes and migration instructions are recorded here.
 - `accordion::Style` adds the public field `show_body_guide: bool`. Add `show_body_guide: false` to full struct literals. In exhaustive destructuring patterns, include the field or use `..`. The guide defaults to off. Enable it with `.show_body_guide(true)`.
 - `accordion::Style` replaces `padding: i8` with `header_padding_y: i8` for the padding above and below the title and `body_indent: i8` for the left indent when the guide is enabled. Both default to `12` and clamp negative values to zero. Replace `padding` with the two new fields in full struct literals and exhaustive destructuring patterns. Accordion titles now accept any `Into<egui::WidgetText>`. Pass `egui::RichText` to customize the title, and its explicit color also applies to the hover underline. The default header is transparent and borderless, with a title underline on hover. If you customize `hover_background`, a transparent value now inherits `background`.
 - `egui_component` no longer enables `egui_extras`' `all_loaders` feature; it now enables only `svg`, which the built-in icons need. Applications that load other images, such as `avatar` URLs over `http(s)://` or `file://`, PNG/JPEG, GIF, or WebP, must enable the matching loaders on their own `egui_extras` dependency, for example `egui_extras = { version = "0.37", features = ["all_loaders"] }`, and keep calling `egui_extras::install_image_loaders(ctx)`. Without them, `avatar` falls back to the name initial.
-- `field::render` now requires `input_content` to return the input control's `egui::Response`, and returns `InnerResponse<Response>` instead of `InnerResponse<R>`. Clicking the label focuses that control, and toggle controls such as `switch` also toggle. In most cases, remove the trailing `;` in the closure so it returns the widget's response; `form.field` and `form.field_with_error` already return it. To pass other data out of the closure, assign it to a variable declared outside. Field labels are no longer selectable, regardless of `label_style.selectable`.
+- `field::render` now requires `input_content` to return the input control's `egui::Response`, and returns `InnerResponse<Response>` instead of `InnerResponse<R>`. Clicking the label focuses that control, and toggle controls such as `switch` also toggle. In most cases, remove the trailing `;` in the closure so it returns the widget's response; `form.field` and `form.field_with_error` already return it. To pass other data out of the closure, assign it to a variable declared outside. Field labels are no longer selectable, regardless of `label_style.selectable`, and are not Tab stops.
 
 ### Color picker behavior changes
 
 - The color picker popup now uses a saturation/value plane, hue and optional alpha bars, and a ghost button to switch between HEX and RGB(A) inputs. Alpha input uses `0–1` instead of the previous `0–255` slider scale; RGB inputs remain integers in `0–255`. Update UI automation and user instructions that depend on the old popup layout or alpha scale.
 - HEX input accepts an optional `#` and normalizes valid edits on Enter or focus loss. With alpha disabled, it displays `#rrggbb`; with alpha enabled, it displays `#rrggbbaa`. Valid edits still update the color immediately; invalid drafts preserve the last valid color. Validation outlines appear on Enter or focus loss. Error text is opt-in through `render_with_options` and `Options::error_message`, which maps `ColorInputError` to an application-localized `String`.
 - This redesign introduces no source-breaking API changes: `render(ui, id, &mut Color32, Style)` and the existing `Style` fields/builders remain unchanged. The new options API and lossless `hex_to_rgba` / `rgba_to_hex` helpers are additive; existing callers need no code migration.
+
+### Form behavior changes
+
+- Pressing Enter in a single-line input registered with `form.field` or `form.field_with_error` now requests submission, so `submitted` becomes `true` when the form is valid. The input keeps focus after submitting. Multiline inputs still insert a newline, and Enter used to confirm an IME composition does not submit. To keep the previous behavior, use `Form::new(id).submit_on_enter(false)`.
+
+### Text edit behavior changes
+
+- In password inputs, Tab now moves from the input to the show/hide toggle, then to the next control; previously the toggle came first. Clicking the toggle with a pointer keeps focus in the input, while toggling with the keyboard keeps focus on the toggle.
 
 ## 0.3.0
 

@@ -175,6 +175,7 @@
   "demo.form:title": "表单",
   "demo.form:managed": "show 托管草稿和交互状态，无需在应用里保存表单数据。",
   "demo.form:validation": "离开字段或尝试保存后显示错误；重置恢复默认值。",
+  "demo.form:enter": "在单行输入框中按回车即可保存。",
   "demo.form:userA": "用户 A · 托管草稿",
   "demo.form:userB": "用户 B · 同类型、独立 ID 的托管草稿",
   "demo.form:userC": "用户 C · show_with_data 借用应用数据",

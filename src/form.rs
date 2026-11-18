@@ -54,13 +54,23 @@ impl FormState {
 /// A form instance, scoped to the parent UI's ID.
 pub struct Form {
     id_salt: egui::IdSalt,
+    submit_on_enter: bool,
 }
 
 impl Form {
     pub fn new(id_salt: impl egui::AsIdSalt) -> Self {
         Self {
             id_salt: egui::IdSalt::new(id_salt),
+            submit_on_enter: true,
         }
+    }
+
+    /// Request submission when Enter ends editing in a registered single-line
+    /// field; the field keeps focus afterwards. Enabled by default. Multiline inputs keep Enter for newlines, and
+    /// Enter used to confirm an IME composition does not submit.
+    pub fn submit_on_enter(mut self, submit_on_enter: bool) -> Self {
+        self.submit_on_enter = submit_on_enter;
+        self
     }
 
     pub fn id(&self, ui: &Ui) -> Id {
@@ -133,6 +143,7 @@ impl Form {
         let mut form = FormUi {
             id,
             state,
+            submit_on_enter: self.submit_on_enter,
             errors: HashMap::new(),
             changed: false,
             submit_requested: false,
@@ -200,6 +211,7 @@ impl<R, D> FormResponse<R, D> {
 pub struct FormUi<'a> {
     id: Id,
     state: &'a mut FormState,
+    submit_on_enter: bool,
     errors: HashMap<Id, String>,
     changed: bool,
     submit_requested: bool,
@@ -212,7 +224,9 @@ impl FormUi<'_> {
     }
 
     /// Render a field, then validate its updated value. Validation runs each pass;
-    /// messages appear after focus loss or a submit attempt. Keys must be unique
+    /// messages appear after focus loss or a submit attempt. Pressing Enter in a
+    /// single-line input requests submission unless disabled with
+    /// [`Form::submit_on_enter`]. Keys must be unique
     /// within a form. Hidden/unregistered fields do not participate in validation.
     pub fn field<V>(
         &mut self,
@@ -242,6 +256,13 @@ impl FormUi<'_> {
         self.changed |= response.changed();
         if response.lost_focus() {
             self.state.touched.insert(id);
+            // A single-line TextEdit surrenders focus on Enter; this is egui's
+            // documented idiom for "editing finished with Enter".
+            if self.submit_on_enter && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+                self.request_submit();
+                // Keep focus in the input after submitting, like an HTML form.
+                response.request_focus();
+            }
         }
         if let Err(error) = validate(value) {
             if self.state.submit_attempted || self.state.touched.contains(&id) {
@@ -451,5 +472,76 @@ mod tests {
         })
         .textures_delta
         .clear();
+    }
+
+    #[test]
+    fn enter_in_single_line_field_submits_unless_disabled() {
+        let enter = || egui::Event::Key {
+            key: egui::Key::Enter,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: egui::Modifiers::NONE,
+        };
+        // Returns whether the Enter pass reported `submitted`.
+        let run = |multiline: bool, submit_on_enter: bool| {
+            let ctx = egui::Context::default();
+            let mut draft = String::from("Alice");
+            let mut submitted = false;
+            let mut focused_after = false;
+            for pass in 0..4 {
+                let events = if pass == 2 { vec![enter()] } else { vec![] };
+                ctx.run_ui(
+                    egui::RawInput {
+                        events,
+                        ..Default::default()
+                    },
+                    |ui| {
+                        let result = Form::new("enter")
+                            .submit_on_enter(submit_on_enter)
+                            .show_with_data(ui, &mut draft, |form, ui, draft| {
+                                let response = form.field(
+                                    ui,
+                                    "name",
+                                    draft,
+                                    |ui, value| {
+                                        if multiline {
+                                            ui.text_edit_multiline(value)
+                                        } else {
+                                            ui.text_edit_singleline(value)
+                                        }
+                                    },
+                                    |_| Ok(()),
+                                );
+                                if pass == 0 {
+                                    response.request_focus();
+                                }
+                                if pass == 3 {
+                                    focused_after = response.has_focus();
+                                }
+                            });
+                        if pass == 2 {
+                            submitted = result.submitted;
+                        }
+                    },
+                )
+                .textures_delta
+                .clear();
+            }
+            (submitted, draft, focused_after)
+        };
+        assert_eq!(
+            run(false, true),
+            (true, "Alice".into(), true),
+            "submits and keeps focus"
+        );
+        assert_eq!(
+            run(false, false),
+            (false, "Alice".into(), false),
+            "Enter only ends editing when disabled"
+        );
+        let (submitted, draft, focused) = run(true, true);
+        assert!(!submitted && focused);
+        assert_eq!(draft, "Alice\n", "multiline keeps Enter for newlines");
     }
 }

@@ -344,36 +344,16 @@ fn render_singleline(ui: &mut Ui, text: &mut String, style: Style) -> egui::Resp
     let password = style.input_type == InputType::Password;
     let visibility_id = id.with("password_visible");
     let mut password_visible = false;
-    let mut toggle_hovered = false;
+    let mut icon_rect = egui::Rect::NOTHING;
     if password {
         password_visible = ui.data(|data| data.get_temp(visibility_id).unwrap_or(false));
         let icon_right = rect.right() - style.padding_x;
         let icon_left = icon_right - style.icon_button_style.width;
-        let icon_rect = egui::Rect::from_min_max(
+        icon_rect = egui::Rect::from_min_max(
             egui::pos2(icon_left, rect.top()),
             egui::pos2(icon_right, rect.bottom()),
         );
         editor_rect.set_right((icon_left - 4.0).max(rect.left()));
-        let icon = if password_visible {
-            crate::icon::ICONS.eye.clone()
-        } else {
-            crate::icon::ICONS.eye_slash.clone()
-        };
-        let mut button_ui = ui.new_child(
-            egui::UiBuilder::new()
-                .id_salt("password_toggle")
-                .max_rect(icon_rect)
-                .layout(egui::Layout::centered_and_justified(
-                    egui::Direction::LeftToRight,
-                )),
-        );
-        let toggle = icon_button::render(&mut button_ui, icon, style.icon_button_style.clone())
-            .on_hover_cursor(egui::CursorIcon::PointingHand);
-        toggle_hovered = toggle.hovered();
-        if toggle.clicked() {
-            password_visible = !password_visible;
-            ui.data_mut(|data| data.insert_temp(visibility_id, password_visible));
-        }
     }
 
     let mut editor_ui = ui.new_child(
@@ -419,6 +399,36 @@ fn render_singleline(ui: &mut Ui, text: &mut String, style: Style) -> egui::Resp
             .min_size(editor_rect.size())
             .align(egui::Align2::LEFT_CENTER),
     );
+
+    // Render the toggle after the input so Tab order is input -> toggle.
+    let mut toggle_hovered = false;
+    if password {
+        let icon = if password_visible {
+            crate::icon::ICONS.eye.clone()
+        } else {
+            crate::icon::ICONS.eye_slash.clone()
+        };
+        let mut button_ui = ui.new_child(
+            egui::UiBuilder::new()
+                .id_salt("password_toggle")
+                .max_rect(icon_rect)
+                .layout(egui::Layout::centered_and_justified(
+                    egui::Direction::LeftToRight,
+                )),
+        );
+        let toggle = icon_button::render(&mut button_ui, icon, style.icon_button_style.clone())
+            .on_hover_cursor(egui::CursorIcon::PointingHand);
+        toggle_hovered = toggle.hovered();
+        if toggle.clicked() {
+            // Takes effect on the repaint that follows the click.
+            ui.data_mut(|data| data.insert_temp(visibility_id, !password_visible));
+            ui.ctx().request_repaint();
+        }
+        // Pointer users keep typing in the input; keyboard users stay on the toggle.
+        if toggle.is_pointer_button_down_on() || toggle.clicked_by(egui::PointerButton::Primary) {
+            response.request_focus();
+        }
+    }
 
     let hover = ui.ctx().animate_bool_with_time(
         id.with("hover"),
@@ -703,5 +713,79 @@ mod tests {
             _ => None,
         });
         assert_eq!(hint.unwrap().job.sections[0].format.font_id, expected);
+    }
+
+    #[test]
+    fn password_tab_order_is_input_then_toggle_and_pointer_keeps_input_focus() {
+        use egui::{Event, Key, Modifiers, PointerButton};
+        let ctx = egui::Context::default();
+        let theme =
+            crate::theme::UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json"))
+                .unwrap();
+        let password = Style::new_outline_md(&theme.light)
+            .width(Some(200.0))
+            .input_type(InputType::Password);
+        let plain = Style::new_outline_md(&theme.light).width(Some(200.0));
+        let (mut secret, mut next) = (String::new(), String::new());
+        let tab = || Event::Key {
+            key: Key::Tab,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: Modifiers::NONE,
+        };
+        // Returns (password id, next id, focused id, password rect).
+        let mut run = |events: Vec<Event>, focus_password: bool| {
+            let mut out = None;
+            ctx.run_ui(
+                egui::RawInput {
+                    events,
+                    ..Default::default()
+                },
+                |ui| {
+                    let a = render(ui, &mut secret, password.clone());
+                    let b = render(ui, &mut next, plain.clone());
+                    if focus_password {
+                        a.request_focus();
+                    }
+                    out = Some((a.id, b.id, a.rect));
+                },
+            )
+            .textures_delta
+            .clear();
+            let (a, b, rect) = out.unwrap();
+            (a, b, ctx.memory(|m| m.focused()), rect)
+        };
+        let (a, _, focused, rect) = run(vec![], true);
+        assert_eq!(focused, Some(a));
+        let (a, b, focused, _) = run(vec![tab()], false);
+        let toggle = focused.expect("Tab from the input lands on the toggle");
+        assert!(toggle != a && toggle != b);
+        let (_, b, focused, _) = run(vec![tab()], false);
+        assert_eq!(
+            focused,
+            Some(b),
+            "Tab from the toggle goes to the next input"
+        );
+
+        // A pointer click on the toggle reveals the password and keeps input focus.
+        let pos = egui::pos2(rect.right() - 16.0, rect.center().y);
+        let button = |pressed| Event::PointerButton {
+            pos,
+            button: PointerButton::Primary,
+            pressed,
+            modifiers: Modifiers::NONE,
+        };
+        for events in [
+            vec![Event::PointerMoved(pos)],
+            vec![button(true)],
+            vec![button(false)],
+            vec![],
+        ] {
+            run(events, false);
+        }
+        let (a, _, focused, _) = run(vec![], false);
+        assert_eq!(focused, Some(a));
+        assert!(ctx.data(|d| d.get_temp::<bool>(a.with("password_visible"))) == Some(true));
     }
 }
