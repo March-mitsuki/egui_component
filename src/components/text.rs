@@ -69,18 +69,16 @@ impl Style {
     }
 }
 
+/// The styled text used by [`render`], for components that lay out text themselves.
+pub(crate) fn rich_text(ui: &Ui, text: &str, style: &Style) -> RichText {
+    RichText::new(text)
+        .family(FONT_MANAGER.get_egui_font_family(ui.ctx(), &style.font_family, style.font_weight))
+        .color(style.color)
+        .size(style.size)
+}
+
 pub fn render(ui: &mut Ui, text: &str, style: Style) -> Response {
-    let mut label = Label::new(
-        RichText::new(text)
-            .family(FONT_MANAGER.get_egui_font_family(
-                ui.ctx(),
-                &style.font_family,
-                style.font_weight,
-            ))
-            .color(style.color)
-            .size(style.size),
-    )
-    .selectable(style.selectable);
+    let mut label = Label::new(rich_text(ui, text, &style)).selectable(style.selectable);
 
     if style.truncate {
         label = label.truncate();

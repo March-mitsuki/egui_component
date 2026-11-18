@@ -57,7 +57,7 @@ pub fn render(
     // Selectable text would compete with the label's click sense.
     let label_style = style.label_style.selectable(false);
     let render_label = |ui: &mut Ui| {
-        let text = text::render(ui, label, label_style);
+        let text = text::render(ui, label, label_style.clone());
         // `Sense::CLICK` without `FOCUSABLE`: like an HTML <label>, the label
         // reacts to clicks but is not a Tab stop.
         ui.interact(text.rect, text.id.with("field_label"), Sense::CLICK)
@@ -76,8 +76,20 @@ pub fn render(
     };
     match style.direction {
         FieldDirection::Horizontal => ui.horizontal(|ui| {
+            // Give the label cell its real text height so the row centers it
+            // against the control; a zero-height cell grows downward from the
+            // row's center and sits visibly low next to short controls.
+            let text_height = egui::WidgetText::from(text::rich_text(ui, label, &label_style))
+                .into_galley(
+                    ui,
+                    Some(egui::TextWrapMode::Extend),
+                    f32::INFINITY,
+                    egui::TextStyle::Body,
+                )
+                .size()
+                .y;
             let label = ui
-                .allocate_ui(egui::Vec2::new(style.label_width, 0.0), |ui| {
+                .allocate_ui(egui::Vec2::new(style.label_width, text_height), |ui| {
                     ui.set_width(style.label_width);
                     render_label(ui)
                 })
@@ -254,5 +266,31 @@ mod tests {
             .clear();
         }
         assert_eq!(ctx.memory(|m| m.focused()), Some(ids.1));
+    }
+
+    #[test]
+    fn horizontal_label_is_vertically_centered_with_short_controls() {
+        let ctx = egui::Context::default();
+        let theme = UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json"))
+            .unwrap()
+            .light;
+        let mut on = false;
+        ctx.run_ui(Default::default(), |ui| {
+            let r = render(
+                ui,
+                "Notify",
+                |ui| switch::render(ui, &mut on, switch::Style::new(&theme)),
+                Style::new(&theme),
+            );
+            // The row is no taller than its tallest child, so neither is offset.
+            assert!(
+                (r.response.rect.height() - r.inner.rect.height()).abs() <= 1.0,
+                "row {:?} control {:?}",
+                r.response.rect,
+                r.inner.rect
+            );
+        })
+        .textures_delta
+        .clear();
     }
 }

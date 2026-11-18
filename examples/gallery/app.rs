@@ -715,6 +715,7 @@ impl GalleryApp {
             Component::ScrollArea => pages::scroll_area::show(ui, theme, locale),
             Component::Select => pages::select::show(ui, theme, locale),
             Component::Separator => pages::separator::show(ui, theme, locale),
+            Component::Checkbox => pages::checkbox::show(ui, theme, locale),
             Component::Switch => pages::switch::show(ui, theme, locale),
             Component::Text => self.text_page.show(ui, theme, locale),
             Component::TextEdit => pages::text_edit::show(ui, theme, locale),

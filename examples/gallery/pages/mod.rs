@@ -2,6 +2,7 @@ pub mod accordion;
 pub mod avatar;
 pub mod button;
 pub mod card;
+pub mod checkbox;
 pub mod code;
 pub mod dialog;
 pub mod divider;
