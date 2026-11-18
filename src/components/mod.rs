@@ -1,3 +1,5 @@
+mod focus;
+
 pub mod accordion;
 pub mod avatar;
 pub mod button;
@@ -7,7 +9,6 @@ pub mod dialog;
 pub mod divider;
 pub mod drawer;
 pub mod field;
-mod focus;
 pub mod icon;
 pub mod icon_button;
 pub mod icon_menu_button;

@@ -150,6 +150,16 @@ File and system font loading are native-only; Web applications should supply fon
 
 The gallery's **Text** page demonstrates font switching, fallback, and loading fonts from a URL.
 
+### ECML prototype (optional)
+
+Enable the `ecml` feature for component-named markup and native Debug template hot reload that preserves Rust state.
+
+```sh
+cargo run --features ecml --example ecml
+```
+
+Edit `examples/ecml/counter.ecml` while the app runs. Supported tags are built-in `layout` and components `text`, `button`, `text_edit`, and `switch`. This is experimental; see the [ECML example guide](examples/ecml/README.md) for syntax, update semantics, and limitations.
+
 ## 🌍 Who's using egui_component ?
 
 - [ChiyoCast](https://chiyocast.com): cloud-native streaming software custom-built for next-gen creators.

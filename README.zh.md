@@ -145,6 +145,16 @@ let family = FONT_MANAGER.get_egui_font_family(ctx, DEFAULT_FONT_FAMILY_ALIAS, F
 
 Gallery 的 **Text** 页面提供字体切换、缺字回退和字体 URL 加载示例。
 
+### ECML 原型（可选）
+
+启用 `ecml` feature，可使用与组件模块同名的标签声明界面，并在原生 Debug 应用中热更新模板、保留 Rust 状态。
+
+```sh
+cargo run --features ecml --example ecml
+```
+
+运行后编辑 `examples/ecml/counter.ecml`。目前支持 内置 `layout` 以及 `text`、`button`、`text_edit`、`switch` 组件。这是实验性原型，语法、更新语义和限制见 [ECML 示例说明](examples/ecml/README.md)。
+
 ## 🌍 谁在用 egui_component ?
 
 - [ChiyoCast](https://chiyocast.com): 为次世代直播量身定制的云原生直播软件。

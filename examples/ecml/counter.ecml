@@ -1,0 +1,15 @@
+<layout item_spacing.y="12">
+    <text size="heading">ECML live preview</text>
+    <text_edit id="name" e-model="name" placeholder="Your name" width="280" />
+    <text>Hello, {{ name }}</text>
+    <text>Count: {{ count }}</text>
+    <layout direction="left_to_right" item_spacing.x="8" cross_align="center">
+        <switch id="enabled" e-model="enabled" />
+        <text>Enable increment</text>
+    </layout>
+    <layout direction="left_to_right" item_spacing.x="8">
+        <button id="increment" :disabled="!can_increment" @click="increment">Increment</button>
+        <button variant="outline" @click="reset">Reset</button>
+    </layout>
+    <text>Edit and save this template while the app is running.</text>
+</layout>

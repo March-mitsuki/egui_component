@@ -6,3 +6,6 @@ pub mod icon;
 pub mod theme;
 pub mod theme_gen;
 pub mod toast;
+
+#[cfg(feature = "ecml")]
+pub mod ecml;

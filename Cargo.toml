@@ -17,6 +17,7 @@ include = [
     "/tests/*.rs",
     "/assets/**",
     "/examples/*.rs",
+    "/examples/ecml/**",
     "/examples/theme.json",
     "/examples/gallery/**",
     "/examples/assets/font-fixtures/**",
@@ -35,6 +36,7 @@ resolver = "3"
 [features]
 default = []
 lucide_icon = []
+ecml = []
 
 [[example]]
 name = "router"
@@ -79,3 +81,8 @@ tracing-appender = "0.2"
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 eframe = { version = "0.37", default-features = false, features = ["default_fonts", "glow"] }
+
+[[example]]
+name = "ecml"
+path = "examples/ecml/main.rs"
+required-features = ["ecml"]

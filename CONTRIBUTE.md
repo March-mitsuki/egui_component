@@ -6,6 +6,8 @@ Contributions to egui_component are welcome: bug fixes, components, documentatio
 translations, and reproducible bug reports. Discuss substantial API changes or new
 features in an issue before implementation so the scope can be agreed upon.
 
+For ECML changes, also read the [ECML contributor design guide](ECML_DESIGN.md) for feature-specific goals, boundaries, and behavioral contracts.
+
 ## Branches and merge policy
 
 Changes flow through `feature branch → dev → main`.

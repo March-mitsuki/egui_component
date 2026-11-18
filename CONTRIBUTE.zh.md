@@ -5,6 +5,8 @@
 欢迎为 egui_component 提交错误修复、组件、文档、翻译和可复现的问题报告。
 较大的 API 调整或新功能，请先通过 issue 讨论并确认范围。
 
+修改 ECML 时，请同时阅读 [ECML 贡献者设计指南](ECML_DESIGN.zh.md)，了解该 feature 的目标、边界与行为约定。
+
 ## 分支与合并规则
 
 所有修改遵循 `功能分支 → dev → main` 的流程。
