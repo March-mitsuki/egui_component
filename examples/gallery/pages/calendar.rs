@@ -14,48 +14,7 @@ use egui_component::{
 pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
     // Fixed demo date: applications supply their own clock/timezone policy.
     let today = Date::from_calendar_date(2026, Month::November, 17).unwrap();
-    let labels = |label| match locale {
-        Locale::En => calendar::default_label(label),
-        Locale::Zh | Locale::Ja => match label {
-            Label::MonthTitle(m) => format!("{}年{}月", m.year(), m.month() as u8),
-            Label::MonthName(m) => format!("{}月", m as u8),
-            Label::Year(y) => format!("{y}年"),
-            Label::WeekdayShort(w) => {
-                let names = if locale == Locale::Zh {
-                    ["一", "二", "三", "四", "五", "六", "日"]
-                } else {
-                    ["月", "火", "水", "木", "金", "土", "日"]
-                };
-                names[w.number_days_from_monday() as usize].into()
-            }
-            Label::DateAccessible(d) => format!("{}年{}月{}日", d.year(), d.month() as u8, d.day()),
-            Label::PreviousMonth => if locale == Locale::Zh {
-                "上个月"
-            } else {
-                "前の月"
-            }
-            .into(),
-            Label::NextMonth => if locale == Locale::Zh {
-                "下个月"
-            } else {
-                "次の月"
-            }
-            .into(),
-            Label::ChooseMonth => if locale == Locale::Zh {
-                "选择月份"
-            } else {
-                "月を選択"
-            }
-            .into(),
-            Label::ChooseYear => if locale == Locale::Zh {
-                "选择年份"
-            } else {
-                "年を選択"
-            }
-            .into(),
-            other => calendar::default_label(other),
-        },
-    };
+    let labels = |label| localized_label(locale, label);
     // Selection mode, visible month count, and caption controls are independent.
     for (key, range, months, caption_layout, disable_weekends) in [
         ("calendar:single", false, 1, CaptionLayout::Dropdowns, false),
@@ -125,5 +84,50 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         );
         ui.data_mut(|data| data.insert_temp(id, (selection, state)));
         ui.add_space(16.0);
+    }
+}
+
+pub(super) fn localized_label(locale: Locale, label: Label) -> String {
+    match locale {
+        Locale::En => calendar::default_label(label),
+        Locale::Zh | Locale::Ja => match label {
+            Label::MonthTitle(m) => format!("{}年{}月", m.year(), m.month() as u8),
+            Label::MonthName(m) => format!("{}月", m as u8),
+            Label::Year(y) => format!("{y}年"),
+            Label::WeekdayShort(w) => {
+                let names = if locale == Locale::Zh {
+                    ["一", "二", "三", "四", "五", "六", "日"]
+                } else {
+                    ["月", "火", "水", "木", "金", "土", "日"]
+                };
+                names[w.number_days_from_monday() as usize].into()
+            }
+            Label::DateAccessible(d) => format!("{}年{}月{}日", d.year(), d.month() as u8, d.day()),
+            Label::PreviousMonth => if locale == Locale::Zh {
+                "上个月"
+            } else {
+                "前の月"
+            }
+            .into(),
+            Label::NextMonth => if locale == Locale::Zh {
+                "下个月"
+            } else {
+                "次の月"
+            }
+            .into(),
+            Label::ChooseMonth => if locale == Locale::Zh {
+                "选择月份"
+            } else {
+                "月を選択"
+            }
+            .into(),
+            Label::ChooseYear => if locale == Locale::Zh {
+                "选择年份"
+            } else {
+                "年を選択"
+            }
+            .into(),
+            other => calendar::default_label(other),
+        },
     }
 }

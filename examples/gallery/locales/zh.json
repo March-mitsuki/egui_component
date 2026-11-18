@@ -384,5 +384,13 @@
   "calendar:single": "单选 · 年月下拉",
   "calendar:range": "区间选择 · 禁用周末",
   "calendar:rangeSingle": "单月区间选择 · 年月下拉",
-  "calendar:rangeDropdowns": "双月区间选择 · 年月联动跳转"
+  "calendar:rangeDropdowns": "双月区间选择 · 年月联动跳转",
+  "component.datePicker:name": "日期选择器",
+  "component.datePicker:description": "通过弹出日历选择日期或区间。",
+  "datePicker:single": "单个日期",
+  "datePicker:rangeSingle": "单月区间选择",
+  "datePicker:rangeDouble": "双月区间选择",
+  "datePicker:placeholder": "请选择日期",
+  "datePicker:rangePlaceholder": "请选择日期区间",
+  "datePicker:pending": "请选择结束日期"
 }

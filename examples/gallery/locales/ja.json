@@ -384,5 +384,13 @@
   "calendar:single": "日付選択 · 年月ドロップダウン",
   "calendar:range": "期間選択 · 週末は選択不可",
   "calendar:rangeSingle": "期間選択 · 1か月表示と年月ドロップダウン",
-  "calendar:rangeDropdowns": "期間選択 · 2か月表示と連動する年月ドロップダウン"
+  "calendar:rangeDropdowns": "期間選択 · 2か月表示と連動する年月ドロップダウン",
+  "component.datePicker:name": "日付ピッカー",
+  "component.datePicker:description": "ポップアップカレンダーで日付や期間を選択します。",
+  "datePicker:single": "日付選択",
+  "datePicker:rangeSingle": "1か月表示の期間選択",
+  "datePicker:rangeDouble": "2か月表示の期間選択",
+  "datePicker:placeholder": "日付を選択",
+  "datePicker:rangePlaceholder": "期間を選択",
+  "datePicker:pending": "終了日を選択"
 }

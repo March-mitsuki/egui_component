@@ -165,6 +165,39 @@ pub fn render(
     style: Style,
     menu_render: impl FnOnce(&mut Ui),
 ) -> Response {
+    let response = render_trigger(ui, selected_text, &style, Popup::is_id_open(ui.ctx(), id));
+    let rect = response.rect;
+    // 8. Popup Menu logic
+    Popup::menu(&response)
+        .id(id)
+        .frame(style.popup_frame)
+        .align(style.popup_align)
+        .close_behavior(style.popup_close_behavior)
+        .gap(style.popup_gap)
+        .show(|ui| {
+            // Match select box width exactly (accounting for frame border/margin)
+            let inner_width = (rect.width()
+                - style.popup_frame.inner_margin.sum().x
+                - style.popup_frame.stroke.width * 2.0)
+                .max(0.0);
+            ui.set_width(inner_width);
+
+            // Wrap items in ScrollArea
+            egui::ScrollArea::vertical()
+                .max_height(style.popup_max_height)
+                .show(ui, menu_render);
+        });
+
+    response
+}
+
+/// Shared select-like trigger; the caller owns popup content and open state.
+pub(crate) fn render_trigger(
+    ui: &mut Ui,
+    selected_text: &str,
+    style: &Style,
+    is_open: bool,
+) -> Response {
     // 1. Allocate exact size
     let width = style.width.unwrap_or(ui.available_width());
     let size = egui::vec2(width, style.height);
@@ -176,7 +209,6 @@ pub fn render(
     let (rect, response) = ui.allocate_exact_size(size, sense);
 
     // 2. Query popup open state
-    let is_open = egui::Popup::is_id_open(ui.ctx(), id);
 
     // 4. Animation factors
     let is_hovered = response.hovered() && !style.disabled;
@@ -308,27 +340,6 @@ pub fn render(
         style.focus_color,
         Placement::Outside,
     );
-
-    // 8. Popup Menu logic
-    Popup::menu(&response)
-        .id(id)
-        .frame(style.popup_frame)
-        .align(style.popup_align)
-        .close_behavior(style.popup_close_behavior)
-        .gap(style.popup_gap)
-        .show(|ui| {
-            // Match select box width exactly (accounting for frame border/margin)
-            let inner_width = (rect.width()
-                - style.popup_frame.inner_margin.sum().x
-                - style.popup_frame.stroke.width * 2.0)
-                .max(0.0);
-            ui.set_width(inner_width);
-
-            // Wrap items in ScrollArea
-            egui::ScrollArea::vertical()
-                .max_height(style.popup_max_height)
-                .show(ui, menu_render);
-        });
 
     if style.disabled {
         response.on_hover_cursor(egui::CursorIcon::NotAllowed)

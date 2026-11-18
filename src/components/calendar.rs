@@ -83,12 +83,14 @@ pub enum RangeSelection {
 pub struct State {
     pub visible_month: YearMonth,
     focused: Option<Date>,
+    pub(crate) caption_popup_open: bool,
 }
 impl State {
     pub fn new(visible_month: YearMonth) -> Self {
         Self {
             visible_month,
             focused: None,
+            caption_popup_open: false,
         }
     }
 }
@@ -323,6 +325,7 @@ pub fn render_with_options(
     style: Style,
     options: Options<'_>,
 ) -> CalendarResponse {
+    state.caption_popup_open = false;
     let before = *selection;
     let month_before = state.visible_month;
     let mut finished = false;
@@ -746,48 +749,44 @@ fn caption(
         } else {
             Label::MonthName(m)
         });
-        let response = select::render(
-            ui,
-            ui.make_persistent_id(if year_first { "year" } else { "month" }),
-            &label,
-            select_style.clone(),
-            |ui| {
-                if year_first {
-                    let start = (*range.start()).max(Date::MIN.year());
-                    let end = (*range.end()).min(Date::MAX.year());
-                    for value in start..=end {
-                        if select::render_item(
-                            ui,
-                            &options.label(Label::Year(value)),
-                            year == value,
-                            &select_style,
-                            &style.theme,
-                        )
-                        .clicked()
-                        {
-                            year = value;
-                            ui.close();
-                        }
-                    }
-                } else {
-                    for n in 1..=12 {
-                        let value = Month::try_from(n).unwrap();
-                        if select::render_item(
-                            ui,
-                            &options.label(Label::MonthName(value)),
-                            m == value,
-                            &select_style,
-                            &style.theme,
-                        )
-                        .clicked()
-                        {
-                            m = value;
-                            ui.close();
-                        }
+        let popup_id = ui.make_persistent_id(if year_first { "year" } else { "month" });
+        let response = select::render(ui, popup_id, &label, select_style.clone(), |ui| {
+            if year_first {
+                let start = (*range.start()).max(Date::MIN.year());
+                let end = (*range.end()).min(Date::MAX.year());
+                for value in start..=end {
+                    if select::render_item(
+                        ui,
+                        &options.label(Label::Year(value)),
+                        year == value,
+                        &select_style,
+                        &style.theme,
+                    )
+                    .clicked()
+                    {
+                        year = value;
+                        ui.close();
                     }
                 }
-            },
-        );
+            } else {
+                for n in 1..=12 {
+                    let value = Month::try_from(n).unwrap();
+                    if select::render_item(
+                        ui,
+                        &options.label(Label::MonthName(value)),
+                        m == value,
+                        &select_style,
+                        &style.theme,
+                    )
+                    .clicked()
+                    {
+                        m = value;
+                        ui.close();
+                    }
+                }
+            }
+        });
+        state.caption_popup_open |= egui::Popup::is_id_open(ui.ctx(), popup_id);
         response.on_hover_text(options.label(if year_first {
             Label::ChooseYear
         } else {

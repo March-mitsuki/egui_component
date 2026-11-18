@@ -384,5 +384,13 @@
   "calendar:single": "Single date · month and year dropdowns",
   "calendar:range": "Date range · weekends disabled",
   "calendar:rangeSingle": "Date range · single month with month and year dropdowns",
-  "calendar:rangeDropdowns": "Date range · two months with linked month and year dropdowns"
+  "calendar:rangeDropdowns": "Date range · two months with linked month and year dropdowns",
+  "component.datePicker:name": "Date Picker",
+  "component.datePicker:description": "Choose a date or range in a calendar popup.",
+  "datePicker:single": "Single date",
+  "datePicker:rangeSingle": "Single-month range",
+  "datePicker:rangeDouble": "Two-month range",
+  "datePicker:placeholder": "Select a date",
+  "datePicker:rangePlaceholder": "Select a date range",
+  "datePicker:pending": "Choose end date"
 }

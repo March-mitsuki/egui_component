@@ -30,3 +30,5 @@ pub mod slider;
 pub mod progress;
 
 pub mod calendar;
+
+pub mod date_picker;

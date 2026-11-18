@@ -693,6 +693,7 @@ impl GalleryApp {
         match component {
             Component::Progress => pages::progress::show(ui, theme, locale),
             Component::Slider => pages::slider::show(ui, theme, locale),
+            Component::DatePicker => pages::date_picker::show(ui, theme, locale),
             Component::Calendar => pages::calendar::show(ui, theme, locale),
             Component::ColorPicker => pages::color_picker::show(ui, theme, locale),
             Component::SegmentedControl => pages::segmented_control::show(ui, theme, locale),
