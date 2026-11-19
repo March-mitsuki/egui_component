@@ -9,7 +9,7 @@ use crate::theme::{Color, Theme};
 
 #[derive(Clone)]
 pub struct Style {
-    pub focus_color: egui::Color32,
+    pub focus_ring: crate::theme::FocusRing,
     pub height: f32,
     pub width: f32,
     pub on_bg_color: Color32,
@@ -25,9 +25,9 @@ impl Style {
             width: 36.0,
             on_bg_color: theme.colors.primary.l6,
             off_bg_color: theme.colors.gray.l3,
-            knob_color: theme.colors.primary.foreground.unwrap_or(Color32::WHITE),
+            knob_color: theme.colors.primary.foreground,
             disabled: false,
-            focus_color: theme.colors.primary.normal(),
+            focus_ring: theme.focus_ring,
         }
     }
 
@@ -37,9 +37,9 @@ impl Style {
             width: 28.0,
             on_bg_color: theme.colors.primary.l6,
             off_bg_color: theme.colors.gray.l3,
-            knob_color: theme.colors.primary.foreground.unwrap_or(Color32::WHITE),
+            knob_color: theme.colors.primary.foreground,
             disabled: false,
-            focus_color: theme.colors.primary.normal(),
+            focus_ring: theme.focus_ring,
         }
     }
 
@@ -53,9 +53,9 @@ impl Style {
             width: 44.0,
             on_bg_color: theme.colors.primary.l6,
             off_bg_color: theme.colors.gray.l3,
-            knob_color: theme.colors.primary.foreground.unwrap_or(Color32::WHITE),
+            knob_color: theme.colors.primary.foreground,
             disabled: false,
-            focus_color: theme.colors.primary.normal(),
+            focus_ring: theme.focus_ring,
         }
     }
 
@@ -65,9 +65,9 @@ impl Style {
             width: 28.0,
             on_bg_color: color.l6,
             off_bg_color: theme.colors.gray.l3,
-            knob_color: color.foreground.unwrap_or(Color32::WHITE),
+            knob_color: color.foreground,
             disabled: false,
-            focus_color: theme.colors.primary.normal(),
+            focus_ring: theme.focus_ring,
         }
     }
 
@@ -77,9 +77,9 @@ impl Style {
             width: 36.0,
             on_bg_color: color.l6,
             off_bg_color: theme.colors.gray.l3,
-            knob_color: color.foreground.unwrap_or(Color32::WHITE),
+            knob_color: color.foreground,
             disabled: false,
-            focus_color: theme.colors.primary.normal(),
+            focus_ring: theme.focus_ring,
         }
     }
 
@@ -89,9 +89,9 @@ impl Style {
             width: 44.0,
             on_bg_color: color.l6,
             off_bg_color: theme.colors.gray.l3,
-            knob_color: color.foreground.unwrap_or(Color32::WHITE),
+            knob_color: color.foreground,
             disabled: false,
-            focus_color: theme.colors.primary.normal(),
+            focus_ring: theme.focus_ring,
         }
     }
 
@@ -193,7 +193,7 @@ pub fn render(ui: &mut Ui, on: &mut bool, style: Style) -> Response {
         &response,
         rect,
         corner_radius,
-        style.focus_color,
+        style.focus_ring,
         Placement::Outside,
     );
     if style.disabled {

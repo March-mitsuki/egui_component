@@ -9,7 +9,7 @@ use super::{
 
 #[derive(Clone)]
 pub struct Style {
-    pub focus_color: egui::Color32,
+    pub focus_ring: crate::theme::FocusRing,
     pub width: f32,
     pub height: f32,
     pub icon_size: f32,
@@ -48,7 +48,7 @@ impl Style {
         };
         let palette = match_button_palette(theme, color, variant);
         Self {
-            focus_color: theme.colors.primary.normal(),
+            focus_ring: theme.focus_ring,
             width: size,
             height: size,
             icon_size,
@@ -261,7 +261,7 @@ pub fn render(ui: &mut Ui, icon: egui::ImageSource, label: &str, style: Style) -
         &response,
         rect,
         style.corner_radius,
-        style.focus_color,
+        style.focus_ring,
         Placement::Outside,
     );
     response.on_hover_cursor(egui::CursorIcon::PointingHand)

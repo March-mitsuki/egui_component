@@ -80,6 +80,9 @@ pub fn generate(base: &UiTheme, options: Options) -> UiTheme {
         ] {
             correct_roles(color, &backgrounds, dark);
         }
+        // The corrected primary keeps >= 4.5:1 on every background, above the
+        // 3:1 a focus indicator needs. The ring width is kept from `base`.
+        theme.focus_ring.color = theme.colors.primary.normal();
         let r = if options.radius.is_finite() {
             options.radius.clamp(0.0, 32.0)
         } else {
@@ -105,7 +108,8 @@ fn scale(h: f32, c: f32, dark: bool) -> Color {
     let cs = [0.12, 0.22, 0.35, 0.55, 0.75, 0.90, 1.0, 0.90, 0.65, 0.35];
     let a: [Color32; 10] = std::array::from_fn(|i| oklch(ls[i], c * cs[i], h));
     Color {
-        foreground: None,
+        // Chosen by `correct_roles` once the solid trio is final.
+        foreground: Color32::WHITE,
         l0: a[0],
         l1: a[1],
         l2: a[2],
@@ -130,7 +134,7 @@ fn correct_roles(color: &mut Color, backgrounds: &[Color32], dark: bool) {
             .into_iter()
             .max_by(|a, b| min_contrast(*a, &trio).total_cmp(&min_contrast(*b, &trio)))
             .unwrap();
-        color.foreground = Some(foreground);
+        color.foreground = foreground;
         if min_contrast(color.l6, backgrounds) >= 4.5 && min_contrast(foreground, &trio) >= 4.5 {
             break;
         }
@@ -225,7 +229,6 @@ pub fn validate(theme: &UiTheme) -> Result<(), &'static str> {
                 _ => true,
             }
         }
-        // Optional foreground may be absent, never null in normal serialized themes.
         if !check(&value) {
             return Err("Theme values must be finite and between 0 and 4096");
         }
@@ -276,11 +279,17 @@ mod tests {
                     for bg in [t.colors.bg.base, t.colors.bg.subtle, t.colors.bg.accent] {
                         assert!(contrast_ratio(c.l6, bg) >= 4.5, "seed {seed:?}");
                     }
+                    for bg in [t.colors.bg.base, t.colors.bg.subtle, t.colors.bg.accent] {
+                        assert!(
+                            contrast_ratio(t.focus_ring.color, bg) >= 3.0,
+                            "seed {seed:?}"
+                        );
+                    }
                     for bg in [c.l5, c.l6, c.l7] {
                         assert!(
-                            contrast_ratio(c.foreground.unwrap(), bg) >= 4.5,
+                            contrast_ratio(c.foreground, bg) >= 4.5,
                             "seed {seed:?}, contrast {}",
-                            contrast_ratio(c.foreground.unwrap(), bg)
+                            contrast_ratio(c.foreground, bg)
                         );
                     }
                 }

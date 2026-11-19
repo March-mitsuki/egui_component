@@ -180,7 +180,7 @@ pub fn render<'a>(
             part,
             part.rect,
             style.button.corner_radius,
-            style.button.focus_color,
+            style.button.focus_ring,
             Placement::Inside,
         );
     }

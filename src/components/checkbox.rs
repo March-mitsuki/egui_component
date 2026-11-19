@@ -26,7 +26,7 @@ pub struct Style {
     pub label_style: text::Style,
     /// Space between the box and its label.
     pub gap: f32,
-    pub focus_color: Color32,
+    pub focus_ring: crate::theme::FocusRing,
     pub disabled: bool,
     pub indeterminate: bool,
 }
@@ -38,10 +38,10 @@ impl Style {
             corner_radius: radius,
             checked_bg_color: color.l6,
             border_color: theme.colors.fg.base.gamma_multiply(0.35),
-            check_color: color.foreground.unwrap_or(Color32::WHITE),
+            check_color: color.foreground,
             label_style: text::Style::new(theme).size(text_size).selectable(false),
             gap: 8.0,
-            focus_color: theme.colors.primary.normal(),
+            focus_ring: theme.focus_ring,
             disabled: false,
             indeterminate: false,
         }
@@ -188,7 +188,7 @@ fn show(ui: &mut Ui, checked: &mut bool, label: Option<&str>, mut style: Style) 
         &response,
         if label.is_some() { rect } else { box_rect },
         CornerRadius::same(style.corner_radius.round() as u8),
-        style.focus_color,
+        style.focus_ring,
         Placement::Outside,
     );
     if style.disabled {

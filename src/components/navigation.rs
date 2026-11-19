@@ -32,7 +32,7 @@ impl Current {
 
 #[derive(Clone)]
 pub struct Style {
-    pub focus_color: egui::Color32,
+    pub focus_ring: crate::theme::FocusRing,
     pub height: f32,
     pub padding: f32,
     pub radius: u8,
@@ -46,7 +46,7 @@ pub struct Style {
 impl Style {
     pub fn new(theme: &Theme) -> Self {
         Self {
-            focus_color: theme.colors.primary.normal(),
+            focus_ring: theme.focus_ring,
             height: 34.0,
             padding: 12.0,
             radius: 6,
@@ -124,7 +124,7 @@ pub fn render(ui: &mut Ui, label: &str, current: bool, style: Style) -> Response
         &response,
         rect,
         CornerRadius::same(style.radius),
-        style.focus_color,
+        style.focus_ring,
         Placement::Outside,
     );
     response.on_hover_cursor(egui::CursorIcon::PointingHand)

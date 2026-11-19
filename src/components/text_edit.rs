@@ -515,11 +515,12 @@ pub fn match_text_edit_palette(
     color: Option<Color>,
     variant: &TextEditVariant,
 ) -> TextEditPalette {
-    // focus 颜色：如果指定了 color 用 color.normal()，否则用 primary
-    let focus_color = match color {
-        Some(c) => c.normal(),
-        None => theme.colors.primary.normal(),
-    };
+    // The focused border is the focus indicator: theme width, and the
+    // control's own color when one is given.
+    let focus_stroke = Stroke::new(
+        theme.focus_ring.width,
+        color.map_or(theme.focus_ring.color, |c| c.normal()),
+    );
 
     match variant {
         TextEditVariant::Subtle => {
@@ -531,7 +532,7 @@ pub fn match_text_edit_palette(
                 text_color: theme.colors.fg.base,
                 placeholder_color: theme.colors.fg.base.gamma_multiply(0.35),
                 border_stroke: Stroke::new(1.0_f32, Color32::TRANSPARENT),
-                focus_stroke: Stroke::new(focus::WIDTH, focus_color),
+                focus_stroke,
             }
         }
         TextEditVariant::Outline => {
@@ -543,7 +544,7 @@ pub fn match_text_edit_palette(
                 text_color: theme.colors.fg.base,
                 placeholder_color: theme.colors.fg.base.gamma_multiply(0.35),
                 border_stroke: Stroke::new(1.0_f32, theme.colors.fg.base.gamma_multiply(0.25)),
-                focus_stroke: Stroke::new(focus::WIDTH, focus_color),
+                focus_stroke,
             }
         }
         TextEditVariant::Flushed => {
@@ -555,7 +556,7 @@ pub fn match_text_edit_palette(
                 text_color: theme.colors.fg.base,
                 placeholder_color: theme.colors.fg.base.gamma_multiply(0.35),
                 border_stroke: Stroke::new(1.0_f32, theme.colors.fg.base.gamma_multiply(0.25)),
-                focus_stroke: Stroke::new(focus::WIDTH, focus_color),
+                focus_stroke,
             }
         }
     }

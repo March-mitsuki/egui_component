@@ -16,7 +16,7 @@ pub enum ButtonState {
 
 #[derive(Clone)]
 pub struct Style {
-    pub focus_color: egui::Color32,
+    pub focus_ring: crate::theme::FocusRing,
     pub padding_x: f32,
     pub height: f32,
     pub corner_radius: CornerRadius,
@@ -86,7 +86,7 @@ impl Style {
         };
         let palette = match_button_palette(theme, color, variant);
         Self {
-            focus_color: theme.colors.primary.normal(),
+            focus_ring: theme.focus_ring,
             height,
             padding_x,
             text_size,
@@ -739,7 +739,7 @@ pub(super) fn render_inner(
         &response,
         rect,
         style.corner_radius,
-        style.focus_color,
+        style.focus_ring,
         placement,
     );
 
@@ -755,7 +755,7 @@ pub fn match_button_palette(
     variant: ButtonVariant,
 ) -> ButtonPalette {
     match color {
-        Some(color) => color.to_button_palette(theme, variant),
+        Some(color) => color.to_button_palette(variant),
         None => match variant {
             ButtonVariant::Solid => ButtonPalette {
                 normal_bg: theme.colors.fg.base,

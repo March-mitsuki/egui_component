@@ -254,7 +254,7 @@ pub fn render(
                         &collapse_response,
                         collapse_rect,
                         style.close_button_style.corner_radius,
-                        style.close_button_style.focus_color,
+                        style.close_button_style.focus_ring,
                         Placement::Outside,
                     );
                     collapse_response.on_hover_cursor(egui::CursorIcon::PointingHand);

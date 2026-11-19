@@ -89,7 +89,7 @@ pub fn sections(doc: Doc) -> &'static [Section] {
                 body: "docs.brandcolors:body",
                 code: Some((
                     "rs",
-                    "use egui::Color32;\n\nlet theme = &mut ui_theme.light;\ntheme.colors.primary.l6 = Color32::from_rgb(107, 101, 245);\ntheme.colors.bg.base = Color32::WHITE;\ntheme.colors.fg.base = Color32::from_rgb(32, 33, 36);\ntheme.colors.primary.foreground = Some(Color32::WHITE);",
+                    "use egui::Color32;\n\nlet theme = &mut ui_theme.light;\ntheme.colors.primary.l6 = Color32::from_rgb(107, 101, 245);\ntheme.colors.bg.base = Color32::WHITE;\ntheme.colors.fg.base = Color32::from_rgb(32, 33, 36);\ntheme.colors.primary.foreground = Color32::WHITE;\ntheme.focus_ring.color = theme.colors.primary.l6;\ntheme.focus_ring.width = 3.0;",
                 )),
             },
             Section {

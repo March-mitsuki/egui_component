@@ -1,7 +1,7 @@
 //! Shared keyboard focus indicators for themed controls.
-use egui::{Color32, CornerRadius, Event, Id, Response, Stroke, StrokeKind, Ui};
+use crate::theme::FocusRing;
+use egui::{CornerRadius, Event, Id, Response, Stroke, StrokeKind, Ui};
 
-pub(super) const WIDTH: f32 = 2.0;
 const GAP: f32 = 1.0;
 
 #[derive(Clone, Copy)]
@@ -46,11 +46,11 @@ pub(super) fn ring(
     response: &Response,
     rect: egui::Rect,
     radius: CornerRadius,
-    color: Color32,
+    focus_ring: FocusRing,
     placement: Placement,
 ) {
     if keyboard_focus(response) {
-        draw_ring(ui, rect, radius, Stroke::new(WIDTH, color), placement);
+        draw_ring(ui, rect, radius, focus_ring.stroke(), placement);
     }
 }
 
@@ -87,18 +87,19 @@ pub(super) fn circle(
     response: &Response,
     center: egui::Pos2,
     radius: f32,
-    color: Color32,
+    focus_ring: FocusRing,
 ) {
     if keyboard_focus(response) {
-        let outer_radius = radius + GAP + WIDTH;
+        let width = focus_ring.width;
+        let outer_radius = radius + GAP + width;
         let bounds = egui::Rect::from_center_size(center, egui::Vec2::splat(2.0 * outer_radius));
         let stroke_radius = if ui.clip_rect().contains_rect(bounds) {
-            outer_radius - WIDTH / 2.0
+            outer_radius - width / 2.0
         } else {
-            (radius - GAP - WIDTH / 2.0).max(0.0)
+            (radius - GAP - width / 2.0).max(0.0)
         };
         ui.painter()
-            .circle_stroke(center, stroke_radius, Stroke::new(WIDTH, color));
+            .circle_stroke(center, stroke_radius, focus_ring.stroke());
     }
 }
 
@@ -114,7 +115,10 @@ mod tests {
         let theme = UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json"))
             .unwrap()
             .light;
-        let color = Color32::from_rgb(1, 2, 3);
+        let ring = FocusRing {
+            color: egui::Color32::from_rgb(1, 2, 3),
+            width: 3.0,
+        };
         let button_rect = std::cell::Cell::new(egui::Rect::NOTHING);
         let run = |events, state: button::ButtonState| {
             let mut output = ctx.run_ui(
@@ -124,14 +128,14 @@ mod tests {
                 },
                 |ui| {
                     let mut style = button::Style::new_outline_md(&theme).state(state.clone());
-                    style.focus_color = color;
+                    style.focus_ring = ring;
                     button_rect.set(button::render(ui, "Action", style).rect);
                 },
             );
             output.textures_delta.clear();
-            output.shapes.iter().any(|shape| {
-                matches!(&shape.shape, Shape::Rect(rect) if rect.stroke == Stroke::new(WIDTH, color))
-            })
+            output.shapes.iter().any(
+                |shape| matches!(&shape.shape, Shape::Rect(rect) if rect.stroke == ring.stroke()),
+            )
         };
         let tab = Event::Key {
             key: Key::Tab,

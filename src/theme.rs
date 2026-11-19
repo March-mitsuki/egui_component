@@ -64,10 +64,9 @@ pub enum CardSize {
 
 #[derive(Clone, Copy, Deserialize, Serialize)]
 pub struct Color {
-    /// Text/icon color on solid surfaces. If omitted, preserves the theme's
-    /// foreground color for compatibility with existing theme files.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub foreground: Option<Color32>,
+    /// Text/icon color on solid surfaces (`l5`/`l6`/`l7`), e.g. solid button
+    /// text and the switch knob. Keep at least 4.5:1 contrast with them.
+    pub foreground: Color32,
     pub l0: Color32,
     pub l1: Color32,
     pub l2: Color32,
@@ -96,11 +95,11 @@ impl Color {
         self.l2
     }
 
-    pub fn to_button_palette(self, theme: &Theme, variant: ButtonVariant) -> ButtonPalette {
+    pub fn to_button_palette(self, variant: ButtonVariant) -> ButtonPalette {
         match variant {
             ButtonVariant::Solid => ButtonPalette {
                 normal_bg: self.normal(),
-                text_color: self.foreground.unwrap_or(theme.colors.fg.base),
+                text_color: self.foreground,
                 hover_bg: self.hover(),
                 active_bg: self.active(),
                 stroke: Stroke::NONE,
@@ -206,9 +205,25 @@ pub struct AvatarStyles {
     pub lg: AvatarStyle,
 }
 
+/// The keyboard focus indicator shared by all components.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize, Serialize)]
+pub struct FocusRing {
+    /// Keep at least 3:1 contrast with the surfaces it is drawn on (WCAG 1.4.11).
+    pub color: Color32,
+    /// Stroke width in points; WCAG 2.4.13 suggests at least 2.
+    pub width: f32,
+}
+
+impl FocusRing {
+    pub fn stroke(self) -> Stroke {
+        Stroke::new(self.width, self.color)
+    }
+}
+
 #[derive(Clone, Deserialize, Serialize)]
 pub struct Theme {
     pub colors: Colors,
+    pub focus_ring: FocusRing,
     pub corner_radius: CornerRadius,
     pub text_size: TextSize,
     pub avatar: AvatarStyles,
@@ -222,121 +237,6 @@ pub struct UiTheme {
 }
 
 impl UiTheme {
-    /// 只是用来开发的时候更新构造体之后输出新的占位types
-    #[cfg(debug_assertions)]
-    pub fn dummy() -> Self {
-        let dummy_color = Color {
-            foreground: None,
-            l0: Color32::from_hex("#f4f7e9").unwrap(),
-            l1: Color32::from_hex("#e2ebca").unwrap(),
-            l2: Color32::from_hex("#cbde9b").unwrap(),
-            l3: Color32::from_hex("#b3d171").unwrap(),
-            l4: Color32::from_hex("#9ac44b").unwrap(),
-            l5: Color32::from_hex("#81b828").unwrap(),
-            l6: Color32::from_hex("#5f9119").unwrap(),
-            l7: Color32::from_hex("#416b0d").unwrap(),
-            l8: Color32::from_hex("#264505").unwrap(),
-            l9: Color32::from_hex("#101f02").unwrap(),
-        };
-        let dummy_set_color = SetColor {
-            base: Color32::from_hex("#f4f7e9").unwrap(),
-            subtle: Color32::from_hex("#cbde9b").unwrap(),
-            accent: Color32::from_hex("#cbde9b").unwrap(),
-        };
-        let dummy_corner_radius = CornerRadius {
-            xxs: 2.0,
-            xs: 4.0,
-            sm: 6.0,
-            md: 8.0,
-            lg: 12.0,
-            xl: 16.0,
-        };
-        let dummy_text_size = TextSize {
-            xxs: 12.0,
-            xs: 14.0,
-            sm: 16.0,
-            md: 18.0,
-            lg: 20.0,
-            xl: 22.0,
-        };
-        let dummy_avatar_styles = AvatarStyles {
-            sm: AvatarStyle { size: 24.0 },
-            md: AvatarStyle { size: 32.0 },
-            lg: AvatarStyle { size: 40.0 },
-        };
-        let dummy_btn_styles = ButtonStyles {
-            xs: ButtonStyle {
-                size: 18.0,
-                padding: 8.0,
-                text_size: 10.0,
-                icon_size: 10.0,
-                gap: 4.0,
-            },
-            sm: ButtonStyle {
-                size: 24.0,
-                padding: 10.0,
-                text_size: 12.0,
-                icon_size: 14.0,
-                gap: 6.0,
-            },
-            md: ButtonStyle {
-                size: 32.0,
-                padding: 14.0,
-                text_size: 14.0,
-                icon_size: 20.0,
-                gap: 6.0,
-            },
-            lg: ButtonStyle {
-                size: 40.0,
-                padding: 18.0,
-                text_size: 16.0,
-                icon_size: 26.0,
-                gap: 8.0,
-            },
-        };
-
-        // dark mode
-        let dark_colors = Colors {
-            bg: dummy_set_color,
-            fg: dummy_set_color,
-            primary: dummy_color,
-            gray: dummy_color,
-            red: dummy_color,
-            green: dummy_color,
-            blue: dummy_color,
-            yellow: dummy_color,
-            orange: dummy_color,
-        };
-        let dark = Theme {
-            colors: dark_colors,
-            corner_radius: dummy_corner_radius,
-            text_size: dummy_text_size,
-            avatar: dummy_avatar_styles,
-            button: dummy_btn_styles,
-        };
-
-        // light mode
-        let light_colors = Colors {
-            bg: dummy_set_color,
-            fg: dummy_set_color,
-            primary: dummy_color,
-            gray: dummy_color,
-            red: dummy_color,
-            green: dummy_color,
-            blue: dummy_color,
-            yellow: dummy_color,
-            orange: dummy_color,
-        };
-        let light = Theme {
-            colors: light_colors,
-            corner_radius: dummy_corner_radius,
-            text_size: dummy_text_size,
-            avatar: dummy_avatar_styles,
-            button: dummy_btn_styles,
-        };
-        UiTheme { dark, light }
-    }
-
     #[cfg(not(target_arch = "wasm32"))]
     pub fn from_json(path: impl AsRef<std::path::Path>) -> anyhow::Result<Self> {
         let json = std::fs::read_to_string(path)?;
@@ -371,10 +271,7 @@ mod tests {
             );
             assert_eq!(theme.colors.bg.base, Color32::from_hex(bg).unwrap());
             assert_eq!(theme.colors.fg.base, Color32::from_hex(fg).unwrap());
-            let palette = theme
-                .colors
-                .primary
-                .to_button_palette(theme, ButtonVariant::Solid);
+            let palette = theme.colors.primary.to_button_palette(ButtonVariant::Solid);
             assert_eq!(palette.text_color, Color32::from_hex(on_primary).unwrap());
             assert_eq!(
                 crate::components::switch::Style::new(theme).knob_color,
@@ -383,23 +280,20 @@ mod tests {
         }
     }
     #[test]
-    fn legacy_color_json_keeps_its_previous_foreground() {
-        let theme = brand_theme().light;
-        let mut json = serde_json::to_value(theme.colors.primary).unwrap();
-        json.as_object_mut().unwrap().remove("foreground");
-        let color: Color = serde_json::from_value(json).unwrap();
-        assert_eq!(color.foreground, None);
-        assert_eq!(
-            color
-                .to_button_palette(&theme, ButtonVariant::Solid)
-                .text_color,
-            theme.colors.fg.base
-        );
-        assert!(
-            serde_json::to_value(color)
+    fn theme_json_requires_foreground_and_focus_ring() {
+        let theme = serde_json::to_value(brand_theme().light).unwrap();
+        for pointer in ["/colors/primary/foreground", "/focus_ring"] {
+            let mut json = theme.clone();
+            let (parent, key) = pointer.rsplit_once('/').unwrap();
+            json.pointer_mut(parent)
                 .unwrap()
-                .get("foreground")
-                .is_none()
-        );
+                .as_object_mut()
+                .unwrap()
+                .remove(key);
+            assert!(
+                serde_json::from_value::<Theme>(json).is_err(),
+                "{pointer} is required"
+            );
+        }
     }
 }

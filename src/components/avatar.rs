@@ -3,7 +3,7 @@ use crate::theme::{AvatarSize, Theme};
 use egui::{Color32, Response, Sense, Ui};
 
 pub struct Style {
-    pub focus_color: egui::Color32,
+    pub focus_ring: crate::theme::FocusRing,
     pub size: f32,
     pub bg_color: Color32,
     pub text_color: Color32,
@@ -18,7 +18,7 @@ impl Style {
             AvatarSize::Lg => theme.avatar.lg.size,
         };
         Self {
-            focus_color: theme.colors.primary.normal(),
+            focus_ring: theme.focus_ring,
             size,
             bg_color: theme.colors.primary.l6,
             text_color: theme.colors.fg.base,
@@ -118,7 +118,7 @@ pub fn render(
         &response,
         rect.center(),
         style.size / 2.0,
-        style.focus_color,
+        style.focus_ring,
     );
     response
 }

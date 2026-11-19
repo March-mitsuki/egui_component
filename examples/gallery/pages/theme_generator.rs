@@ -532,7 +532,7 @@ impl Generator {
                                     r.on_hover_text(format!("l{i}: {}", c.to_hex()));
                                 }
                             });
-                            let fg = p.foreground.unwrap_or(t.colors.fg.base);
+                            let fg = p.foreground;
                             for (label, a, b) in [
                                 (
                                     locale.text("generator:primarybackground"),
@@ -635,10 +635,6 @@ fn collect_overrides(
         for (key, value) in object {
             collect_overrides(value, &generated[&key], &format!("{path}/{key}"), out);
         }
-        // Legacy themes omit optional solid foregrounds; preserve that fallback.
-        if generated.get("foreground").is_some() && !object.contains_key("foreground") {
-            out.insert(format!("{path}/foreground"), Value::Null);
-        }
     } else if current != generated {
         out.insert(path.into(), current.clone());
     }
@@ -666,6 +662,7 @@ fn edit_value(
                 "blue",
                 "yellow",
                 "orange",
+                "focus_ring",
                 "corner_radius",
                 "text_size",
                 "button",
@@ -749,9 +746,6 @@ fn edit_value(
                     reset_override(ui, path, overrides, locale, shell);
                 });
             }
-        }
-        Value::Null => {
-            reset_override(ui, path, overrides, locale, shell);
         }
         _ => {}
     }
@@ -880,12 +874,13 @@ mod tests {
         }
     }
     #[test]
-    fn importing_legacy_theme_preserves_every_field() {
+    fn importing_theme_preserves_every_field() {
         let base = UiTheme::from_json_bytes(include_bytes!("../../theme.json")).unwrap();
-        let mut legacy = base.clone();
-        legacy.light.colors.primary.foreground = None;
+        let mut imported = base.clone();
+        imported.light.colors.red.foreground = Color32::from_rgb(1, 2, 3);
+        imported.dark.focus_ring.width = 3.0;
         let mut g = Generator::new(base);
-        let current = serde_json::to_value(&legacy).unwrap();
+        let current = serde_json::to_value(&imported).unwrap();
         collect_overrides(
             &current,
             &serde_json::to_value(g.generated()).unwrap(),

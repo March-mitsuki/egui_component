@@ -13,7 +13,7 @@ pub enum SelectSize {
 
 #[derive(Clone)]
 pub struct Style {
-    pub focus_color: egui::Color32,
+    pub focus_ring: crate::theme::FocusRing,
     pub height: f32,
     pub padding_x: f32,
     pub corner_radius: CornerRadius,
@@ -74,7 +74,7 @@ impl Style {
         let active_border_stroke = Stroke::new(1.5_f32, focus_color);
 
         Self {
-            focus_color: theme.colors.primary.normal(),
+            focus_ring: theme.focus_ring,
             height,
             padding_x,
             corner_radius: CornerRadius::same(radius),
@@ -349,7 +349,7 @@ pub(crate) fn render_trigger(
         &response,
         rect,
         style.corner_radius,
-        style.focus_color,
+        style.focus_ring,
         Placement::Outside,
     );
 
@@ -445,7 +445,7 @@ pub fn render_item(
         &response,
         rect,
         CornerRadius::same(theme.corner_radius.xs as u8),
-        style.focus_color,
+        style.focus_ring,
         Placement::Inside,
     );
     response.on_hover_cursor(egui::CursorIcon::PointingHand)

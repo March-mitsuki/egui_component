@@ -4,7 +4,7 @@ use egui::{Response, Ui};
 use crate::theme::Theme;
 
 pub struct Style {
-    pub focus_color: egui::Color32,
+    pub focus_ring: crate::theme::FocusRing,
     pub box_size: f32,
     pub icon_size: f32,
     pub color: egui::Color32,
@@ -13,7 +13,7 @@ pub struct Style {
 impl Style {
     pub fn new(theme: &Theme) -> Self {
         Self {
-            focus_color: theme.colors.primary.normal(),
+            focus_ring: theme.focus_ring,
             box_size: theme.text_size.md,
             icon_size: theme.text_size.md,
             color: theme.colors.fg.base,
@@ -61,7 +61,7 @@ pub fn render(ui: &mut Ui, icon: egui::ImageSource, style: Style) -> Response {
         &response,
         rect,
         egui::CornerRadius::same(2),
-        style.focus_color,
+        style.focus_ring,
         Placement::Outside,
     );
     response

@@ -9,7 +9,7 @@ use egui::{Color32, Id, RichText, Shape, Stroke, TextStyle, TextWrapMode, Ui, Wi
 
 #[derive(Clone)]
 pub struct Style {
-    pub focus_color: egui::Color32,
+    pub focus_ring: crate::theme::FocusRing,
     pub background: Color32,
     /// Optional hover fill. Transparent uses the normal background.
     pub hover_background: Color32,
@@ -28,7 +28,7 @@ pub struct Style {
 impl Style {
     pub fn new(theme: &Theme) -> Self {
         Self {
-            focus_color: theme.colors.primary.normal(),
+            focus_ring: theme.focus_ring,
             background: Color32::TRANSPARENT,
             hover_background: Color32::TRANSPARENT,
             foreground: theme.colors.fg.base,
@@ -202,7 +202,7 @@ pub fn render<R>(
             &response.header_response,
             response.header_response.rect,
             style.corner_radius,
-            style.focus_color,
+            style.focus_ring,
             Placement::Outside,
         );
         response

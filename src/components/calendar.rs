@@ -225,7 +225,7 @@ pub struct Style {
     pub range_bg: Color32,
     pub today_stroke: Stroke,
     pub border_stroke: Stroke,
-    pub focus_color: Color32,
+    pub focus_ring: crate::theme::FocusRing,
     pub disabled: bool,
 }
 impl Style {
@@ -251,12 +251,12 @@ impl Style {
             selected_text_color: theme
                 .colors
                 .primary
-                .to_button_palette(theme, ButtonVariant::Solid)
+                .to_button_palette(ButtonVariant::Solid)
                 .text_color,
             range_bg: theme.colors.primary.normal().gamma_multiply(0.12),
             today_stroke: Stroke::new(1.0, theme.colors.gray.l6),
             border_stroke: Stroke::new(1.0, theme.colors.gray.l3),
-            focus_color: theme.colors.primary.normal(),
+            focus_ring: theme.focus_ring,
             disabled: false,
         }
     }
@@ -661,7 +661,7 @@ pub fn render_with_options(
             &response,
             cell_rect,
             style.corner_radius,
-            style.focus_color,
+            style.focus_ring,
             super::focus::Placement::Inside,
         );
     }

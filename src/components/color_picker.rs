@@ -498,7 +498,7 @@ pub fn render_with_options(
                 &response,
                 rect,
                 radius,
-                theme.colors.primary.normal(),
+                theme.focus_ring,
                 super::focus::Placement::Outside,
             );
             response.widget_info(|| {

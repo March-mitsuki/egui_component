@@ -12,7 +12,7 @@ pub struct Style {
     pub track_color: Color32,
     pub fill_color: Color32,
     pub thumb_color: Color32,
-    pub focus_color: Color32,
+    pub focus_ring: crate::theme::FocusRing,
     pub disabled: bool,
     /// Keyboard increment. None uses one hundredth of the range.
     pub step: Option<f32>,
@@ -27,7 +27,7 @@ impl Style {
             track_color: theme.colors.gray.l2,
             fill_color: theme.colors.primary.l6,
             thumb_color: theme.colors.primary.l6,
-            focus_color: theme.colors.primary.l6,
+            focus_ring: theme.focus_ring,
             disabled: false,
             step: None,
         }
@@ -123,7 +123,7 @@ pub fn render(ui: &mut Ui, value: &mut f32, range: RangeInclusive<f32>, style: S
     );
     ui.painter()
         .circle_filled(center, style.thumb_radius, fade(style.thumb_color));
-    super::focus::circle(ui, &response, center, style.thumb_radius, style.focus_color);
+    super::focus::circle(ui, &response, center, style.thumb_radius, style.focus_ring);
     response.on_hover_cursor(if enabled {
         egui::CursorIcon::PointingHand
     } else {
