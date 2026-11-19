@@ -632,8 +632,11 @@ pub fn render_multiline(
             match style.max_rows {
                 Some(max_rows) => {
                     let max_height = row_height * max_rows.max(rows).max(1) as f32;
+                    // Size from the row limit, not from the space left in the parent:
+                    // inside a long scrolled page that would collapse to egui's 64pt default.
                     egui::ScrollArea::vertical()
                         .max_height(max_height)
+                        .min_scrolled_height(max_height)
                         .auto_shrink([false, true])
                         .stick_to_bottom(false)
                         .show(ui, |ui| {
@@ -933,5 +936,51 @@ mod tests {
             (editor.bottom() - after.bottom()).abs() < 4.0,
             "scrolled to the cursor on the last line: {editor:?} in {after:?}"
         );
+    }
+
+    #[test]
+    fn multiline_keeps_its_rows_when_little_parent_space_remains() {
+        let theme =
+            crate::theme::UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json"))
+                .unwrap();
+        let style = Style::new_outline_md(&theme.light).max_rows(Some(12));
+        let row = style.text_size;
+        let mut text = (1..=10)
+            .map(|i| format!("line {i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        let ctx = egui::Context::default();
+        let mut height = 0.0;
+        let input = egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(600.0, 500.0),
+            )),
+            ..Default::default()
+        };
+        ctx.run_ui(input, |ui| {
+            crate::components::scroll_area::render(
+                ui,
+                "page",
+                crate::components::scroll_area::ScrollAxes::Vertical,
+                |ui| {
+                    // Far down a long page, the remaining viewport height is tiny,
+                    // and columns cap their height to it.
+                    ui.add_space(ui.available_height() - 10.0);
+                    ui.columns(2, |columns| {
+                        // Measure the visible frame, not the scrolled text inside it.
+                        height = columns[0]
+                            .scope(|ui| render_multiline(ui, &mut text, 10, style.clone()))
+                            .response
+                            .rect
+                            .height();
+                    });
+                },
+                crate::components::scroll_area::Style::new_no_frame(),
+            );
+        })
+        .textures_delta
+        .clear();
+        assert!(height > 9.0 * row, "shows its rows, got {height}");
     }
 }

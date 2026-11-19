@@ -1,4 +1,4 @@
-//! Experimental, typed ECML interpreter. See `examples/ecml` for its deliberately small grammar.
+//! Experimental, typed ECML interpreter. See `examples/ecml_hello_world` for its deliberately small grammar.
 //!
 //! Component tags use the exact names of `components` modules; `layout` is built in. A View is one mounted UI instance:
 //! show it once per pass, in one egui Context/viewport. Use separate Views for two mounts.
@@ -127,6 +127,7 @@ pub(super) struct Action<S> {
 pub struct Builder<S> {
     bindings: Vec<Binding<S>>,
     actions: Vec<Action<S>>,
+    error_window: bool,
 }
 impl<S: 'static> Builder<S> {
     pub fn model<T: BindingValue + Clone>(
@@ -163,6 +164,12 @@ impl<S: 'static> Builder<S> {
         });
         self
     }
+    /// Whether `show` draws the built-in floating window for replacement errors (default
+    /// `true`). Disable it to present [`View::last_error`] in your own UI instead.
+    pub fn error_window(mut self, show: bool) -> Self {
+        self.error_window = show;
+        self
+    }
     pub fn load(self, source: Source) -> Result<View<S>, Error> {
         let (file, content, path) = match source {
             Source::Inline { name, text } => (name, text, None::<std::path::PathBuf>),
@@ -181,6 +188,7 @@ impl<S: 'static> Builder<S> {
             root,
             bindings: self.bindings,
             actions: self.actions,
+            error_window: self.error_window,
             file,
             error: None,
             instance: egui::Id::unique(("ecml", NEXT_INSTANCE.fetch_add(1, Ordering::Relaxed))),
@@ -198,6 +206,7 @@ pub struct View<S> {
     root: Node,
     bindings: Vec<Binding<S>>,
     actions: Vec<Action<S>>,
+    error_window: bool,
     instance: egui::Id,
     file: String,
     error: Option<Error>,
@@ -212,6 +221,7 @@ impl<S: 'static> View<S> {
         Builder {
             bindings: vec![],
             actions: vec![],
+            error_window: true,
         }
     }
     pub fn last_error(&self) -> Option<&Error> {
@@ -274,7 +284,9 @@ impl<S: 'static> View<S> {
         if changed || !events.is_empty() {
             ui.ctx().request_repaint();
         }
-        if let Some(error) = &self.error {
+        if self.error_window
+            && let Some(error) = &self.error
+        {
             egui::Window::new("ECML template error")
                 .id(self.instance.with("error"))
                 .show(ui.ctx(), |ui| {

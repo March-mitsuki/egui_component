@@ -1,0 +1,7 @@
+<layout direction="left_to_right" item_spacing.x="12" cross_align="center">
+    <switch size="sm" e-model="enabled" />
+    <switch e-model="enabled" />
+    <switch size="lg" e-model="enabled" />
+    <switch disabled="true" e-model="enabled" />
+    <text>enabled = {{ enabled }}</text>
+</layout>

@@ -197,10 +197,10 @@ The gallery's **Text** page demonstrates font switching, fallback, and loading f
 Enable the `ecml` feature for component-named markup and native Debug template hot reload that preserves Rust state.
 
 ```sh
-cargo run --features ecml --example ecml
+cargo run --features ecml --example ecml_hello_world
 ```
 
-Edit `examples/ecml/counter.ecml` while the app runs. Supported tags are built-in `layout` and components `text`, `button`, `text_edit`, and `switch`. This is experimental; see the [ECML example guide](examples/ecml/README.md) for syntax, update semantics, and limitations.
+Edit `examples/ecml_hello_world/counter.ecml` while the app runs. Supported tags are built-in `layout` and components `text`, `button`, `text_edit`, and `switch`. This is experimental; see the gallery's [ECML page](https://march-mitsuki.github.io/egui_component/en/ecml/set-up-a-view) for the syntax with live demos, and the [ECML example guide](examples/ecml_hello_world/README.md) for integration and hot reload.
 
 ## 🌍 Who's using egui_component ?
 

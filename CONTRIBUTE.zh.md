@@ -67,7 +67,8 @@ git switch -c my-change upstream/dev
 - `src/`：组件、样式、字体与库 API。
 - `style_macros/`：样式过程宏。
 - `router/`：路由库。
-- `examples/gallery/`：原生/Web Gallery、文档与翻译。
+- `examples/gallery/`：原生/Web Gallery、文档与翻译。ECML 语法参考和可交互 demo 也放在这里。
+- `examples/ecml_*/`：ECML 应用示例，目录与 example 名统一以 `ecml_` 开头。只为完整应用场景新增示例（如 `ecml_hello_world`、`ecml_todo_app`），单个语法的演示放到 Gallery。
 - `examples/theme.json`：示例明暗主题。
 - `tests/`：集成测试与发布工具测试。
 

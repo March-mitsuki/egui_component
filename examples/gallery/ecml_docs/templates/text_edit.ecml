@@ -1,0 +1,9 @@
+<layout item_spacing.y="8">
+    <text_edit id="name" e-model="name" placeholder="Your name" width="260" />
+    <text_edit e-model="name" variant="subtle" size="sm" width="260" placeholder="Same model, subtle" />
+    <text_edit e-model="name" variant="flushed" :disabled="!enabled" width="260" placeholder="Enabled by the switch" />
+    <layout direction="left_to_right" item_spacing.x="8" cross_align="center">
+        <switch e-model="enabled" />
+        <text>Hello, {{ name }}</text>
+    </layout>
+</layout>

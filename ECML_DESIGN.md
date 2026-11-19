@@ -5,7 +5,8 @@
 This guide defines the goals, architectural boundaries, and behavioral contracts
 for contributors to the optional `ecml` feature. Read it before changing the
 language, binding API, renderer, or reload pipeline. For application integration
-and supported syntax, see the [ECML user guide](examples/ecml/README.md). General
+see the [ECML user guide](examples/ecml_hello_world/README.md); for supported
+syntax, see the gallery's ECML page (`examples/gallery/ecml_docs/`). General
 repository workflow is documented in [Contributing](CONTRIBUTE.md).
 
 ## Goals and boundaries
@@ -165,19 +166,122 @@ behavior if replacing polling with an OS watcher. File and embedded sources must
 share the same validation/rendering path. Browser hot reload would need a host
 transport, not native filesystem polling.
 
+## Loops (e-for, accepted design, not yet implemented)
+
+This section records the accepted `e-for` design. It is not usable syntax until
+implemented; implementations must follow it, and deviations must update this
+document first.
+
+### Template syntax
+
+```html
+<layout e-for="todo in todos" id="todo_row" direction="left_to_right" item_spacing.x="8">
+    <checkbox e-model="todo.done" />
+    <text>{{ todo.title }}</text>
+    <button variant="ghost" @click="todo.remove">Delete</button>
+</layout>
+```
+
+- `e-for="<alias> in <list>"` repeats the element itself and is allowed on any
+  element except the root. Alias and list names follow the name-segment rules.
+- Keys are not declared in templates. Rust provides them when registering the
+  list, which keeps the expression language small and prevents position-as-key.
+- `alias.name` resolves only to row bindings or row handlers explicitly
+  registered for that list; it is not field reflection or a nested state path.
+  Unprefixed names still resolve to root registrations.
+- Row events are written `@click="todo.remove"`; call syntax such as
+  `remove(todo)` is not supported. The alias determines which row a handler gets.
+- No index is exposed. Ordinals and other derived values belong in Rust row getters.
+
+### Rust registration
+
+```rust
+.list(
+    "todos",
+    |s| Box::new(s.todos.iter().filter(|t| s.filter.matches(t))), // read: Rust filters and sorts
+    |s, id| s.todos.iter_mut().find(|t| t.id == *id),             // write: locate by key
+    |t| t.id,                                                     // key: Clone + Eq + Hash + 'static
+    |row| row
+        .model("done", |t| &t.done, |t, v| t.done = v)
+        .bind("title", |_s, t| t.title.clone())
+        .bind("selected", |s, t| s.selected == Some(t.id))
+        .on("remove", |s, id| s.todos.retain(|t| t.id != *id)),
+)
+```
+
+- The read accessor returns an iterator borrowing `&S`
+  (`Box<dyn Iterator<Item = &T>>`), so Rust can filter and sort and storage need
+  not be a Vec. The exact signature may change during implementation, but reads
+  must keep returning an iterator.
+- Writes and handlers locate rows only by key: model writes call the lookup
+  accessor (`Fn(&mut S, &K) -> Option<&mut T>`); `None` drops the write and
+  requests a repaint. Row handlers are `FnMut(&mut S, &K)`. Never locate by
+  position, since earlier handlers may have added or removed rows.
+- Row `bind` getters receive `(&S, &T)` for values derived from global state; row
+  `model` getters return a value borrowed from `&T`, and setters receive only
+  `&mut T` and write synchronously.
+- Row registration names are unique within their list; list names share the
+  namespace of root bindings and handlers and must not collide with them.
+
+### Runtime semantics
+
+- The iterator borrows `&S` during traversal. All model writes inside a loop body
+  (row and root models) are buffered and committed in tree order after that loop
+  finishes: row writes through the lookup accessor, root writes through root setters.
+- Within the same pass, nodes in the same loop after a write therefore still read
+  the old value. The write requests a repaint and the next pass shows the new
+  value; this is an accepted trade-off that avoids mutable borrow conflicts and
+  per-row re-lookup.
+- Clicks still run after the whole tree traversal in component-tree order; row
+  events carry a cloned key. The at-most-once-per-frame commit and read-only
+  later passes are unchanged.
+- Duplicate keys cannot be found at compile time. At runtime only the first row
+  with a key renders; later duplicates are skipped and reported with the list
+  name and key through the error window and `last_error()`, never silently.
+- No virtualization; scrolling long lists belongs to a separately specified `scroll_area`.
+
+### Identity
+
+- Row identity = loop node identity (explicit `id` or automatic structural path)
+  + hash of the row key; nodes inside a row continue with explicit IDs or
+  structural paths within the row template.
+- Adding, removing, sorting or inserting rows therefore does not affect focus or
+  edit state of other rows.
+- Prefer an explicit `id` on the `e-for` element; otherwise hot reload that
+  restructures outer nodes changes loop identity and loses focus inside rows.
+- Explicit IDs remain unique within the View; an ID in a row template counts once
+  and is combined with the row key at runtime. In v1, `View::response(id)` does
+  not return nodes inside loops; a list-and-key lookup API may be added later.
+
+### Compile-time errors (v1)
+
+Report with location: unknown list; malformed `e-for` value; alias colliding with
+a root registration or outer alias; alias used outside its loop; unregistered
+`alias.name`; `e-model` on a read-only row binding; value type mismatch; `e-for`
+on the root; nested `e-for`; `e-for` and `e-if` on the same element.
+
+Nested loops are not supported yet, but scopes are designed as a chain so a row
+builder `.list()` can add them later. Combining `e-for` with `e-if` is defined
+when `e-if` is designed.
+
 ## Extending ECML
 
 For a new component/property, define its name, type, defaults, supported dynamic
 bindings/events, scope, and identity implications. Add schema validation and a
 renderer mapping to an existing component or native layout operation. Include a
-positive test and a meaningful failure/behavior regression, then update the user
-guide and both language versions of this design guide when contracts change.
+positive test and a meaningful failure/behavior regression. Document new syntax
+on the gallery's ECML page with an editable demo (a template in
+`examples/gallery/ecml_docs/templates/` plus en/zh/ja copy), and update both
+language versions of this design guide when contracts change. New syntax is
+designed here first and moves to the gallery once implemented; runtime contracts
+and invariants stay here. New ECML examples are only for complete application
+scenarios and are named `ecml_*`.
 
 Current adapters are layout, text, button, text_edit and switch. Conditionals,
-keyed loops, nested state paths, custom Rust slots, more events/types/components,
-derive helpers, lazy models and browser hot reload are future work, not accepted
-syntax. Loops require a collection/row-scope/event/key design. A derive helper
-must remain optional and generate the same explicit registration model.
+implementing `e-for` (designed above), nested state paths, custom Rust slots, more
+events/types/components, derive helpers, lazy models and browser hot reload are
+future work, not accepted syntax. A derive helper must remain optional and
+generate the same explicit registration model.
 
 ## Validation before submitting
 
@@ -186,8 +290,8 @@ Run from the repository root:
 ```sh
 cargo fmt --all --check
 cargo test --features ecml --lib
-cargo check --features ecml --example ecml
-cargo check --release --features ecml --example ecml
+cargo check --features ecml --example ecml_hello_world
+cargo check --release --features ecml --example ecml_hello_world
 cargo check --features ecml --lib --target wasm32-unknown-unknown
 ```
 
@@ -195,5 +299,7 @@ Install the WASM target if needed. For UI changes, also run the example and chec
 that controls fit its default window, not just that responses exist. Preserve
 regressions for multipass input/clicks, focus/cursor retention, isolated instances,
 spacing inheritance and scope, invalid-template recovery, and idle file wakeup.
-Update English and Chinese design documents together; keep implementation details
-here and application setup/reference material in the user guide.
+Also run `cargo test --example gallery`, which checks every gallery ECML demo.
+Update English and Chinese design documents together; keep contracts and
+implementation details here, syntax reference and demos in the gallery, and
+application setup in the user guide.

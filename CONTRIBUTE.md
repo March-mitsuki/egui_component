@@ -72,7 +72,11 @@ Useful locations:
 - `src/`: components, styling, fonts, and library APIs.
 - `style_macros/`: styling procedural macros.
 - `router/`: routing library.
-- `examples/gallery/`: native/Web gallery, documentation, and translations.
+- `examples/gallery/`: native/Web gallery, documentation, and translations,
+  including the ECML syntax reference and interactive demos.
+- `examples/ecml_*/`: ECML application examples; directories and example names
+  start with `ecml_`. Add one only for a complete application scenario (such as
+  `ecml_hello_world` or `ecml_todo_app`); single-syntax demos belong in the gallery.
 - `examples/theme.json`: example light and dark themes.
 - `tests/`: integration tests and publishing-tool tests.
 

@@ -1,0 +1,6 @@
+<layout item_spacing.y="8">
+    <text size="heading">A heading</text>
+    <text>Hello, {{ name }}! The count is {{ count }}.</text>
+    <text>Escaped: &lt;layout&gt; &amp; &quot;quotes&quot;</text>
+    <!-- Comments are allowed inside elements. -->
+</layout>

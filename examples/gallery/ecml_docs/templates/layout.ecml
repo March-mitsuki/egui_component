@@ -1,0 +1,16 @@
+<layout item_spacing.y="16">
+    <layout direction="left_to_right" item_spacing.x="4" cross_align="center">
+        <text>item_spacing.x = 4</text>
+        <button size="sm">A</button>
+        <button size="sm">B</button>
+    </layout>
+    <layout direction="left_to_right" item_spacing.x="24" cross_align="max">
+        <text>cross_align = max</text>
+        <button size="lg">Large</button>
+        <button size="xs">Small</button>
+    </layout>
+    <layout cross_align="center" item_spacing.y="4">
+        <text>top_down, cross_align = center</text>
+        <button variant="outline">Centered</button>
+    </layout>
+</layout>

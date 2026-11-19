@@ -27,7 +27,7 @@ fn main() -> eframe::Result {
         .bind("can_increment", |s| s.enabled && s.count < 10)
         .on("increment", |s| s.count += 1)
         .on("reset", |s| s.count = 0)
-        .load(ecml::source!("examples/ecml/counter.ecml"))
+        .load(ecml::source!("examples/ecml_hello_world/counter.ecml"))
         .expect("initial ECML template must be valid");
     let app = App {
         state: State {
@@ -38,7 +38,7 @@ fn main() -> eframe::Result {
         theme: UiTheme::from_json_bytes(include_bytes!("../theme.json")).unwrap(),
     };
     eframe::run_native(
-        "ECML prototype — edit examples/ecml/counter.ecml",
+        "ECML prototype — edit examples/ecml_hello_world/counter.ecml",
         eframe::NativeOptions {
             viewport: egui::ViewportBuilder::default().with_inner_size([480.0, 360.0]),
             ..Default::default()

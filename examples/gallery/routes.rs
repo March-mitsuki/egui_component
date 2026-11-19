@@ -307,12 +307,111 @@ impl Doc {
         }
     }
 }
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EcmlGroup {
+    Basics,
+    Tags,
+    Runtime,
+}
+impl EcmlGroup {
+    pub const ALL: [Self; 3] = [Self::Basics, Self::Tags, Self::Runtime];
+    pub fn label(self, locale: crate::i18n::Locale) -> &'static str {
+        locale.text(match self {
+            Self::Basics => "ecml.group:basics",
+            Self::Tags => "ecml.group:tags",
+            Self::Runtime => "ecml.group:runtime",
+        })
+    }
+}
+
+/// One page of the ECML guide; its example and live demo live in `ecml_docs`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum EcmlTopic {
+    Setup,
+    Bindings,
+    Syntax,
+    Text,
+    Button,
+    TextEdit,
+    Switch,
+    Layout,
+    Sources,
+    Diagnostics,
+}
+impl EcmlTopic {
+    /// Reading order: the sidebar and previous/next links follow it.
+    pub const ALL: &'static [Self] = &[
+        Self::Setup,
+        Self::Bindings,
+        Self::Syntax,
+        Self::Text,
+        Self::Button,
+        Self::TextEdit,
+        Self::Switch,
+        Self::Layout,
+        Self::Sources,
+        Self::Diagnostics,
+    ];
+    pub fn slug(self) -> &'static str {
+        match self {
+            Self::Setup => "set-up-a-view",
+            Self::Bindings => "bindings",
+            Self::Syntax => "syntax",
+            Self::Text => "text",
+            Self::Button => "button",
+            Self::TextEdit => "text-edit",
+            Self::Switch => "switch",
+            Self::Layout => "layout",
+            Self::Sources => "hot-reload",
+            Self::Diagnostics => "diagnostics",
+        }
+    }
+    pub fn group(self) -> EcmlGroup {
+        match self {
+            Self::Setup | Self::Bindings | Self::Syntax => EcmlGroup::Basics,
+            Self::Text | Self::Button | Self::TextEdit | Self::Switch | Self::Layout => {
+                EcmlGroup::Tags
+            }
+            Self::Sources | Self::Diagnostics => EcmlGroup::Runtime,
+        }
+    }
+    pub fn title(self, locale: crate::i18n::Locale) -> &'static str {
+        locale.text(match self {
+            Self::Setup => "ecml.setup:title",
+            Self::Bindings => "ecml.bindings:title",
+            Self::Syntax => "ecml.syntax:title",
+            Self::Text => "ecml.text:title",
+            Self::Button => "ecml.button:title",
+            Self::TextEdit => "ecml.textEdit:title",
+            Self::Switch => "ecml.switch:title",
+            Self::Layout => "ecml.layout:title",
+            Self::Sources => "ecml.sources:title",
+            Self::Diagnostics => "ecml.diagnostics:title",
+        })
+    }
+    pub fn body(self, locale: crate::i18n::Locale) -> &'static str {
+        locale.text(match self {
+            Self::Setup => "ecml.setup:body",
+            Self::Bindings => "ecml.bindings:body",
+            Self::Syntax => "ecml.syntax:body",
+            Self::Text => "ecml.text:body",
+            Self::Button => "ecml.button:body",
+            Self::TextEdit => "ecml.textEdit:body",
+            Self::Switch => "ecml.switch:body",
+            Self::Layout => "ecml.layout:body",
+            Self::Sources => "ecml.sources:body",
+            Self::Diagnostics => "ecml.diagnostics:body",
+        })
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Page {
     Home,
     ThemeGenerator,
     Docs(Doc),
     Component(Component),
+    Ecml(EcmlTopic),
     NotFound(String),
 }
 impl Route for Page {
@@ -328,6 +427,17 @@ impl Route for Page {
         }
         if path == "/components" {
             return Self::Component(Component::Button);
+        }
+        if path == "/ecml" {
+            return Self::Ecml(EcmlTopic::Setup);
+        }
+        if let Some(params) = PathPattern::new("/ecml/:topic").unwrap().match_path(path) {
+            if let Some(topic) = EcmlTopic::ALL
+                .iter()
+                .find(|topic| Some(topic.slug()) == params.get("topic"))
+            {
+                return Self::Ecml(*topic);
+            }
         }
         if let Some(params) = PathPattern::new("/docs/:page").unwrap().match_path(path) {
             if let Some(doc) = Doc::ALL
@@ -356,6 +466,7 @@ impl Route for Page {
             Self::ThemeGenerator => "/theme-generator".into(),
             Self::Docs(doc) => format!("/docs/{}", doc.slug()),
             Self::Component(component) => format!("/components/{}", component.slug()),
+            Self::Ecml(topic) => format!("/ecml/{}", topic.slug()),
             Self::NotFound(path) => path.clone(),
         }
     }
@@ -439,6 +550,7 @@ mod tests {
                     .into_iter()
                     .chain(Doc::ALL.iter().copied().map(Page::Docs))
                     .chain(Component::ALL.iter().copied().map(Page::Component))
+                    .chain(EcmlTopic::ALL.iter().copied().map(Page::Ecml))
                 {
                     let route = GalleryRoute::new(locale, page);
                     let path = route.to_deployment_path(base);
@@ -469,6 +581,7 @@ mod tests {
                 .into_iter()
                 .chain(Doc::ALL.iter().copied().map(Page::Docs))
                 .chain(Component::ALL.iter().copied().map(Page::Component))
+                .chain(EcmlTopic::ALL.iter().copied().map(Page::Ecml))
                 .chain([Page::NotFound("/missing".into())])
             {
                 let route = GalleryRoute::new(locale, page);
@@ -522,6 +635,7 @@ mod tests {
             .into_iter()
             .chain(Doc::ALL.iter().copied().map(Page::Docs))
             .chain(Component::ALL.iter().copied().map(Page::Component))
+            .chain(EcmlTopic::ALL.iter().copied().map(Page::Ecml))
         {
             assert_eq!(Page::from_path(&page.to_path()), page);
         }
@@ -533,11 +647,14 @@ mod tests {
             Page::from_path("/components"),
             Page::Component(Component::Button)
         );
+        assert_eq!(Page::from_path("/ecml"), Page::Ecml(EcmlTopic::Setup));
         for path in [
             "/missing",
             "/docs/missing",
             "/components/missing",
             "/components/button/extra",
+            "/ecml/missing",
+            "/docs/ecml",
         ] {
             assert_eq!(Page::from_path(path), Page::NotFound(path.into()));
         }

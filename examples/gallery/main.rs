@@ -13,6 +13,7 @@ mod font_download;
 
 mod app;
 mod docs;
+mod ecml_docs;
 mod i18n;
 mod pages;
 mod routes;

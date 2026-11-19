@@ -2,7 +2,7 @@
 
 [English](ECML_DESIGN.md) | [中文](ECML_DESIGN.zh.md)
 
-本文定义可选 `ecml` feature 的设计目标、架构边界与行为约定。修改语言、绑定 API、渲染或热更新流程之前，请先阅读本文。应用集成与已支持语法见 [ECML 用户指南](examples/ecml/README.md)，仓库通用协作流程见[贡献指南](CONTRIBUTE.zh.md)。
+本文定义可选 `ecml` feature 的设计目标、架构边界与行为约定。修改语言、绑定 API、渲染或热更新流程之前，请先阅读本文。应用集成见 [ECML 用户指南](examples/ecml_hello_world/README.md)，已支持语法见 Gallery 的 ECML 页面（`examples/gallery/ecml_docs/`），仓库通用协作流程见[贡献指南](CONTRIBUTE.zh.md)。
 
 ## 目标与边界
 
@@ -88,11 +88,73 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 
 将轮询替换为系统监听时，也必须保留有界工作、空闲唤醒、原子保存恢复和最新候选行为。文件与嵌入来源共用校验和渲染路径。浏览器热更新需要宿主传输机制，不能依赖原生文件轮询。
 
+## 循环（e-for，已定设计，待实现）
+
+本节记录已接受的 `e-for` 设计。实现完成前它不是可用语法；实现时必须遵守本节约定，偏离时先更新本文。
+
+### 模板语法
+
+```html
+<layout e-for="todo in todos" id="todo_row" direction="left_to_right" item_spacing.x="8">
+    <checkbox e-model="todo.done" />
+    <text>{{ todo.title }}</text>
+    <button variant="ghost" @click="todo.remove">Delete</button>
+</layout>
+```
+
+- `e-for="<别名> in <列表名>"` 重复所在元素自身，可用于除根节点外的任意元素。别名与列表名遵循名称段规则。
+- key 不在模板中声明，由 Rust 注册列表时提供，避免扩展表达式语言，也避免把位置当作 key。
+- `别名.名称` 只解析为该列表显式注册的行绑定或行 handler，不是字段反射或嵌套状态路径。未加前缀的名称仍解析为根注册项。
+- 行事件写作 `@click="todo.remove"`，不支持 `remove(todo)` 等调用语法；handler 所属行由别名决定。
+- 不暴露 index。序号等派生值放在 Rust 行 getter 中计算。
+
+### Rust 注册
+
+```rust
+.list(
+    "todos",
+    |s| Box::new(s.todos.iter().filter(|t| s.filter.matches(t))), // 读：Rust 负责过滤与排序
+    |s, id| s.todos.iter_mut().find(|t| t.id == *id),             // 写：按 key 定位
+    |t| t.id,                                                     // key：Clone + Eq + Hash + 'static
+    |row| row
+        .model("done", |t| &t.done, |t, v| t.done = v)
+        .bind("title", |_s, t| t.title.clone())
+        .bind("selected", |s, t| s.selected == Some(t.id))
+        .on("remove", |s, id| s.todos.retain(|t| t.id != *id)),
+)
+```
+
+- 读取访问器返回借用 `&S` 的迭代器（`Box<dyn Iterator<Item = &T>>`），可在 Rust 中过滤、排序，不要求底层是 Vec。具体签名可在实现时调整，但必须保持"读返回迭代器"。
+- 写回与 handler 只通过 key 定位行：model 写回调用查找访问器（`Fn(&mut S, &K) -> Option<&mut T>`），返回 `None` 时丢弃该写回并请求重绘；行 handler 为 `FnMut(&mut S, &K)`。不得使用位置定位，因为先执行的 handler 可能已增删行。
+- 行 `bind` getter 接收 `(&S, &T)`，用于依赖全局状态的派生值；行 `model` getter 返回 `&T` 内借用值，setter 只接收 `&mut T` 并同步写回。
+- 行注册项名称在该列表内唯一；列表名与根绑定、handler 共用命名空间，不得重名。
+
+### 运行时语义
+
+- 遍历期间迭代器借用 `&S`。循环体内的所有 model 写回（行 model 与根 model）先缓冲，在该循环遍历结束后按树顺序提交：行写回经查找访问器，根写回经根 setter。
+- 因此同一 pass 中，写回之后、同一循环内的节点仍读到旧值。写回会请求重绘，下一 pass 显示新值；这是已接受的取舍，用于避免可变借用冲突和逐行重新查找。
+- 点击仍在整棵树遍历结束后按组件树顺序执行，行事件携带克隆的 key。原有"每帧最多一次提交"和后续 pass 只读的约定不变。
+- 重复 key 无法在编译期发现。运行时只渲染首个出现的行，跳过其后重复行，并通过错误窗口和 `last_error()` 报告列表名与重复 key，不得静默。
+- 不做虚拟化；长列表的滚动由独立约定的 `scroll_area` 负责。
+
+### 身份
+
+- 行身份 = 循环节点身份（显式 `id` 或自动结构路径）+ 行 key 的哈希；行内节点在其下继续使用显式 ID 或行模板内结构路径。
+- 因此增删、排序、中间插入行不会影响其他行的焦点和编辑状态。
+- 建议在 `e-for` 元素上设置显式 `id`；否则热更新调整外层结构会改变循环身份，行内焦点随之丢失。
+- 显式 ID 仍在整个 View 内唯一，行模板中的 ID 只计一次，运行时与行 key 组合。v1 中 `View::response(id)` 不返回循环内节点；如需要，以后另加按列表与 key 查询的 API。
+
+### 编译期错误（v1）
+
+以下情况必须报错并给出位置：未注册的列表；`e-for` 值格式错误；别名与根注册项或外层别名重名；在循环外使用别名；`别名.名称` 未注册；对只读行绑定使用 `e-model`；值类型不匹配；根节点使用 `e-for`；嵌套 `e-for`；`e-for` 与 `e-if` 位于同一元素。
+
+嵌套循环暂不支持，但作用域按链式设计，以后可由行 builder 的 `.list()` 扩展。`e-for` 与 `e-if` 的组合语义在设计 `e-if` 时再定义。
+
 ## 扩展 ECML
 
-新增组件或属性时，明确名称、类型、默认值、支持的动态绑定/事件、作用域和身份影响。添加 schema 校验及到现有组件或原生布局操作的渲染映射。提供有效用法测试及有意义的失败/行为回归测试；约定变化时同步更新用户指南和中英文设计指南。
+新增组件或属性时，明确名称、类型、默认值、支持的动态绑定/事件、作用域和身份影响。添加 schema 校验及到现有组件或原生布局操作的渲染映射。提供有效用法测试及有意义的失败/行为回归测试。新语法在 Gallery 的 ECML 页面中配可编辑 demo 说明（模板放在 `examples/gallery/ecml_docs/templates/`，并补齐 en/zh/ja 文案）；约定变化时同步更新中英文设计指南。新语法先在本文设计，实现后语法说明迁到 Gallery，运行时约定与不变量保留在本文。只为完整应用场景新增 ECML 示例，命名为 `ecml_*`。
 
-当前适配项为 layout、text、button、text_edit、switch。条件分支、带 key 循环、嵌套状态路径、自定义 Rust 插槽、更多事件/类型/组件、derive 辅助、延迟 model 和浏览器热更新均属未来工作，不是已接受语法。循环需要先设计集合、行作用域、事件与 key。derive 必须保持可选，并生成与显式注册相同的模型。
+当前适配项为 layout、text、button、text_edit、switch。条件分支、`e-for` 实现（设计见上节）、嵌套状态路径、自定义 Rust 插槽、更多事件/类型/组件、derive 辅助、延迟 model 和浏览器热更新均属未来工作，不是已接受语法。derive 必须保持可选，并生成与显式注册相同的模型。
 
 ## 提交前验证
 
@@ -101,9 +163,9 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 ```sh
 cargo fmt --all --check
 cargo test --features ecml --lib
-cargo check --features ecml --example ecml
-cargo check --release --features ecml --example ecml
+cargo check --features ecml --example ecml_hello_world
+cargo check --release --features ecml --example ecml_hello_world
 cargo check --features ecml --lib --target wasm32-unknown-unknown
 ```
 
-按需先安装 WASM target。UI 变更还应运行示例，确认默认窗口内控件可见，不能只验证 Response 存在。保留多 pass 输入/点击、焦点与光标、实例隔离、间距继承与作用域、无效模板恢复和空闲文件唤醒的回归覆盖。中英文设计文档同时更新；实现细节放在本文，应用接入与语法参考放在用户指南。
+按需先安装 WASM target。UI 变更还应运行示例，确认默认窗口内控件可见，不能只验证 Response 存在。保留多 pass 输入/点击、焦点与光标、实例隔离、间距继承与作用域、无效模板恢复和空闲文件唤醒的回归覆盖。还需运行 `cargo test --example gallery`，它会校验 Gallery 中每个 ECML demo。中英文设计文档同时更新；约定与实现细节放在本文，语法参考与 demo 放在 Gallery，应用接入放在用户指南。

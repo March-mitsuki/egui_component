@@ -339,7 +339,7 @@ fn counter_example_buttons_fit_the_demo_window() {
         .on("reset", |s| s.count = 0)
         .load(Source::inline(
             "counter.ecml",
-            include_str!("../../examples/ecml/counter.ecml"),
+            include_str!("../../examples/ecml_hello_world/counter.ecml"),
         ))
         .unwrap();
     let mut state = State {
@@ -502,4 +502,26 @@ fn layout_spacing_inherits_per_axis_and_does_not_leak() {
         assert_eq!(ui.spacing().item_spacing, egui::vec2(13.0, 17.0));
     })
     .drop_without_applying_deltas();
+}
+
+#[test]
+fn error_window_can_be_disabled_while_last_error_remains() {
+    let windows = |show_window: bool| {
+        let ctx = egui::Context::default();
+        let mut v = builder()
+            .error_window(show_window)
+            .load(Source::inline("test.ecml", "<text>Ok</text>"))
+            .unwrap();
+        let mut state = State::default();
+        v.replace("<input />");
+        frame(&ctx, &mut v, &mut state, vec![], false);
+        assert!(v.last_error().is_some());
+        ctx.memory(|m| {
+            m.layer_ids()
+                .filter(|layer| layer.order == egui::Order::Middle)
+                .count()
+        })
+    };
+    assert_eq!(windows(true), 1);
+    assert_eq!(windows(false), 0);
 }

@@ -2,7 +2,7 @@ use crate::{
     docs,
     i18n::Locale,
     pages,
-    routes::{Component, ComponentGroup, Doc, GalleryRoute, Page},
+    routes::{Component, ComponentGroup, Doc, EcmlGroup, EcmlTopic, GalleryRoute, Page},
 };
 use eframe::egui::{self, Margin, Stroke};
 use egui_component::{
@@ -29,6 +29,7 @@ pub(crate) struct GalleryApp {
     reset_main_scroll: bool,
     error: Option<String>,
     form_page: pages::form::FormPage,
+    ecml_docs: crate::ecml_docs::EcmlDocs,
     text_page: pages::text::FontDemo,
     demo_name: String,
     notifications: bool,
@@ -57,6 +58,7 @@ impl GalleryApp {
             reset_main_scroll: true,
             error: None,
             form_page: Default::default(),
+            ecml_docs: crate::ecml_docs::EcmlDocs::new(),
             text_page: Default::default(),
             demo_name: "My next project".into(),
             notifications: true,
@@ -248,6 +250,11 @@ impl GalleryApp {
                 matches!(current, Page::Component(_)),
             ),
             (
+                Page::Ecml(EcmlTopic::Setup),
+                locale.text("nav:ecml"),
+                matches!(current, Page::Ecml(_)),
+            ),
+            (
                 Page::ThemeGenerator,
                 locale.text("nav:themeGenerator"),
                 current == Page::ThemeGenerator,
@@ -274,10 +281,10 @@ impl GalleryApp {
         ui.add_space(12.0);
         eyebrow(
             ui,
-            if matches!(page, Page::Docs(_)) {
-                locale.text("common:documentation")
-            } else {
-                locale.text("common:componentLibrary")
+            match page {
+                Page::Docs(_) => locale.text("common:documentation"),
+                Page::Ecml(_) => locale.text("common:ecmlGuide"),
+                _ => locale.text("common:componentLibrary"),
             },
             theme,
         );
@@ -327,6 +334,24 @@ impl GalleryApp {
             if !found {
                 muted(ui, locale.text("common:noComponents"), theme);
             }
+        } else if matches!(page, Page::Ecml(_)) {
+            for group in EcmlGroup::ALL {
+                ui.add_space(12.0);
+                muted(ui, group.label(locale), theme);
+                ui.add_space(4.0);
+                for topic in EcmlTopic::ALL.iter().filter(|t| t.group() == group) {
+                    if navigation::render(
+                        ui,
+                        topic.title(locale),
+                        *page == Page::Ecml(*topic),
+                        navigation::Style::new(theme),
+                    )
+                    .clicked()
+                    {
+                        self.go(Page::Ecml(*topic));
+                    }
+                }
+            }
         } else {
             for doc in Doc::ALL {
                 if navigation::render(
@@ -369,6 +394,43 @@ impl GalleryApp {
         ui.add_space(28.0);
         muted(ui, locale.text("common:builtWith"), theme);
     }
+    /// The body of an ECML guide page, below its title and description.
+    fn ecml_page(&mut self, ui: &mut egui::Ui, theme: &Theme, topic: EcmlTopic) {
+        let locale = self.locale();
+        if let Some((language, source)) = crate::ecml_docs::example(topic) {
+            self.heading(ui, "example", locale.text("ecml:example"), theme);
+            code_block(ui, source, language, theme, topic.slug(), 360.0);
+        }
+        if let Some(demo) = crate::ecml_docs::Demo::for_topic(topic) {
+            self.heading(ui, "preview", locale.text("common:livePreview"), theme);
+            self.ecml_docs.show(ui, theme, locale, demo, surface(theme));
+        }
+        ui.add_space(32.0);
+        let index = EcmlTopic::ALL.iter().position(|t| *t == topic).unwrap();
+        ui.horizontal_wrapped(|ui| {
+            if let Some(previous) = index.checked_sub(1).map(|i| EcmlTopic::ALL[i])
+                && button::render(
+                    ui,
+                    previous.title(locale),
+                    button::Style::new_ghost_md(theme)
+                        .icon_left(button::ButtonIcon::Some(lucide::ARROW_LEFT)),
+                )
+                .clicked()
+            {
+                self.go(Page::Ecml(previous));
+            }
+            if let Some(next) = EcmlTopic::ALL.get(index + 1).copied()
+                && button::render(
+                    ui,
+                    next.title(locale),
+                    button::Style::new_ghost_md(theme).icon_right(arrow_right()),
+                )
+                .clicked()
+            {
+                self.go(Page::Ecml(next));
+            }
+        });
+    }
     fn outline(page: &Page, locale: Locale) -> Vec<(&'static str, &'static str)> {
         let mut result = vec![("overview", locale.text("common:overview"))];
         match page {
@@ -386,6 +448,14 @@ impl GalleryApp {
                     ("usage", locale.text("common:sourceUsage")),
                     ("customization", locale.text("common:customization")),
                 ]);
+            }
+            Page::Ecml(topic) => {
+                if crate::ecml_docs::example(*topic).is_some() {
+                    result.push(("example", locale.text("ecml:example")));
+                }
+                if crate::ecml_docs::Demo::for_topic(*topic).is_some() {
+                    result.push(("preview", locale.text("common:livePreview")));
+                }
             }
             _ => {}
         }
@@ -506,6 +576,11 @@ impl GalleryApp {
                                         locale.text("common:components"),
                                         c.name(locale),
                                         c.description(locale),
+                                    ),
+                                    Page::Ecml(topic) => (
+                                        locale.text("nav:ecml"),
+                                        topic.title(locale),
+                                        topic.body(locale),
                                     ),
                                     _ => unreachable!(),
                                 };
@@ -671,6 +746,7 @@ impl GalleryApp {
                                             }
                                         });
                                     }
+                                    Page::Ecml(topic) => self.ecml_page(ui, theme, topic),
                                     _ => {}
                                 }
                                 ui.add_space(48.0);
@@ -1085,7 +1161,9 @@ impl GalleryApp {
                     self.ui_theme = generated;
                 }
             }
-            page @ (Page::Docs(_) | Page::Component(_)) => self.document(ui, &theme, page),
+            page @ (Page::Docs(_) | Page::Component(_) | Page::Ecml(_)) => {
+                self.document(ui, &theme, page)
+            }
             Page::NotFound(path) => {
                 egui::CentralPanel::default()
                     .frame(
@@ -1254,6 +1332,9 @@ mod layout_tests {
             Page::Component(Component::ColorPicker),
             Page::Component(Component::SegmentedControl),
             Page::Component(Component::TextEdit),
+            Page::Ecml(EcmlTopic::Setup),
+            Page::Ecml(EcmlTopic::Bindings),
+            Page::Ecml(EcmlTopic::Layout),
             Page::ThemeGenerator,
             Page::Home,
         ] {
@@ -1326,7 +1407,7 @@ fn muted(ui: &mut egui::Ui, label: &str, theme: &Theme) {
 fn paragraph(ui: &mut egui::Ui, label: &str, theme: &Theme) {
     text::render(ui, label, text::Style::new(theme).size(15.0));
 }
-fn surface(theme: &Theme) -> card::Style {
+pub(crate) fn surface(theme: &Theme) -> card::Style {
     card::Style::new_md(theme)
         .shadow(egui::Shadow::NONE)
         .stroke(Stroke::new(1.0_f32, theme.colors.gray.l1))
