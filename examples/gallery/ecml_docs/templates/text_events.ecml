@@ -1,0 +1,11 @@
+<layout item_spacing.y="8">
+    <text_edit id="event_name" e-model="name" width="300" placeholder="Type, then press Enter, Escape or Tab"
+               @submit="submitted" @cancel="cancelled" @blur="blurred" />
+    <text>{{ last_event }}</text>
+    <layout direction="left_to_right" item_spacing.x="8" cross_align="center">
+        <switch e-model="show_focus" />
+        <text>Show a field with autofocus</text>
+    </layout>
+    <text_edit e-if="show_focus" id="autofocus" e-model="name" width="300" autofocus="true"
+               placeholder="Focused as soon as it appears" />
+</layout>

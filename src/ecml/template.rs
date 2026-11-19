@@ -69,6 +69,11 @@ pub(super) enum Kind {
         width: Option<f32>,
         placeholder: Vec<TextPart>,
         disabled: BoolExpr,
+        autofocus: bool,
+        /// Handlers for losing focus by Enter, by Escape, and otherwise.
+        submit: Option<Ref>,
+        cancel: Option<Ref>,
+        blur: Option<Ref>,
     },
     Switch {
         model: Ref,
@@ -326,6 +331,13 @@ impl<'r> Compiler<'r> {
             .map(|depth| (depth, self.scopes[depth].names))
             .ok_or_else(|| self.error(e, attr, format!("'{alias}' is not a loop alias in scope")))
     }
+    /// The handler named by an optional event attribute such as `@click`.
+    fn event(&self, e: &Element, attr: &str) -> Result<Option<Ref>, Error> {
+        e.attrs
+            .get(attr)
+            .map(|a| self.action(e, attr, a.value.trim()))
+            .transpose()
+    }
     fn action(&self, e: &Element, attr: &str, name: &str) -> Result<Ref, Error> {
         let found = if let Some((alias, field)) = name.split_once('.') {
             let (depth, list) = self.row_list(e, attr, alias)?;
@@ -552,7 +564,7 @@ impl<'r> Compiler<'r> {
             "layout" => &["direction", "cross_align", "item_spacing.x", "item_spacing.y"],
             "text" => &["size"],
             "button" => &["size", "variant", "width", "disabled", ":disabled", "@click"],
-            "text_edit" => &["size", "variant", "width", "placeholder", "disabled", ":disabled", "e-model"],
+            "text_edit" => &["size", "variant", "width", "placeholder", "disabled", ":disabled", "e-model", "autofocus", "@submit", "@cancel", "@blur"],
             "switch" | "checkbox" => &["size", "disabled", ":disabled", "e-model"],
             _ => return Err(self.error(&e, "", format!("unknown component '{}'; prototype supports built-in layout and fragment and components text, button, text_edit, switch, checkbox (no aliases)", e.tag))),
         };
@@ -633,11 +645,7 @@ impl<'r> Compiler<'r> {
                     "ghost" => ButtonVariant::Ghost,
                     _ => ButtonVariant::Solid,
                 };
-                let click = e
-                    .attrs
-                    .get("@click")
-                    .map(|a| self.action(&e, "@click", a.value.trim()))
-                    .transpose()?;
+                let click = self.event(&e, "@click")?;
                 Kind::Button {
                     text: self.text(&e, "", e.text.trim())?,
                     size,
@@ -677,6 +685,10 @@ impl<'r> Compiler<'r> {
                     placeholder: self.text(&e, "placeholder", self.attr(&e, "placeholder", ""))?,
                     width: self.number(&e, "width")?,
                     disabled: self.boolean(&e)?,
+                    autofocus: self.choice(&e, "autofocus", "false", &["true", "false"])? == "true",
+                    submit: self.event(&e, "@submit")?,
+                    cancel: self.event(&e, "@cancel")?,
+                    blur: self.event(&e, "@blur")?,
                 }
             }
             "switch" => Kind::Switch {

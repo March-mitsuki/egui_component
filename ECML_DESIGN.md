@@ -367,6 +367,51 @@ non-bool condition; several conditional directives on one element; a
 conditional directive together with `e-for`; any other attribute or text on a
 fragment.
 
+## Text input events and focus
+
+```html
+<text_edit id="new" e-model="draft" autofocus="true" @submit="add" />
+<text_edit e-if="todo.editing" id="edit" e-model="todo.draft" autofocus="true"
+           @submit="todo.save" @blur="todo.save" @cancel="todo.cancel" />
+```
+
+| Event | Fires when the focused text_edit loses focus because of |
+| --- | --- |
+| `@submit` | Enter (single-line only) |
+| `@cancel` | Escape |
+| `@blur` | anything else, such as a click elsewhere or Tab |
+
+- Every focus loss fires exactly one handler: the specific one when it is
+  registered, otherwise `@blur`. So `@submit="save" @blur="save"` saves once, and
+  Escape never runs a `@blur` save when `@cancel` is registered. In egui, Enter
+  and Escape end editing, unlike in a browser. Detection follows egui's idiom
+  (`lost_focus()` plus the key pressed this frame), as in `Form`; Enter that
+  confirms an IME composition does not submit. egui keeps `lost_focus()` true for
+  two frames, so with one pass per frame (as on the web) a View skips a loss it
+  already reported on the previous frame unless the field was focused again in
+  between; keep the single-pass regression test.
+- Handlers take no arguments, like `@click`; root and row handlers
+  (`todo.save`) are allowed. They run with clicks after the traversal, in tree
+  order, on the first pass of a frame only; edits typed in the same frame (and
+  buffered loop writes) are committed first. Disabled and read-only fields fire
+  nothing.
+- A text_edit with `@submit` keeps focus after Enter (focus is requested again),
+  so an entry field can add several items in a row. If the handler hides the
+  field, it is gone on the next pass and focus ends there. Without `@submit`,
+  egui's behavior is unchanged.
+- `autofocus="true"` requests focus when the control appears: on the View's
+  first show, when an `e-if` branch switches to it, or when its loop row is
+  added. A View remembers which autofocus controls it drew on the previous frame;
+  hot reload that keeps their identity does not refocus. If several appear in
+  one frame, the last one drawn gets focus. Disabled fields are not focused. The
+  request is repeated once on the next frame, before the field is drawn: a field
+  first drawn unfocused can lose a late request on the web, where the text agent
+  only takes keyboard input for a field that draws focused.
+- Multiline input is not supported in ECML yet. When it is added to `text_edit`
+  (mapped to `render_multiline`), Enter inserts a newline and `@submit` is
+  rejected on multiline fields; `@cancel` and `@blur` keep their meaning.
+  Single-line-only and multiline-only attributes are validated per mode.
+
 ## Extending ECML
 
 For a new component/property, define its name, type, defaults, supported dynamic
@@ -382,7 +427,8 @@ scenarios and are named `ecml_*`.
 
 Current adapters are layout, fragment, text, button, text_edit, switch and
 checkbox, plus the `e-for`, `e-if`, `e-else-if` and `e-else` directives. Events
-beyond `@click`, dynamic styling, nested state paths, custom Rust slots, more
+are `@click` and the text_edit events above. Other events (such as double-click
+on text), multiline input, dynamic styling, nested state paths, custom Rust slots, more
 events/types/components, derive helpers, lazy models and browser hot reload are
 future work, not accepted syntax. A derive helper must remain optional and
 generate the same explicit registration model.

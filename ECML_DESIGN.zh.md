@@ -206,11 +206,31 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 
 以下情况必须报错并给出位置：`e-else`/`e-else-if` 前面没有条件兄弟元素，或用于根节点；`e-else` 带值；条件为空、未注册或不是 bool；同一元素上有多个条件指令；条件指令与 `e-for` 同时使用；fragment 上有其他属性或文本。
 
+## 文本输入事件与焦点
+
+```html
+<text_edit id="new" e-model="draft" autofocus="true" @submit="add" />
+<text_edit e-if="todo.editing" id="edit" e-model="todo.draft" autofocus="true"
+           @submit="todo.save" @blur="todo.save" @cancel="todo.cancel" />
+```
+
+| 事件 | 有焦点的 text_edit 因以下原因失去焦点时触发 |
+| --- | --- |
+| `@submit` | Enter（仅单行） |
+| `@cancel` | Esc |
+| `@blur` | 其他原因，如点击别处或按 Tab |
+
+- 每次失去焦点只触发一个 handler：注册了对应的专用事件就触发它，否则触发 `@blur`。因此 `@submit="save" @blur="save"` 只保存一次；注册了 `@cancel` 时，按 Esc 不会触发 `@blur` 的保存。与浏览器不同，egui 中 Enter 和 Esc 都会结束编辑。检测沿用 egui 的惯用法（`lost_focus()` 加上本帧按下的键），与 `Form` 相同；用于确认输入法组合的 Enter 不会触发提交。egui 会让 `lost_focus()` 连续两帧为真，因此在每帧只有一个 pass 时（如 Web），View 会跳过上一帧已报告过的失焦，除非该输入框在此期间重新获得过焦点；请保留单 pass 回归测试。
+- handler 与 `@click` 一样无参数，可以是根 handler，也可以是行 handler（如 `todo.save`）。它们与点击一起在遍历结束后按树顺序执行，且只在每帧第一个 pass 收集；同一帧输入的内容（以及循环中缓冲的写回）会先提交。禁用或只读的输入框不触发事件。
+- 带 `@submit` 的 text_edit 按 Enter 后保持焦点（重新请求焦点），因此新建输入框可以连续添加多项。如果 handler 隐藏了该输入框，它在下一个 pass 不再存在，焦点随之结束。不带 `@submit` 时保持 egui 默认行为。
+- `autofocus="true"` 在控件出现时请求焦点：View 首次显示、`e-if` 切换到该分支或循环中新增该行时。View 记录上一帧绘制过的 autofocus 控件；保持身份不变的热更新不会重新聚焦。同一帧有多个控件出现时，最后绘制的获得焦点。禁用的输入框不会被聚焦。焦点请求会在下一帧绘制该输入框之前再执行一次：在 Web 上，首次绘制时未获得焦点的输入框可能丢失迟到的焦点请求，因为文本代理只为绘制时已获得焦点的输入框接收键盘输入。
+- ECML 暂不支持多行输入。以后为 `text_edit` 加入多行模式（映射到 `render_multiline`）时，Enter 用于换行，多行输入框上的 `@submit` 会报错，`@cancel` 和 `@blur` 含义不变。仅单行或仅多行的属性按模式分别校验。
+
 ## 扩展 ECML
 
 新增组件或属性时，明确名称、类型、默认值、支持的动态绑定/事件、作用域和身份影响。添加 schema 校验及到现有组件或原生布局操作的渲染映射。提供有效用法测试及有意义的失败/行为回归测试。新语法在 Gallery 的 ECML 页面中配可编辑 demo 说明（模板放在 `examples/gallery/ecml_docs/templates/`，并补齐 en/zh/ja 文案）；约定变化时同步更新中英文设计指南。新语法先在本文设计，实现后语法说明迁到 Gallery，运行时约定与不变量保留在本文。只为完整应用场景新增 ECML 示例，命名为 `ecml_*`。
 
-当前适配项为 layout、fragment、text、button、text_edit、switch、checkbox，以及 `e-for`、`e-if`、`e-else-if`、`e-else` 指令。`@click` 以外的事件、动态样式、嵌套状态路径、自定义 Rust 插槽、更多事件/类型/组件、derive 辅助、延迟 model 和浏览器热更新均属未来工作，不是已接受语法。derive 必须保持可选，并生成与显式注册相同的模型。
+当前适配项为 layout、fragment、text、button、text_edit、switch、checkbox，以及 `e-for`、`e-if`、`e-else-if`、`e-else` 指令。事件有 `@click` 和上述 text_edit 事件。其他事件（如 text 的双击）、多行输入、动态样式、嵌套状态路径、自定义 Rust 插槽、更多事件/类型/组件、derive 辅助、延迟 model 和浏览器热更新均属未来工作，不是已接受语法。derive 必须保持可选，并生成与显式注册相同的模型。
 
 ## 提交前验证
 

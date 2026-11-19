@@ -9,6 +9,7 @@ struct State {
     count: i32,
     writes: usize,
     saved: String,
+    blurs: usize,
 }
 fn builder() -> Builder<State> {
     View::<State>::builder()
@@ -32,6 +33,7 @@ fn builder() -> Builder<State> {
         .bind("disabled", |s| !s.enabled)
         .on("increment", |s| s.count += 1)
         .on("save", |s| s.saved = s.name.clone())
+        .on("blur", |s| s.blurs += 1)
 }
 fn view(template: &str) -> View<State> {
     builder()
@@ -1218,4 +1220,206 @@ fn conditional_errors_have_source_locations() {
         assert!(error.message.contains(message), "{source}: {error}");
         assert_eq!(error.line, 2, "{source}");
     }
+}
+
+// ---- text_edit events and focus ----
+
+fn key(key: egui::Key) -> Event {
+    Event::Key {
+        key,
+        physical_key: None,
+        pressed: true,
+        repeat: false,
+        modifiers: Default::default(),
+    }
+}
+fn focused(v: &View<State>, id: &str) -> bool {
+    v.response(id).is_some_and(|r| r.has_focus())
+}
+
+#[test]
+fn each_focus_loss_fires_one_text_edit_handler() {
+    let ctx = egui::Context::default();
+    let mut v = view(
+        r#"<layout><text_edit id="t" e-model="name" width="200" @submit="save" @cancel="increment" @blur="blur" /><button id="other">Other</button></layout>"#,
+    );
+    let mut state = State::default();
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    v.response("t").unwrap().request_focus();
+    // Text and Enter in one frame: the edit is written before the handler runs.
+    frame(
+        &ctx,
+        &mut v,
+        &mut state,
+        vec![Event::Text("abc".into()), key(egui::Key::Enter)],
+        true,
+    );
+    assert_eq!(state.saved, "abc");
+    assert_eq!((state.count, state.blurs), (0, 0));
+    // @submit keeps focus so the next entry can be typed straight away.
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    assert!(focused(&v, "t"));
+    frame(&ctx, &mut v, &mut state, vec![key(egui::Key::Escape)], true);
+    assert_eq!((state.count, state.blurs), (1, 0));
+    assert!(!focused(&v, "t"));
+    v.response("t").unwrap().request_focus();
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    click(&ctx, &mut v, &mut state, "other");
+    assert_eq!((state.count, state.blurs), (1, 1));
+    assert_eq!(state.saved, "abc", "submit ran once");
+}
+
+#[test]
+fn focus_loss_without_a_specific_handler_fires_blur() {
+    let ctx = egui::Context::default();
+    let mut v = view(r#"<text_edit id="t" e-model="name" width="200" @blur="blur" />"#);
+    let mut state = State::default();
+    for k in [egui::Key::Enter, egui::Key::Escape] {
+        frame(&ctx, &mut v, &mut state, vec![], false);
+        v.response("t").unwrap().request_focus();
+        frame(&ctx, &mut v, &mut state, vec![], false);
+        frame(&ctx, &mut v, &mut state, vec![key(k)], true);
+    }
+    assert_eq!(state.blurs, 2);
+    // Without @submit, Enter keeps egui's behavior and ends editing.
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    assert!(!focused(&v, "t"));
+}
+
+#[test]
+fn autofocus_focuses_a_control_when_it_appears() {
+    let ctx = egui::Context::default();
+    let mut v = view(
+        r#"<layout><switch id="toggle" e-model="enabled" /><text_edit e-if="enabled" id="t" e-model="name" width="200" autofocus="true" /></layout>"#,
+    );
+    let mut state = State::default();
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    click(&ctx, &mut v, &mut state, "toggle");
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    assert!(focused(&v, "t"), "focused when its branch appears");
+    // It is not focused again on every frame once the user leaves it.
+    frame(&ctx, &mut v, &mut state, vec![key(egui::Key::Escape)], true);
+    for _ in 0..2 {
+        frame(&ctx, &mut v, &mut state, vec![], false);
+    }
+    assert!(!focused(&v, "t"));
+    // Hiding and showing it again focuses it again.
+    state.enabled = false;
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    state.enabled = true;
+    for _ in 0..2 {
+        frame(&ctx, &mut v, &mut state, vec![], false);
+    }
+    assert!(focused(&v, "t"));
+    // On the View's first show too.
+    let mut v = view(r#"<text_edit id="t" e-model="name" autofocus="true" />"#);
+    for _ in 0..2 {
+        frame(&ctx, &mut v, &mut state, vec![], false);
+    }
+    assert!(focused(&v, "t"));
+}
+
+#[test]
+fn row_text_edit_events_reach_row_handlers() {
+    let ctx = egui::Context::default();
+    let mut view = todo_view(
+        r#"<layout><layout e-for="todo in todos" id="row"><text_edit id="title" e-model="todo.title" width="120" @submit="todo.select" @blur="todo.remove" /></layout></layout>"#,
+    );
+    let mut state = Todos {
+        todos: vec![todo(1, "a"), todo(2, "b")],
+        ..Default::default()
+    };
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    view.row_response("title", &2).unwrap().request_focus();
+    frame(
+        &ctx,
+        &mut view,
+        &mut state,
+        vec![Event::Text("!".into()), key(egui::Key::Enter)],
+        true,
+    );
+    assert_eq!(state.selected, Some(2));
+    assert_eq!(state.todos[1].title, "b!");
+    assert!(state.removed.is_empty());
+}
+
+#[test]
+fn text_edit_event_errors_have_source_locations() {
+    for (source, message) in [
+        (
+            r#"<text_edit e-model="name" @submit="missing" />"#,
+            "unknown handler 'missing'",
+        ),
+        (
+            r#"<text_edit e-model="name" @blur="t.save" />"#,
+            "not a loop alias",
+        ),
+        (
+            r#"<text_edit e-model="name" autofocus="yes" />"#,
+            "must be one of",
+        ),
+        (
+            r#"<switch e-model="enabled" @blur="save" />"#,
+            "unknown attribute '@blur'",
+        ),
+        (
+            r#"<button @submit="save">x</button>"#,
+            "unknown attribute '@submit'",
+        ),
+    ] {
+        let error = builder()
+            .load(Source::inline("bad.ecml", format!("\n{source}")))
+            .err()
+            .expect(source);
+        assert!(error.message.contains(message), "{source}: {error}");
+        assert_eq!(error.line, 2, "{source}");
+    }
+}
+
+#[test]
+fn a_focus_loss_fires_once_with_single_pass_frames() {
+    // egui's lost_focus() stays true for two frames; with one pass per frame (as on
+    // the web) that must still fire a single handler.
+    let ctx = egui::Context::default();
+    let mut v = view(
+        r#"<layout><button id="other">Other</button><text_edit id="t" e-model="name" width="200" @cancel="increment" @blur="blur" /></layout>"#,
+    );
+    let mut state = State::default();
+    let focus = |v: &mut View<State>, state: &mut State| {
+        v.response("t").unwrap().request_focus();
+        frame(&ctx, v, state, vec![], false);
+        frame(&ctx, v, state, vec![], false);
+    };
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    focus(&mut v, &mut state);
+    frame(
+        &ctx,
+        &mut v,
+        &mut state,
+        vec![key(egui::Key::Escape)],
+        false,
+    );
+    for _ in 0..3 {
+        frame(&ctx, &mut v, &mut state, vec![], false);
+    }
+    assert_eq!((state.count, state.blurs), (1, 0));
+    // Clicking a control drawn before the field: focus moves before the field draws.
+    focus(&mut v, &mut state);
+    let pos = v.response("other").unwrap().rect.center();
+    for pressed in [true, false] {
+        let events = vec![
+            Event::PointerMoved(pos),
+            Event::PointerButton {
+                pos,
+                button: PointerButton::Primary,
+                pressed,
+                modifiers: Default::default(),
+            },
+        ];
+        frame(&ctx, &mut v, &mut state, events, false);
+    }
+    for _ in 0..3 {
+        frame(&ctx, &mut v, &mut state, vec![], false);
+    }
+    assert_eq!((state.count, state.blurs), (1, 1));
 }

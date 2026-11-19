@@ -404,6 +404,10 @@ impl<S: 'static> Builder<S> {
             file,
             error: None,
             runtime_error: None,
+            autofocused: HashSet::new(),
+            autofocus_retry: HashMap::new(),
+            text_focus: HashSet::new(),
+            lost_reported: HashSet::new(),
             instance: egui::Id::unique(("ecml", NEXT_INSTANCE.fetch_add(1, Ordering::Relaxed))),
             frame: None,
             responses: HashMap::new(),
@@ -429,6 +433,13 @@ pub struct View<S> {
     error: Option<Error>,
     /// A problem found while drawing, such as a duplicate list key; recomputed each pass.
     runtime_error: Option<Error>,
+    /// Autofocus controls drawn on the last frame, so they are focused only on appearing.
+    autofocused: HashSet<egui::Id>,
+    autofocus_retry: HashMap<egui::Id, egui::Id>,
+    /// Text edits focused when last drawn and those whose focus loss was reported on the
+    /// last frame, so each loss fires one handler (see the text_edit renderer).
+    text_focus: HashSet<egui::Id>,
+    lost_reported: HashSet<egui::Id>,
     frame: Option<(egui::ViewportId, u64)>,
     responses: HashMap<String, egui::Response>,
     /// Explicitly named controls inside loops, by id and row key, for tests.
@@ -515,6 +526,14 @@ impl<S: 'static> View<S> {
             row_responses: &mut self.row_responses,
             changed: false,
             runtime_error: None,
+            autofocused: &self.autofocused,
+            autofocus_now: HashSet::new(),
+            autofocus_retry: &self.autofocus_retry,
+            autofocus_retry_now: HashMap::new(),
+            text_focus: &self.text_focus,
+            text_focus_now: HashSet::new(),
+            lost_reported: &self.lost_reported,
+            lost_now: HashSet::new(),
         };
         render(
             &self.root,
@@ -527,9 +546,19 @@ impl<S: 'static> View<S> {
             changed,
             events,
             runtime_error,
+            autofocus_now,
+            autofocus_retry_now,
+            text_focus_now,
+            lost_now,
             ..
         } = runtime;
         self.runtime_error = runtime_error;
+        if first {
+            self.autofocused = autofocus_now;
+            self.autofocus_retry = autofocus_retry_now;
+            self.text_focus = text_focus_now;
+            self.lost_reported = lost_now;
+        }
         for event in &events {
             match event {
                 Event::Root(action) => (self.actions[*action].handler)(state),
@@ -632,6 +661,19 @@ struct Runtime<'a, S> {
     row_responses: &'a mut HashMap<(String, egui::Id), egui::Response>,
     changed: bool,
     runtime_error: Option<Error>,
+    /// Autofocus controls drawn on the previous frame, and those drawn on this one.
+    autofocused: &'a HashSet<egui::Id>,
+    autofocus_now: HashSet<egui::Id>,
+    /// Autofocus controls that appeared on the previous frame (node -> widget id), whose
+    /// focus request is repeated once before they are drawn; and those appearing now.
+    autofocus_retry: &'a HashMap<egui::Id, egui::Id>,
+    autofocus_retry_now: HashMap<egui::Id, egui::Id>,
+    /// Text edits focused when last drawn, and those focused on this frame.
+    text_focus: &'a HashSet<egui::Id>,
+    text_focus_now: HashSet<egui::Id>,
+    /// Text edits whose focus loss was reported on the previous frame, and on this one.
+    lost_reported: &'a HashSet<egui::Id>,
+    lost_now: HashSet<egui::Id>,
 }
 impl<S: 'static> Runtime<'_, S> {
     fn get(&self, access: &Access<'_, S>, r: Ref) -> Value {
@@ -707,7 +749,8 @@ impl<S: 'static> Runtime<'_, S> {
             }
         }
     }
-    fn click(&mut self, access: &Access<'_, S>, r: Ref) {
+    /// Queues a handler to run after the traversal, in tree order.
+    fn handle(&mut self, access: &Access<'_, S>, r: Ref) {
         self.events.push(match r {
             Ref::Root(i) => Event::Root(i),
             Ref::Row { depth, index } => {
@@ -947,7 +990,7 @@ fn render<S: 'static>(
                         && response.clicked()
                         && let Some(click) = click
                     {
-                        rt.click(access, *click);
+                        rt.handle(access, *click);
                     }
                     Some(response)
                 }
@@ -958,18 +1001,75 @@ fn render<S: 'static>(
                     width,
                     placeholder,
                     disabled,
+                    autofocus,
+                    submit,
+                    cancel,
+                    blur,
                 } => {
                     let Value::String(mut value) = rt.get(access, *model) else {
                         unreachable!()
                     };
+                    let disabled = rt.boolean(access, disabled);
+                    // Repeat the focus request of the frame it appeared in, before drawing:
+                    // on the web a field that draws unfocused can lose a late request.
+                    let node_id = rt.instance.with(&node.key);
+                    if rt.first
+                        && !disabled
+                        && let Some(widget) = rt.autofocus_retry.get(&node_id)
+                    {
+                        ui.memory_mut(|m| m.request_focus(*widget));
+                    }
                     let style = text_edit::Style::new(theme, None, *size, *variant)
                         .width(*width)
                         .placeholder(rt.text(access, placeholder))
-                        .disabled(rt.boolean(access, disabled))
+                        .disabled(disabled)
                         .read_only(!rt.first);
                     let response = text_edit::render(ui, &mut value, style);
                     if response.changed() {
                         rt.write(access, *model, Value::String(value));
+                    }
+                    if rt.first && !disabled {
+                        if *autofocus {
+                            // Focus only when the control appears, not on every frame.
+                            if !rt.autofocused.contains(&response.id) {
+                                response.request_focus();
+                                rt.autofocus_retry_now.insert(node_id, response.id);
+                            }
+                            rt.autofocus_now.insert(response.id);
+                        }
+                        // egui keeps lost_focus() true for two frames, so with one pass per
+                        // frame one loss would fire twice. Skip a loss already reported on
+                        // the previous frame, unless the field was focused again since.
+                        let id = response.id;
+                        if response.has_focus() {
+                            rt.text_focus_now.insert(id);
+                        }
+                        if response.lost_focus()
+                            && (rt.text_focus.contains(&id) || !rt.lost_reported.contains(&id))
+                        {
+                            rt.lost_now.insert(id);
+                            // egui ends single-line editing on Enter and Escape; each focus
+                            // loss fires exactly one handler.
+                            let (enter, escape) = ui.input(|i| {
+                                (
+                                    i.key_pressed(egui::Key::Enter),
+                                    i.key_pressed(egui::Key::Escape),
+                                )
+                            });
+                            let handler = match (enter, escape) {
+                                (true, _) if submit.is_some() => {
+                                    // Keep typing in an entry field after submitting.
+                                    response.request_focus();
+                                    rt.text_focus_now.insert(response.id);
+                                    *submit
+                                }
+                                (false, true) if cancel.is_some() => *cancel,
+                                _ => *blur,
+                            };
+                            if let Some(handler) = handler {
+                                rt.handle(access, handler);
+                            }
+                        }
                     }
                     Some(response)
                 }

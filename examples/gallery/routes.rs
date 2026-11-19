@@ -336,6 +336,7 @@ pub enum EcmlTopic {
     Text,
     Button,
     TextEdit,
+    TextEvents,
     Switch,
     Checkbox,
     Layout,
@@ -355,6 +356,7 @@ impl EcmlTopic {
         Self::Text,
         Self::Button,
         Self::TextEdit,
+        Self::TextEvents,
         Self::Switch,
         Self::Checkbox,
         Self::Layout,
@@ -377,6 +379,7 @@ impl EcmlTopic {
             Self::NestedLoops => "nested-loops",
             Self::Conditionals => "conditionals",
             Self::Fragment => "fragment",
+            Self::TextEvents => "text-edit-events",
             Self::Sources => "hot-reload",
             Self::Diagnostics => "diagnostics",
         }
@@ -392,6 +395,7 @@ impl EcmlTopic {
             Self::Text
             | Self::Button
             | Self::TextEdit
+            | Self::TextEvents
             | Self::Switch
             | Self::Checkbox
             | Self::Layout
@@ -413,6 +417,7 @@ impl EcmlTopic {
             Self::NestedLoops => "ecml.nestedLoops:title",
             Self::Conditionals => "ecml.conditionals:title",
             Self::Fragment => "ecml.fragment:title",
+            Self::TextEvents => "ecml.textEvents:title",
             Self::Layout => "ecml.layout:title",
             Self::Sources => "ecml.sources:title",
             Self::Diagnostics => "ecml.diagnostics:title",
@@ -432,6 +437,7 @@ impl EcmlTopic {
             Self::NestedLoops => "ecml.nestedLoops:body",
             Self::Conditionals => "ecml.conditionals:body",
             Self::Fragment => "ecml.fragment:body",
+            Self::TextEvents => "ecml.textEvents:body",
             Self::Layout => "ecml.layout:body",
             Self::Sources => "ecml.sources:body",
             Self::Diagnostics => "ecml.diagnostics:body",

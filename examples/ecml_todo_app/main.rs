@@ -21,6 +21,8 @@ struct Todo {
     id: u64,
     title: String,
     done: bool,
+    /// While editing, the title being typed; `None` when not editing.
+    editing: Option<String>,
 }
 #[derive(Default)]
 struct State {
@@ -36,7 +38,34 @@ impl State {
             id: self.next_id,
             title: title.into(),
             done: false,
+            editing: None,
         });
+    }
+    /// Starts editing one todo; any other edit in progress is saved first.
+    fn edit(&mut self, id: u64) {
+        let others: Vec<_> = self
+            .todos
+            .iter()
+            .filter(|t| t.id != id && t.editing.is_some())
+            .map(|t| t.id)
+            .collect();
+        others.into_iter().for_each(|other| self.save(other));
+        if let Some(todo) = self.todos.iter_mut().find(|t| t.id == id) {
+            todo.editing = Some(todo.title.clone());
+        }
+    }
+    /// Saves the trimmed title; an empty title deletes the todo, as in TodoMVC.
+    fn save(&mut self, id: u64) {
+        let Some(todo) = self.todos.iter_mut().find(|t| t.id == id) else {
+            return;
+        };
+        let Some(title) = todo.editing.take() else {
+            return;
+        };
+        match title.trim() {
+            "" => self.todos.retain(|t| t.id != id),
+            title => todo.title = title.to_owned(),
+        }
     }
 }
 
@@ -56,9 +85,12 @@ fn builder() -> ecml::Builder<State> {
         .bind("showing_all", |s| s.filter == Filter::All)
         .bind("showing_active", |s| s.filter == Filter::Active)
         .bind("showing_completed", |s| s.filter == Filter::Completed)
+        // Enter in the entry field and the Add button both add the draft.
         .on("add", |s| {
             let title = std::mem::take(&mut s.draft);
-            s.add(title.trim());
+            if !title.trim().is_empty() {
+                s.add(title.trim());
+            }
         })
         .on("complete_all", |s| {
             s.todos.iter_mut().for_each(|t| t.done = true)
@@ -67,8 +99,8 @@ fn builder() -> ecml::Builder<State> {
         .on("show_all", |s| s.filter = Filter::All)
         .on("show_active", |s| s.filter = Filter::Active)
         .on("show_completed", |s| s.filter = Filter::Completed)
-        // Rust filters the rows; the template only sees `todo.done`, `todo.title`
-        // and `todo.remove`. Rows are found by id, never by position.
+        // Rust filters the rows; the template sees only these row registrations.
+        // Rows are found by id, never by position.
         .list(
             "todos",
             |s| Box::new(s.todos.iter().filter(move |t| s.filter.shows(t))),
@@ -76,7 +108,20 @@ fn builder() -> ecml::Builder<State> {
             |t| t.id,
             |row| {
                 row.model("done", |t| &t.done, |t, value| t.done = value)
-                    .model("title", |t| &t.title, |t, value| t.title = value)
+                    .bind("title", |_, t| t.title.clone())
+                    .bind("editing", |_, t| t.editing.is_some())
+                    .model(
+                        "draft",
+                        |t| t.editing.as_ref().unwrap_or(&t.title),
+                        |t, value| t.editing = Some(value),
+                    )
+                    .on("edit", |s, id| s.edit(*id))
+                    .on("save", |s, id| s.save(*id))
+                    .on("cancel", |s, id| {
+                        if let Some(t) = s.todos.iter_mut().find(|t| t.id == *id) {
+                            t.editing = None;
+                        }
+                    })
                     .on("remove", |s, id| s.todos.retain(|t| t.id != *id))
             },
         )
@@ -214,6 +259,69 @@ mod tests {
         click(&ctx, &mut view, &mut state, "clear");
         assert!(state.todos.is_empty());
         assert!(view.response("all").is_none());
+        assert!(view.last_error().is_none());
+    }
+
+    fn key(key: egui::Key) -> Event {
+        Event::Key {
+            key,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: Default::default(),
+        }
+    }
+    fn titles(state: &State) -> Vec<&str> {
+        state.todos.iter().map(|t| t.title.as_str()).collect()
+    }
+
+    #[test]
+    fn enter_adds_and_edits_save_on_enter_or_blur_and_cancel_on_escape() {
+        let ctx = egui::Context::default();
+        let mut view = builder()
+            .load(ecml::Source::inline(
+                "todos.ecml",
+                include_str!("todos.ecml"),
+            ))
+            .unwrap();
+        let mut state = State::default();
+        frame(&ctx, &mut view, &mut state, vec![]);
+        // The entry field is focused on start and stays focused after Enter.
+        assert!(view.response("draft").unwrap().has_focus());
+        for title in ["milk", "eggs"] {
+            let events = vec![Event::Text(title.into()), key(egui::Key::Enter)];
+            frame(&ctx, &mut view, &mut state, events);
+            assert!(view.response("draft").unwrap().has_focus());
+        }
+        assert_eq!(titles(&state), ["milk", "eggs"]);
+        // Edit (what the Edit button runs): the edit field takes focus as it appears.
+        state.edit(1);
+        frame(&ctx, &mut view, &mut state, vec![]);
+        assert!(!view.response("draft").unwrap().has_focus());
+        let events = vec![Event::Text("!".into()), key(egui::Key::Enter)];
+        frame(&ctx, &mut view, &mut state, events);
+        assert_eq!(titles(&state), ["milk!", "eggs"]);
+        assert!(state.todos[0].editing.is_none());
+        // Escape cancels.
+        state.edit(2);
+        frame(&ctx, &mut view, &mut state, vec![]);
+        frame(&ctx, &mut view, &mut state, vec![Event::Text("x".into())]);
+        frame(&ctx, &mut view, &mut state, vec![key(egui::Key::Escape)]);
+        assert_eq!(titles(&state), ["milk!", "eggs"]);
+        assert!(state.todos[1].editing.is_none());
+        // Leaving the field saves.
+        state.edit(1);
+        frame(&ctx, &mut view, &mut state, vec![]);
+        frame(&ctx, &mut view, &mut state, vec![Event::Text("?".into())]);
+        click(&ctx, &mut view, &mut state, "complete_all");
+        assert_eq!(titles(&state), ["milk!?", "eggs"]);
+        assert!(state.todos.iter().all(|t| t.done && t.editing.is_none()));
+        // Saving an empty title deletes the todo.
+        state.edit(2);
+        state.todos[1].editing = Some("  ".into());
+        frame(&ctx, &mut view, &mut state, vec![]);
+        frame(&ctx, &mut view, &mut state, vec![key(egui::Key::Enter)]);
+        assert_eq!(titles(&state), ["milk!?"]);
         assert!(view.last_error().is_none());
     }
 }

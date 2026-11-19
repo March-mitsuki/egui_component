@@ -47,7 +47,8 @@ pub fn example(topic: EcmlTopic) -> Option<(&'static str, &'static str)> {
         | EcmlTopic::Checkbox
         | EcmlTopic::Layout
         | EcmlTopic::Conditionals
-        | EcmlTopic::Fragment => return None,
+        | EcmlTopic::Fragment
+        | EcmlTopic::TextEvents => return None,
     })
 }
 
@@ -64,9 +65,10 @@ pub enum Demo {
     Projects,
     Conditionals,
     Fragment,
+    TextEvents,
 }
 impl Demo {
-    pub const ALL: [Self; 11] = [
+    pub const ALL: [Self; 12] = [
         Self::Counter,
         Self::Todos,
         Self::Projects,
@@ -74,6 +76,7 @@ impl Demo {
         Self::Text,
         Self::Button,
         Self::TextEdit,
+        Self::TextEvents,
         Self::Switch,
         Self::Checkbox,
         Self::Layout,
@@ -93,6 +96,7 @@ impl Demo {
             EcmlTopic::NestedLoops => Self::Projects,
             EcmlTopic::Conditionals => Self::Conditionals,
             EcmlTopic::Fragment => Self::Fragment,
+            EcmlTopic::TextEvents => Self::TextEvents,
             EcmlTopic::Setup | EcmlTopic::Syntax | EcmlTopic::Sources | EcmlTopic::Diagnostics => {
                 return None;
             }
@@ -111,6 +115,7 @@ impl Demo {
             Self::Projects => "projects.ecml",
             Self::Conditionals => "conditionals.ecml",
             Self::Fragment => "fragment.ecml",
+            Self::TextEvents => "text_events.ecml",
         }
     }
     fn template(self) -> &'static str {
@@ -126,6 +131,7 @@ impl Demo {
             Self::Projects => include_str!("templates/projects.ecml"),
             Self::Conditionals => include_str!("templates/conditionals.ecml"),
             Self::Fragment => include_str!("templates/fragment.ecml"),
+            Self::TextEvents => include_str!("templates/text_events.ecml"),
         }
     }
     fn load(self) -> Result<ecml::View<state::State>, ecml::Error> {

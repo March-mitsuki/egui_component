@@ -1,13 +1,19 @@
 <layout item_spacing.y="12">
     <text size="heading">Todos</text>
     <layout direction="left_to_right" item_spacing.x="8">
-        <text_edit id="draft" e-model="draft" placeholder="What needs to be done?" width="320" />
+        <text_edit id="draft" e-model="draft" placeholder="What needs to be done?" width="320"
+                   autofocus="true" @submit="add" />
         <button id="add" :disabled="!can_add" @click="add">Add</button>
     </layout>
     <fragment e-if="has_todos">
         <layout e-for="todo in todos" id="todo" direction="left_to_right" item_spacing.x="8" cross_align="center">
             <checkbox id="done" e-model="todo.done" />
-            <text_edit id="title" e-model="todo.title" variant="flushed" width="300" />
+            <text_edit e-if="todo.editing" id="edit" e-model="todo.draft" width="300" autofocus="true"
+                       @submit="todo.save" @blur="todo.save" @cancel="todo.cancel" />
+            <fragment e-else>
+                <text>{{ todo.title }}</text>
+                <button id="edit_button" size="sm" variant="ghost" @click="todo.edit">Edit</button>
+            </fragment>
             <button id="remove" size="sm" variant="ghost" @click="todo.remove">Delete</button>
         </layout>
         <text>{{ remaining }}</text>
