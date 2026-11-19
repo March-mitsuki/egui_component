@@ -163,7 +163,7 @@ pub fn mutate_style(ctx: &Context) {
     ctx.global_style_mut(set_style);
 }
 
-fn set_style(style: &mut egui::Style) {
+pub(super) fn set_style(style: &mut egui::Style) {
     style.spacing.scroll.floating = false;
     style.spacing.scroll.bar_width = 6.0;
     style.spacing.scroll.floating_width = 6.0;

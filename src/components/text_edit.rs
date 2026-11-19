@@ -31,6 +31,10 @@ pub struct Style {
     pub disabled: bool,
     pub read_only: bool,
     pub icon_button_style: icon_button::Style,
+    /// Multiline only: the editor grows with its text up to this many rows,
+    /// then scrolls inside its frame. `None` grows without limit. Defaults
+    /// to 5; set it equal to `rows` for a fixed height like an HTML textarea.
+    pub max_rows: Option<usize>,
     /// Accessible name of the password visibility toggle. Defaults to
     /// "Show password"; the pressed state tells whether it is visible.
     pub password_toggle_aria_label: String,
@@ -109,6 +113,7 @@ impl Style {
             disabled: false,
             read_only: false,
             icon_button_style,
+            max_rows: Some(5),
             password_toggle_aria_label: "Show password".to_owned(),
         }
     }
@@ -304,6 +309,12 @@ impl Style {
 
     pub fn placeholder(mut self, placeholder: impl Into<String>) -> Self {
         self.placeholder = placeholder.into();
+        self
+    }
+
+    /// See [`Style::max_rows`].
+    pub fn max_rows(mut self, max_rows: Option<usize>) -> Self {
+        self.max_rows = max_rows;
         self
     }
 
@@ -566,6 +577,10 @@ pub fn match_text_edit_palette(
 
 /// A multiline version of the standard input. Styles stay local to this editor.
 /// Uses egui's text editing engine for selection, clipboard, undo, and IME.
+///
+/// Shows at least `rows` rows and grows with its text up to
+/// [`Style::max_rows`], then scrolls inside its frame, which keeps the border
+/// and focus ring in place.
 pub fn render_multiline(
     ui: &mut Ui,
     text: &mut String,
@@ -584,6 +599,7 @@ pub fn render_multiline(
         visuals.weak_text_color = Some(style.palette.placeholder_color);
         visuals.text_cursor.stroke = style.palette.focus_stroke;
         visuals.selection.bg_fill = style.palette.focus_stroke.color.gamma_multiply(0.25);
+        super::scroll_area::set_style(ui.style_mut());
 
         let flushed = style.variant == TextEditVariant::Flushed;
         let frame = egui::Frame::new()
@@ -602,17 +618,49 @@ pub fn render_multiline(
         } else {
             text
         };
-        let response = ui.add(
-            egui::TextEdit::multiline(buffer)
-                .interactive(ui.is_enabled())
-                .frame(frame)
-                .font(font_id)
-                .text_color(style.palette.text_color)
-                .hint_text(hint)
-                .desired_width(style.width.unwrap_or(ui.available_width()))
-                .desired_rows(rows),
-        );
-        paint_focus(ui, &response, response.rect, &style);
+        let row_height = ui.fonts_mut(|fonts| fonts.row_height(&font_id));
+        let width = style.width.unwrap_or(ui.available_width());
+        let editor = egui::TextEdit::multiline(buffer)
+            .interactive(ui.is_enabled())
+            .frame(egui::Frame::NONE)
+            .font(font_id)
+            .text_color(style.palette.text_color)
+            .hint_text(hint)
+            .desired_rows(rows);
+        let framed = frame.show(ui, |ui| {
+            ui.set_width(width - frame.total_margin().sum().x);
+            match style.max_rows {
+                Some(max_rows) => {
+                    let max_height = row_height * max_rows.max(rows).max(1) as f32;
+                    egui::ScrollArea::vertical()
+                        .max_height(max_height)
+                        .auto_shrink([false, true])
+                        .stick_to_bottom(false)
+                        .show(ui, |ui| {
+                            let width = ui.available_width();
+                            ui.add(editor.desired_width(width))
+                        })
+                        .inner
+                }
+                None => {
+                    let width = ui.available_width();
+                    ui.add(editor.desired_width(width))
+                }
+            }
+        });
+        let response = framed.inner;
+        let rect = framed.response.rect;
+        // Clicks on the frame's padding or scrollbar gutter focus the editor,
+        // like an HTML textarea, without adding a Tab stop.
+        if ui.is_enabled()
+            && !response.has_focus()
+            && ui.input(|i| i.pointer.primary_clicked())
+            && ui.rect_contains_pointer(rect)
+            && !ui.rect_contains_pointer(response.rect)
+        {
+            response.request_focus();
+        }
+        paint_focus(ui, &response, rect, &style);
         response
     })
     .inner
@@ -814,5 +862,76 @@ mod tests {
         let (a, _, focused, _) = run(vec![], false);
         assert_eq!(focused, Some(a));
         assert!(ctx.data(|d| d.get_temp::<bool>(a.with("password_visible"))) == Some(true));
+    }
+
+    #[test]
+    fn multiline_grows_to_max_rows_then_scrolls_inside_to_the_cursor() {
+        use egui::{Event, Key, Modifiers};
+        let theme =
+            crate::theme::UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json"))
+                .unwrap();
+        let mut text = (1..=20)
+            .map(|i| format!("line {i}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        // Returns (frame rect, editor rect).
+        let frame = |ctx: &egui::Context, events, max_rows, text: &mut String, focus| {
+            let style = Style::new_outline_md(&theme.light)
+                .width(Some(200.0))
+                .max_rows(max_rows);
+            let mut rects = None;
+            let input = egui::RawInput {
+                events,
+                ..Default::default()
+            };
+            ctx.run_ui(input, |ui| {
+                let scope = ui.scope(|ui| render_multiline(ui, text, 2, style.clone()));
+                if focus {
+                    scope.inner.request_focus();
+                }
+                rects = Some((scope.response.rect, scope.inner.rect));
+            })
+            .textures_delta
+            .clear();
+            rects.unwrap()
+        };
+        let row = Style::new_outline_md(&theme.light).text_size;
+
+        let ctx = egui::Context::default();
+        let (unbounded, _) = frame(&ctx, vec![], None, &mut text, false);
+        assert!(unbounded.height() > 20.0 * row, "None grows with the text");
+
+        let ctx = egui::Context::default();
+        let (short, _) = frame(&ctx, vec![], Some(5), &mut "a".to_owned(), false);
+        let (capped, editor) = frame(&ctx, vec![], Some(5), &mut text, true);
+        assert!(capped.height() > short.height(), "grows from `rows`");
+        assert!(capped.height() < 7.0 * row, "stops at max_rows");
+        assert!(editor.top() > capped.top(), "starts at the top");
+
+        let end = Event::Key {
+            key: Key::End,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: Modifiers::CTRL,
+        };
+        frame(
+            &ctx,
+            vec![end, Event::Text("!".into())],
+            Some(5),
+            &mut text,
+            false,
+        );
+        assert!(text.ends_with("20!"));
+        // egui animates the scroll to the cursor.
+        let (mut after, mut editor) = (capped, capped);
+        for _ in 0..120 {
+            (after, editor) = frame(&ctx, vec![], Some(5), &mut text, false);
+        }
+        assert_eq!(after.height(), capped.height(), "the frame does not grow");
+        assert!(
+            (editor.bottom() - after.bottom()).abs() < 4.0,
+            "scrolled to the cursor on the last line: {editor:?} in {after:?}"
+        );
     }
 }

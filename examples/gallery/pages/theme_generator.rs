@@ -52,8 +52,17 @@ impl Generator {
         if self.gallery_preset {
             // The preset keeps its colors; only the focus ring follows the options.
             let mut theme = self.base.clone();
-            theme_gen::apply_focus_ring(&mut theme.light, self.options);
-            theme_gen::apply_focus_ring(&mut theme.dark, self.options);
+            let o = self.options;
+            theme_gen::apply_focus_ring(
+                &mut theme.light,
+                o.focus_ring_color_light,
+                o.focus_ring_width,
+            );
+            theme_gen::apply_focus_ring(
+                &mut theme.dark,
+                o.focus_ring_color_dark,
+                o.focus_ring_width,
+            );
             theme
         } else {
             theme_gen::generate(&self.base, self.options)
@@ -249,7 +258,10 @@ impl Generator {
             lucide::SCAN,
             locale.text("generator:focusRing"),
             |ui| {
-                let mut custom = self.options.focus_ring_color.is_some();
+                let o = &mut self.options;
+                let was_custom =
+                    o.focus_ring_color_light.is_some() || o.focus_ring_color_dark.is_some();
+                let mut custom = was_custom;
                 segmented_control::render(
                     ui,
                     &mut custom,
@@ -260,33 +272,62 @@ impl Generator {
                     segmented_control::Style::new(shell),
                 );
                 let theme = self.theme();
-                if custom {
-                    let mut color = self
-                        .options
-                        .focus_ring_color
-                        .unwrap_or(theme.light.focus_ring.color);
+                if custom && !was_custom {
+                    // Start from the derived colors so users fine-tune a good ring.
+                    self.options.focus_ring_color_light = Some(theme.light.focus_ring.color);
+                    self.options.focus_ring_color_dark = Some(theme.dark.focus_ring.color);
+                } else if !custom {
+                    self.options.focus_ring_color_light = None;
+                    self.options.focus_ring_color_dark = None;
+                }
+                for (dark, mode, t) in [
+                    (false, locale.text("common:light"), &theme.light),
+                    (true, locale.text("common:dark"), &theme.dark),
+                ] {
+                    let option = if dark {
+                        &mut self.options.focus_ring_color_dark
+                    } else {
+                        &mut self.options.focus_ring_color_light
+                    };
+                    ui.add_space(4.0);
                     ui.horizontal(|ui| {
-                        color_picker::render(
-                            ui,
-                            ui.make_persistent_id("focus-color"),
-                            &mut color,
-                            color_picker::Style::new(shell),
-                            Default::default(),
-                        );
-                        field_label(ui, &hex(color), shell);
-                    });
-                    self.options.focus_ring_color = Some(color);
-                } else {
-                    self.options.focus_ring_color = None;
-                    for (label, t) in [("Light", &theme.light), ("Dark", &theme.dark)] {
-                        ui.horizontal(|ui| {
-                            swatch(ui, t.focus_ring.color, 20.0, shell);
-                            field_label(
+                        if custom {
+                            let mut color = t.focus_ring.color;
+                            if color_picker::render(
                                 ui,
-                                &format!("{label}  {}", hex(t.focus_ring.color)),
-                                shell,
+                                ui.make_persistent_id(("focus-color", dark)),
+                                &mut color,
+                                color_picker::Style::new(shell),
+                                Default::default(),
+                            )
+                            .changed()
+                            {
+                                *option = Some(color);
+                            }
+                        } else {
+                            swatch(ui, t.focus_ring.color, 20.0, shell);
+                        }
+                        field_label(ui, &format!("{mode}  {}", hex(t.focus_ring.color)), shell);
+                        if custom && option.is_some() {
+                            ui.with_layout(
+                                egui::Layout::right_to_left(egui::Align::Center),
+                                |ui| {
+                                    if action(
+                                        ui,
+                                        locale.text("generator:auto"),
+                                        lucide::ROTATE_CCW,
+                                        shell,
+                                    )
+                                    .clicked()
+                                    {
+                                        *option = None;
+                                    }
+                                },
                             );
-                        });
+                        }
+                    });
+                    if custom {
+                        focus_ring_contrast(ui, t, shell, locale);
                     }
                 }
                 hint(
@@ -1220,6 +1261,51 @@ fn edit_value(
         }
         _ => {}
     }
+}
+/// The two focus ring checks of [`theme_gen::contrast_checks`] for one mode,
+/// shown right under its color picker.
+fn focus_ring_contrast(ui: &mut egui::Ui, t: &Theme, shell: &Theme, locale: Locale) {
+    let checks = theme_gen::contrast_checks(t);
+    let ring: Vec<_> = checks
+        .iter()
+        .filter(|c| c.foreground == "focus_ring")
+        .collect();
+    let on_bg = ring
+        .iter()
+        .filter(|c| c.background.starts_with("bg."))
+        .min_by(|a, b| a.ratio.total_cmp(&b.ratio));
+    let on_separator = ring.iter().find(|c| c.background == "focus_ring.separator");
+    ui.horizontal_wrapped(|ui| {
+        ui.add_space(4.0);
+        for (label, check) in [
+            (locale.text("generator:focusOnBackground"), on_bg),
+            (locale.text("generator:focusOnSeparator"), on_separator),
+        ] {
+            let Some(check) = check else { continue };
+            let (icon_source, color) = if check.passes() {
+                (lucide::CIRCLE_CHECK, shell.colors.green.l6)
+            } else {
+                (lucide::TRIANGLE_ALERT, shell.colors.orange.l6)
+            };
+            icon::render(
+                ui,
+                icon_source,
+                icon::Style::new(shell)
+                    .box_size(14.0)
+                    .icon_size(12.0)
+                    .color(color),
+                Default::default(),
+            );
+            text::render(
+                ui,
+                &format!("{label} {:.2}:1", check.ratio),
+                text::Style::new(shell)
+                    .size(12.0)
+                    .color(shell.colors.fg.subtle),
+            );
+            ui.add_space(8.0);
+        }
+    });
 }
 fn reset_override(
     ui: &mut egui::Ui,

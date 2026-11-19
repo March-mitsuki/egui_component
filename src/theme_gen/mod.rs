@@ -15,10 +15,12 @@ pub struct Options {
     pub neutral: NeutralTone,
     /// Medium radius; the other radius tokens scale proportionally.
     pub radius: f32,
-    /// Focus ring color; `None` derives one from primary with
+    /// Light-mode focus ring color; `None` derives one from primary with
     /// [`auto_focus_color`].
-    pub focus_ring_color: Option<Color32>,
-    /// Focus ring width in points.
+    pub focus_ring_color_light: Option<Color32>,
+    /// Dark-mode focus ring color; `None` derives one like the light color.
+    pub focus_ring_color_dark: Option<Color32>,
+    /// Focus ring width in points, shared by both modes.
     pub focus_ring_width: f32,
 }
 impl Default for Options {
@@ -27,7 +29,8 @@ impl Default for Options {
             seed: Color32::from_rgb(107, 101, 245),
             neutral: NeutralTone::Neutral,
             radius: 8.0,
-            focus_ring_color: None,
+            focus_ring_color_light: None,
+            focus_ring_color_dark: None,
             focus_ring_width: 2.0,
         }
     }
@@ -101,18 +104,21 @@ pub fn generate(base: &UiTheme, options: Options) -> UiTheme {
             lg: r * 1.5,
             xl: r * 2.0,
         };
-        apply_focus_ring(theme, options);
+        let color = if dark {
+            options.focus_ring_color_dark
+        } else {
+            options.focus_ring_color_light
+        };
+        apply_focus_ring(theme, color, options.focus_ring_width);
     }
     result
 }
 
-/// Set `theme.focus_ring` from `options`, deriving the color when it is `None`.
-pub fn apply_focus_ring(theme: &mut Theme, options: Options) {
-    let width = options.focus_ring_width;
+/// Set `theme.focus_ring`, deriving the color with [`auto_focus_color`] when
+/// it is `None`. The width is clamped to 1..=8 points.
+pub fn apply_focus_ring(theme: &mut Theme, color: Option<Color32>, width: f32) {
     theme.focus_ring = FocusRing {
-        color: options
-            .focus_ring_color
-            .unwrap_or_else(|| auto_focus_color(theme)),
+        color: color.unwrap_or_else(|| auto_focus_color(theme)),
         width: if width.is_finite() {
             width.clamp(1.0, 8.0)
         } else {
@@ -524,13 +530,15 @@ mod tests {
         let theme = generate(
             &base,
             Options {
-                focus_ring_color: Some(Color32::RED),
+                focus_ring_color_dark: Some(Color32::RED),
                 focus_ring_width: 3.0,
                 ..Default::default()
             },
         );
+        assert_eq!(theme.dark.focus_ring.color, Color32::RED);
+        // Each mode is independent: light stays derived.
+        assert_eq!(theme.light.focus_ring.color, auto_focus_color(&theme.light));
         for t in [&theme.light, &theme.dark] {
-            assert_eq!(t.focus_ring.color, Color32::RED);
             assert_eq!(t.focus_ring.width, 3.0);
         }
     }

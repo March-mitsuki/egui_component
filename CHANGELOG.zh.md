@@ -13,7 +13,7 @@
 - `button::Style` 新增公开字段 `content_align: egui::Align`。逐项列出字段的结构体字面量需补上 `content_align: egui::Align::Center` 以保持居中。穷尽解构时需列出该字段或使用 `..`。构造函数默认使用 `Center`。可通过 `.content_align(...)` 选择 `Min`、`Center` 或 `Max`，将整组内容左对齐、居中或右对齐。
 - `accordion`、`avatar`、`button`、`icon`、`icon_button`、`navigation`、`select`、`slider`、`switch` 的 `Style` 新增公开字段 `focus_ring: theme::FocusRing`（`slider::Style` 由原来的 `focus_color: Color32` 替换而来）。逐项列出字段的结构体字面量需补上 `focus_ring: theme.focus_ring`，与构造函数的默认值一致。穷尽解构时需列出 `focus_ring` 或使用 `..`。
 - 主题 JSON 的 `light` 和 `dark` 现在都必须包含 `focus_ring` 对象，含 `color` 和 `width`。所有组件的键盘焦点指示器都由它绘制，`text_edit` 聚焦时的边框也使用它的宽度。在每个模式中加入例如 `"focus_ring": { "color": <颜色>, "width": 2.0 }`，颜色也可以用 `theme_gen::auto_focus_color(&theme)` 计算。颜色与背景的对比度应不低于 3:1。`theme_gen::generate` 默认由生成的 primary 推导颜色（设置了 `Options::focus_ring_color` 时使用该值），宽度取自 `Options::focus_ring_width`。
-- `theme_gen::Options` 新增 `focus_ring_color: Option<Color32>`（默认 `None`，自动推导）和 `focus_ring_width: f32`（默认 `2.0`）。逐项列出字段的结构体字面量需补上这两个字段，或使用 `..Default::default()`。
+- `theme_gen::Options` 新增 `focus_ring_color_light: Option<Color32>`、`focus_ring_color_dark: Option<Color32>`（默认 `None`，按模式分别自动推导）和 `focus_ring_width: f32`（默认 `2.0`，两个模式共用）。逐项列出字段的结构体字面量需补上这些字段，或使用 `..Default::default()`。`theme_gen::apply_focus_ring(theme, color, width)` 用于设置单个模式的焦点环。
 - `theme::Color.foreground` 由 `Option<Color32>` 改为必填的 `Color32`。主题 JSON 在两个模式下的每个色阶（`primary`、`gray`、`red`、`green`、`blue`、`yellow`、`orange`）都必须提供 `foreground`。以前缺省时，实心按钮文字回退到 `colors.fg.base`，开关圆钮回退到白色；如需保持原外观，可设为 `fg.base`，或像 gallery 主题现在这样，在 `fg.base` 和 `bg.base` 中选与 `l5`–`l7` 对比度更高的一个。`theme_gen::generate` 已为每个色阶生成该值。Rust 代码中把 `Some(color)` 改为 `color`，并去掉 `unwrap_or(...)`。
 - `Color::to_button_palette` 不再接收 `&Theme`，改为 `color.to_button_palette(variant)`。
 - 移除仅在 debug 构建中可用的 `UiTheme::dummy`。请用 `theme_gen::generate` 或已有的主题文件创建主题。
@@ -43,6 +43,7 @@
 
 ### 文本输入框行为变更
 
+- `render_multiline` 现在最多增长到 `Style::max_rows` 行（默认 `5`），超出后在框内滚动，边框和焦点环保持不动；以前会随内容无限增高。`rows` 仍表示最少显示的行数。设置 `.max_rows(None)` 可恢复无限增高；把 `.max_rows(Some(n))` 的 `n` 设为与 `rows` 相同，可得到类似 HTML textarea 的固定高度。逐项列出字段的 `text_edit::Style` 结构体字面量需补上 `max_rows` 字段。
 - 密码输入框的 Tab 顺序改为先到输入框，再到显示/隐藏按钮，然后到下一个控件；之前是先到按钮。用鼠标点击该按钮时，焦点仍留在输入框中；用键盘切换时，焦点留在按钮上。
 
 ### 无障碍与键盘行为变更
