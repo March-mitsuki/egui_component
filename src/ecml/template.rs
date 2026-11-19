@@ -27,6 +27,14 @@ pub(super) struct Node {
     pub kind: Kind,
 }
 pub(super) enum Kind {
+    /// A conditional chain: draws the first branch whose condition holds (`None` is e-else).
+    If {
+        branches: Vec<(Option<BoolExpr>, Node)>,
+    },
+    /// Children drawn directly into the parent Ui, without a layout of their own.
+    Fragment {
+        children: Vec<Node>,
+    },
     /// Repeats `body` once per list row; `line`/`column` locate the e-for attribute.
     For {
         /// A root list, or a child list (`Row::index`) of the row at `Row::depth`.
@@ -190,7 +198,17 @@ impl Registry {
             ids: HashSet::new(),
             scopes: vec![],
         }
-        .node(root, "0".into(), true)
+        .root(root)
+    }
+}
+const CONDITIONS: [&str; 3] = ["e-if", "e-else-if", "e-else"];
+fn chain((condition, node): (Option<BoolExpr>, Node)) -> Node {
+    Node {
+        key: node.key.clone(),
+        explicit_id: None,
+        kind: Kind::If {
+            branches: vec![(condition, node)],
+        },
     }
 }
 fn identifier(s: &str) -> bool {
@@ -396,19 +414,112 @@ impl<'r> Compiler<'r> {
             },
         })
     }
+    fn root(&mut self, e: Element) -> Result<Node, Error> {
+        match self.directive(&e)? {
+            Some("e-if") => {
+                let branch = self.branch(e, "0".into())?;
+                Ok(chain(branch))
+            }
+            Some(d) => Err(self.error(
+                &e,
+                d,
+                format!("{d} must follow an element with e-if or e-else-if; the root has none"),
+            )),
+            None => self.node(e, "0".into(), true),
+        }
+    }
+    /// The conditional directive on an element, if any; at most one is allowed.
+    fn directive(&self, e: &Element) -> Result<Option<&'static str>, Error> {
+        let mut found = CONDITIONS.into_iter().filter(|d| e.attrs.contains_key(*d));
+        let first = found.next();
+        if let Some(second) = found.next() {
+            return Err(self.error(
+                e,
+                second,
+                "an element takes only one of e-if, e-else-if and e-else",
+            ));
+        }
+        Ok(first)
+    }
+    /// Child elements, grouping e-if/e-else-if/e-else siblings into chains. Every branch
+    /// keeps its own structural path, so branch selection never shifts sibling identity.
+    fn children(&mut self, elements: Vec<Element>, path: &str) -> Result<Vec<Node>, Error> {
+        let mut nodes: Vec<Node> = vec![];
+        let mut open = false;
+        for (i, child) in elements.into_iter().enumerate() {
+            let child_path = format!("{path}/{i}");
+            match self.directive(&child)? {
+                Some("e-if") => {
+                    let branch = self.branch(child, child_path)?;
+                    nodes.push(chain(branch));
+                    open = true;
+                }
+                Some(d) => {
+                    if !open {
+                        return Err(self.error(
+                            &child,
+                            d,
+                            format!("{d} must directly follow an element with e-if or e-else-if"),
+                        ));
+                    }
+                    open = d == "e-else-if";
+                    let branch = self.branch(child, child_path)?;
+                    let Some(Node {
+                        kind: Kind::If { branches },
+                        ..
+                    }) = nodes.last_mut()
+                    else {
+                        unreachable!("an open chain ends the node list")
+                    };
+                    branches.push(branch);
+                }
+                None => {
+                    nodes.push(self.node(child, child_path, false)?);
+                    open = false;
+                }
+            }
+        }
+        Ok(nodes)
+    }
+    fn branch(&mut self, mut e: Element, path: String) -> Result<(Option<BoolExpr>, Node), Error> {
+        let directive = self.directive(&e)?.expect("conditional element");
+        if e.attrs.contains_key("e-for") {
+            return Err(self.error(
+                &e,
+                directive,
+                format!("{directive} cannot be combined with e-for; nest them, using a fragment if no layout is wanted"),
+            ));
+        }
+        let condition = if directive == "e-else" {
+            None
+        } else {
+            let (r, negate) = self.condition(&e, directive)?;
+            Some(BoolExpr::Binding(r, negate))
+        };
+        e.attrs.remove(directive);
+        Ok((condition, self.node(e, path, false)?))
+    }
+    /// A bool name, optionally negated with `!`: the condition syntax of :disabled and e-if.
+    fn condition(&self, e: &Element, attr: &str) -> Result<(Ref, bool), Error> {
+        let expr = self.attr(e, attr, "").trim();
+        let (name, negate) = expr
+            .strip_prefix('!')
+            .map_or((expr, false), |n| (n.trim(), true));
+        if name.is_empty() {
+            return Err(self.error(e, attr, format!("{attr} needs a registered bool name")));
+        }
+        Ok((
+            self.binding(e, attr, name, Some(ValueKind::Bool), false)?,
+            negate,
+        ))
+    }
     fn boolean(&self, e: &Element) -> Result<BoolExpr, Error> {
         if e.attrs.contains_key("disabled") && e.attrs.contains_key(":disabled") {
             return Err(self.error(e, ":disabled", "cannot combine disabled and :disabled"));
         }
-        if let Some(a) = e.attrs.get(":disabled") {
-            let expr = a.value.trim();
-            let (name, negate) = expr
-                .strip_prefix('!')
-                .map_or((expr, false), |n| (n.trim(), true));
-            Ok(BoolExpr::Binding(
-                self.binding(e, ":disabled", name, Some(ValueKind::Bool), false)?,
-                negate,
-            ))
+        if e.attrs.contains_key(":disabled") {
+            let (r, negate) = self.condition(e, ":disabled")?;
+            Ok(BoolExpr::Binding(r, negate))
         } else {
             Ok(BoolExpr::Literal(
                 self.choice(e, "disabled", "false", &["true", "false"])? == "true",
@@ -436,12 +547,14 @@ impl<'r> Compiler<'r> {
             return self.repeat(e, path, root);
         }
         let allowed: &[&str] = match e.tag.as_str() {
+            // Only id and directives, which are handled before reaching here.
+            "fragment" => &[],
             "layout" => &["direction", "cross_align", "item_spacing.x", "item_spacing.y"],
             "text" => &["size"],
             "button" => &["size", "variant", "width", "disabled", ":disabled", "@click"],
             "text_edit" => &["size", "variant", "width", "placeholder", "disabled", ":disabled", "e-model"],
             "switch" | "checkbox" => &["size", "disabled", ":disabled", "e-model"],
-            _ => return Err(self.error(&e, "", format!("unknown component '{}'; prototype supports built-in layout and components text, button, text_edit, switch, checkbox (no aliases)", e.tag))),
+            _ => return Err(self.error(&e, "", format!("unknown component '{}'; prototype supports built-in layout and fragment and components text, button, text_edit, switch, checkbox (no aliases)", e.tag))),
         };
         for name in e.attrs.keys() {
             if name != "id" && !allowed.contains(&name.as_str()) {
@@ -463,9 +576,8 @@ impl<'r> Compiler<'r> {
             Some(id) => format!("id:{id}:{}", e.tag),
             None => format!("path:{path}:{}", e.tag),
         };
-        let layout = e.tag == "layout";
-        if !layout && !e.children.is_empty() {
-            return Err(self.error(&e, "", "only layout accepts child components"));
+        if !matches!(e.tag.as_str(), "layout" | "fragment") && !e.children.is_empty() {
+            return Err(self.error(&e, "", "only layout and fragment accept child components"));
         }
         if !matches!(e.tag.as_str(), "text" | "button" | "checkbox") && !e.text.trim().is_empty() {
             return Err(self.error(
@@ -487,12 +599,7 @@ impl<'r> Compiler<'r> {
                     };
                 let item_spacing_x = self.number(&e, "item_spacing.x")?;
                 let item_spacing_y = self.number(&e, "item_spacing.y")?;
-                let children = e
-                    .children
-                    .into_iter()
-                    .enumerate()
-                    .map(|(i, child)| self.node(child, format!("{path}/{i}"), false))
-                    .collect::<Result<_, _>>()?;
+                let children = self.children(e.children, &path)?;
                 Kind::Layout {
                     horizontal,
                     cross_align,
@@ -501,6 +608,9 @@ impl<'r> Compiler<'r> {
                     children,
                 }
             }
+            "fragment" => Kind::Fragment {
+                children: self.children(e.children, &path)?,
+            },
             "text" => Kind::Text {
                 text: self.text(&e, "", e.text.trim())?,
                 heading: self.choice(&e, "size", "md", &["md", "heading"])? == "heading",

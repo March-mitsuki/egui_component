@@ -40,6 +40,8 @@ pub fn builder() -> ecml::Builder<State> {
         // Read-only values and calculations.
         .bind("count", |s| s.count)
         .bind("can_increment", |s| s.enabled && s.count < 10)
+        .bind("has_count", |s| s.count > 0)
+        .bind("at_limit", |s| s.count >= 10)
         .bind("can_add", |s| !s.new_title.trim().is_empty())
         .bind("remaining", |s| {
             s.todos.iter().filter(|t| !t.done).count() as i64

@@ -1058,3 +1058,164 @@ fn three_levels_pass_the_full_key_path() {
     click_at(&ctx, &mut view, &mut state, pos);
     assert_eq!(state.1, [((2, 20), 200)]);
 }
+
+// ---- e-if and fragment ----
+
+#[test]
+fn conditional_chains_draw_the_first_true_branch() {
+    let ctx = egui::Context::default();
+    let mut v = view(
+        r#"<layout>
+    <switch id="toggle" e-model="enabled" />
+    <!-- comments may sit inside a chain -->
+    <button e-if="enabled" id="on">On</button>
+    <!-- between branches -->
+    <button e-else-if="!enabled" id="off">Off</button>
+    <button e-else id="never">Never</button>
+    <text id="after">after</text>
+</layout>"#,
+    );
+    let mut state = State::default();
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    assert!(v.response("on").is_none());
+    assert!(v.response("off").is_some());
+    assert!(v.response("never").is_none());
+    click(&ctx, &mut v, &mut state, "toggle");
+    assert!(state.enabled);
+    assert!(v.response("on").is_some());
+    assert!(v.response("off").is_none());
+}
+
+#[test]
+fn hidden_branches_allocate_no_space() {
+    let ctx = egui::Context::default();
+    let mut v = view(
+        r#"<layout><switch id="toggle" e-model="enabled" /><button e-if="enabled" id="b">B</button><text id="after">after</text></layout>"#,
+    );
+    let mut state = State::default();
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    let gap = v.response("after").unwrap().rect.min.y - v.response("toggle").unwrap().rect.max.y;
+    assert!(gap <= 10.0, "hidden button left a gap of {gap}");
+    state.enabled = true;
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    assert!(v.response("after").unwrap().rect.min.y >= v.response("b").unwrap().rect.max.y);
+}
+
+#[test]
+fn a_false_root_condition_draws_nothing() {
+    let ctx = egui::Context::default();
+    let mut v = view(r#"<text e-if="enabled" id="t">shown</text>"#);
+    let mut state = State::default();
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    assert!(v.response("t").is_none());
+    state.enabled = true;
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    assert!(v.response("t").is_some());
+}
+
+#[test]
+fn fragments_draw_children_into_the_parent_layout() {
+    let ctx = egui::Context::default();
+    let mut v = view(
+        r#"<layout direction="left_to_right">
+    <button id="a">A</button>
+    <fragment e-if="enabled"><button id="b">B</button><button id="c">C</button></fragment>
+</layout>"#,
+    );
+    let mut state = State {
+        enabled: true,
+        ..Default::default()
+    };
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    let [a, b, c] = ["a", "b", "c"].map(|id| v.response(id).unwrap().rect);
+    assert_eq!((a.min.y, b.min.y, c.min.y), (a.min.y, a.min.y, a.min.y));
+    assert!(a.max.x < b.min.x && b.max.x < c.min.x);
+    // A root fragment draws several top-level elements into the host Ui.
+    let mut v = view(r#"<fragment><text id="x">1</text><text id="y">2</text></fragment>"#);
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    assert!(v.response("x").unwrap().rect.max.y <= v.response("y").unwrap().rect.min.y);
+}
+
+#[test]
+fn conditions_and_fragments_work_inside_loops() {
+    let ctx = egui::Context::default();
+    let mut view = todo_view(
+        r#"<layout direction="left_to_right">
+    <fragment e-for="t in todos" id="rows">
+        <button e-if="t.selected" id="sel">{{ t.label }}</button>
+        <button e-else id="pick" @click="t.select">{{ t.label }}</button>
+    </fragment>
+</layout>"#,
+    );
+    let mut state = Todos {
+        todos: vec![todo(1, "a"), todo(2, "b")],
+        selected: Some(2),
+        ..Default::default()
+    };
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    assert!(view.row_response("sel", &2).is_some());
+    assert!(view.row_response("sel", &1).is_none());
+    let pick = view.row_response("pick", &1).unwrap().rect;
+    // Fragment rows stay in the parent's row.
+    assert_eq!(pick.min.y, view.row_response("sel", &2).unwrap().rect.min.y);
+    row_click(&ctx, &mut view, &mut state, "pick", 1);
+    assert_eq!(state.selected, Some(1));
+    assert!(view.row_response("sel", &1).is_some());
+    assert!(view.row_response("pick", &2).is_some());
+}
+
+#[test]
+fn conditional_errors_have_source_locations() {
+    for (source, message) in [
+        ("<text e-else />", "the root has none"),
+        ("<text e-else-if=\"enabled\" />", "the root has none"),
+        ("<layout><text e-else /></layout>", "must directly follow"),
+        (
+            "<layout><text e-if=\"enabled\" /><text /><text e-else /></layout>",
+            "must directly follow",
+        ),
+        (
+            "<layout><text e-if=\"enabled\" /><text e-else /><text e-else /></layout>",
+            "must directly follow",
+        ),
+        (
+            "<layout><text e-if=\"\" /></layout>",
+            "needs a registered bool name",
+        ),
+        (
+            "<layout><text e-if=\"!\" /></layout>",
+            "needs a registered bool name",
+        ),
+        ("<layout><text e-if=\"count\" /></layout>", "expected Bool"),
+        (
+            "<layout><text e-if=\"nope\" /></layout>",
+            "unknown binding 'nope'",
+        ),
+        (
+            "<layout><text e-if=\"enabled\" e-else /></layout>",
+            "only one of",
+        ),
+        (
+            "<layout><text e-else=\"x\" /></layout>",
+            "e-else takes no value",
+        ),
+        ("<layout><text disabled /></layout>", "expected '='"),
+        (
+            "<layout><text e-if=\"enabled\" e-for=\"t in todos\" /></layout>",
+            "cannot be combined with e-for",
+        ),
+        ("<fragment size=\"sm\" />", "unknown attribute 'size'"),
+        ("<fragment>loose text</fragment>", "text content"),
+        (
+            "<layout><text e-if=\"enabled\" id=\"a\" /><text e-else id=\"a\" /></layout>",
+            "unique",
+        ),
+    ] {
+        let error = builder()
+            .load(Source::inline("bad.ecml", format!("\n{source}")))
+            .err()
+            .expect(source);
+        assert!(error.message.contains(message), "{source}: {error}");
+        assert_eq!(error.line, 2, "{source}");
+    }
+}

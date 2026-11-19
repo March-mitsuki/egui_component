@@ -44,6 +44,7 @@ fn builder() -> ecml::Builder<State> {
     ecml::View::<State>::builder()
         .model("draft", |s| &s.draft, |s, value| s.draft = value)
         .bind("can_add", |s| !s.draft.trim().is_empty())
+        .bind("has_todos", |s| !s.todos.is_empty())
         .bind("remaining", |s| {
             match s.todos.iter().filter(|t| !t.done).count() {
                 1 => "1 item left".to_owned(),
@@ -185,6 +186,8 @@ mod tests {
             .unwrap();
         let mut state = State::default();
         frame(&ctx, &mut view, &mut state, vec![]);
+        // With no todos the list and footer are hidden.
+        assert!(view.response("all").is_none());
         // An empty draft cannot be added.
         click(&ctx, &mut view, &mut state, "add");
         assert!(state.todos.is_empty());
@@ -196,6 +199,9 @@ mod tests {
         let titles: Vec<_> = state.todos.iter().map(|t| t.title.as_str()).collect();
         assert_eq!(titles, ["milk", "eggs"]);
         assert!(state.draft.is_empty());
+        assert!(view.response("all").is_some());
+        // "Clear completed" appears only once something is done.
+        assert!(view.response("clear").is_none());
 
         state.todos[0].done = true;
         click(&ctx, &mut view, &mut state, "active");
@@ -205,6 +211,9 @@ mod tests {
         assert_eq!(titles, ["eggs"]);
         click(&ctx, &mut view, &mut state, "complete_all");
         assert!(state.todos.iter().all(|t| t.done));
+        click(&ctx, &mut view, &mut state, "clear");
+        assert!(state.todos.is_empty());
+        assert!(view.response("all").is_none());
         assert!(view.last_error().is_none());
     }
 }

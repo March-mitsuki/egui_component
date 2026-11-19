@@ -775,11 +775,33 @@ fn render<S: 'static>(
     rt: &mut Runtime<'_, S>,
     access: &mut Access<'_, S>,
 ) {
+    // Chains and fragments are transparent: they draw straight into the parent Ui.
+    match &node.kind {
+        Kind::If { branches } => {
+            let chosen = branches.iter().find(|(condition, _)| {
+                condition
+                    .as_ref()
+                    .is_none_or(|condition| rt.boolean(access, condition))
+            });
+            if let Some((_, branch)) = chosen {
+                render(branch, ui, theme, rt, access);
+            }
+            return;
+        }
+        Kind::Fragment { children } => {
+            for child in children {
+                render(child, ui, theme, rt, access);
+            }
+            return;
+        }
+        _ => {}
+    }
     // Explicit scope_id keeps auto-allocated IDs inside existing components stable too.
     ui.scope_builder(
         egui::UiBuilder::new().scope_id(rt.instance.with(&node.key)),
         |ui| {
             let response = match &node.kind {
+                Kind::If { .. } | Kind::Fragment { .. } => unreachable!("drawn above"),
                 Kind::For {
                     list,
                     body,

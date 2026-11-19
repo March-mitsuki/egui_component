@@ -1,0 +1,9 @@
+<layout direction="left_to_right" item_spacing.x="8" cross_align="center">
+    <switch e-model="enabled" />
+    <fragment e-if="enabled">
+        <button size="sm" :disabled="!can_increment" @click="increment">Increment</button>
+        <button size="sm" variant="outline" @click="reset">Reset</button>
+        <text>{{ count }}</text>
+    </fragment>
+    <text e-else>Turn the switch on: three controls join this row.</text>
+</layout>

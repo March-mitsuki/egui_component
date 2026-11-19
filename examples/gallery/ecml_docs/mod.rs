@@ -45,7 +45,9 @@ pub fn example(topic: EcmlTopic) -> Option<(&'static str, &'static str)> {
         | EcmlTopic::TextEdit
         | EcmlTopic::Switch
         | EcmlTopic::Checkbox
-        | EcmlTopic::Layout => return None,
+        | EcmlTopic::Layout
+        | EcmlTopic::Conditionals
+        | EcmlTopic::Fragment => return None,
     })
 }
 
@@ -60,18 +62,22 @@ pub enum Demo {
     Layout,
     Todos,
     Projects,
+    Conditionals,
+    Fragment,
 }
 impl Demo {
-    pub const ALL: [Self; 9] = [
+    pub const ALL: [Self; 11] = [
         Self::Counter,
         Self::Todos,
         Self::Projects,
+        Self::Conditionals,
         Self::Text,
         Self::Button,
         Self::TextEdit,
         Self::Switch,
         Self::Checkbox,
         Self::Layout,
+        Self::Fragment,
     ];
     /// The live demo on a topic page, if any.
     pub fn for_topic(topic: EcmlTopic) -> Option<Self> {
@@ -85,6 +91,8 @@ impl Demo {
             EcmlTopic::Layout => Self::Layout,
             EcmlTopic::Loops => Self::Todos,
             EcmlTopic::NestedLoops => Self::Projects,
+            EcmlTopic::Conditionals => Self::Conditionals,
+            EcmlTopic::Fragment => Self::Fragment,
             EcmlTopic::Setup | EcmlTopic::Syntax | EcmlTopic::Sources | EcmlTopic::Diagnostics => {
                 return None;
             }
@@ -101,6 +109,8 @@ impl Demo {
             Self::Layout => "layout.ecml",
             Self::Todos => "todos.ecml",
             Self::Projects => "projects.ecml",
+            Self::Conditionals => "conditionals.ecml",
+            Self::Fragment => "fragment.ecml",
         }
     }
     fn template(self) -> &'static str {
@@ -114,6 +124,8 @@ impl Demo {
             Self::Layout => include_str!("templates/layout.ecml"),
             Self::Todos => include_str!("templates/todos.ecml"),
             Self::Projects => include_str!("templates/projects.ecml"),
+            Self::Conditionals => include_str!("templates/conditionals.ecml"),
+            Self::Fragment => include_str!("templates/fragment.ecml"),
         }
     }
     fn load(self) -> Result<ecml::View<state::State>, ecml::Error> {

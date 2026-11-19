@@ -1,0 +1,15 @@
+<layout item_spacing.y="10">
+    <layout direction="left_to_right" item_spacing.x="8" cross_align="center">
+        <switch e-model="enabled" />
+        <text>Enabled</text>
+    </layout>
+    <text e-if="enabled">The counter is enabled.</text>
+    <text e-else>Turn the switch on to count.</text>
+    <text e-if="at_limit">Count reached the limit of 10.</text>
+    <text e-else-if="has_count">Count: {{ count }}</text>
+    <text e-else>Count is zero.</text>
+    <layout direction="left_to_right" item_spacing.x="8">
+        <button :disabled="!can_increment" @click="increment">Increment</button>
+        <button e-if="has_count" variant="outline" @click="reset">Reset</button>
+    </layout>
+</layout>

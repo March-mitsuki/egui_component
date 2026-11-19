@@ -54,7 +54,8 @@ Keep the public `egui_component::ecml::*` paths stable when reorganizing interna
 - Component tags use the exact public component module name, such as `text_edit`.
   Do not add `input` or other aliases. A module's existence does not automatically
   make it a supported ECML component; an explicit adapter is required.
-- `layout` is a reserved built-in construct mapped directly to egui. Do not add
+- `layout` and `fragment` are reserved built-in constructs: `layout` maps directly
+  to egui, and `fragment` groups elements without a layout. Do not add
   public Row/Column components solely to support markup, or accept `row`/`column`
   as aliases.
 - Preserve egui field names and snake_case. Structured properties use dotted
@@ -64,12 +65,13 @@ Keep the public `egui_component::ecml::*` paths stable when reorganizing interna
   not imply nested application-state binding or automatic Rust reflection.
 - Use `e-` for directives, `:` for dynamic properties and `@` for events. Current
   expressions are registered names, text interpolation and bool negation for
-  `:disabled`. Computations belong in Rust getters.
+  `:disabled`, `e-if` and `e-else-if`. Computations belong in Rust getters.
 - Reject unknown tags/attributes, duplicates, invalid values, unresolved names
   and type/capability mismatches. Never silently ignore unsupported syntax or
   perform lossy conversions.
 
-The custom grammar requires one root and quoted attribute values. It supports
+The custom grammar requires one root and quoted attribute values; the bare
+`e-else` is the only attribute without a value. It supports
 self-closing elements, text, comments inside elements, and five named entities
 (`amp`, `lt`, `gt`, `quot`, `apos`). Names use ASCII segments starting with a letter
 or underscore, followed by letters, digits, underscores or hyphens; attribute
@@ -263,9 +265,8 @@ Report with location: unknown list; malformed `e-for` value; alias colliding wit
 a root registration or outer alias; alias used outside its loop; unregistered
 `alias.name` or `alias.list`; `e-model` on a read-only row binding; value type
 mismatch; `e-for` on the root; duplicate row registration names; a list name that
-collides with a binding or handler at the same level. Once `e-if` exists, `e-for`
-and `e-if` on the same element must also be rejected; combining them is defined
-when `e-if` is designed.
+collides with a binding or handler at the same level; `e-for` together with a
+conditional directive (see below).
 
 ### Nested loops
 
@@ -312,6 +313,60 @@ to that registration exactly as `group.name` resolves to a row binding.
   same child key may appear under different parents. Row identity chains: loop
   identity + outer key hash + inner loop identity + inner key hash.
 
+## Conditionals (e-if) and fragments
+
+```html
+<layout direction="left_to_right" item_spacing.x="8">
+    <checkbox e-model="todo.done" />
+    <fragment e-if="todo.editing">
+        <text_edit id="edit" e-model="todo.draft" />
+        <button @click="todo.save">Save</button>
+    </fragment>
+    <text e-else-if="todo.done">{{ todo.title }} (done)</text>
+    <text e-else>{{ todo.title }}</text>
+</layout>
+```
+
+- `e-if="name"` and `e-else-if="name"` take one registered bool, root or
+  `alias.name`, optionally negated with `!`, exactly like `:disabled`. Computations
+  belong in Rust `bind` getters. `e-else` is the only bare attribute in the
+  grammar and takes no value.
+- `e-else-if` and `e-else` must directly follow an `e-if` or `e-else-if` sibling
+  element; comments may sit between them. A chain renders at most its first true
+  branch, and `e-else` ends a chain.
+- Conditions are evaluated once per pass when the chain is drawn. Outside loops
+  earlier writes are immediate, so a later condition sees them in the same pass;
+  inside loops writes are buffered, so conditions see them on the next pass. The
+  tree's structure stays fixed between passes; only branch selection changes.
+- A hidden branch draws nothing and allocates no space; `View::response(id)`
+  returns `None` for its nodes. Each branch is its own template element with its
+  own structural path, so switching branches never changes siblings' automatic
+  IDs. Hiding does not guarantee clearing egui memory (like removal), and a
+  focused control loses focus when hidden. Explicit IDs remain unique within the
+  View, across branches too.
+- `e-if` is allowed on the root (a false root draws nothing); `e-else` and
+  `e-else-if` are not, since the root has no siblings.
+- An element carries at most one of `e-if`, `e-else-if` and `e-else`. A
+  conditional directive and `e-for` on the same element are rejected; nest them
+  instead, with a fragment when no layout is wanted. Filtering rows belongs in the
+  list's read accessor.
+
+`fragment` is a reserved built-in like `layout`: it groups elements without
+creating a layout. Its children are drawn directly into the parent Ui and inherit
+its direction and spacing, so a fragment inside a horizontal layout keeps its
+children in the row. It accepts only `id` and the directives `e-if`,
+`e-else-if`, `e-else` and `e-for`, and no text content. An `id` identifies the
+fragment for loops (row identity = fragment identity + key); its children keep
+their own explicit IDs or structural paths. A fragment may be the root, so a
+template can draw several top-level elements into the host Ui. There is no `<>`
+shorthand.
+
+Compile-time errors, with location: `e-else`/`e-else-if` without a preceding
+conditional sibling, or on the root; a value on `e-else`; an empty, unknown or
+non-bool condition; several conditional directives on one element; a
+conditional directive together with `e-for`; any other attribute or text on a
+fragment.
+
 ## Extending ECML
 
 For a new component/property, define its name, type, defaults, supported dynamic
@@ -325,8 +380,9 @@ designed here first and moves to the gallery once implemented; runtime contracts
 and invariants stay here. New ECML examples are only for complete application
 scenarios and are named `ecml_*`.
 
-Current adapters are layout, text, button, text_edit, switch and checkbox, plus the
-`e-for` directive. Conditionals, nested state paths, custom Rust slots, more
+Current adapters are layout, fragment, text, button, text_edit, switch and
+checkbox, plus the `e-for`, `e-if`, `e-else-if` and `e-else` directives. Events
+beyond `@click`, dynamic styling, nested state paths, custom Rust slots, more
 events/types/components, derive helpers, lazy models and browser hot reload are
 future work, not accepted syntax. A derive helper must remain optional and
 generate the same explicit registration model.

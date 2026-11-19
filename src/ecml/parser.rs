@@ -121,7 +121,28 @@ impl Parser<'_> {
             }
             let offset = self.pos;
             let name = self.name(true)?;
+            let after_name = self.pos;
             self.space();
+            if name == "e-else" {
+                // The only bare attribute: it ends a conditional chain and has no value.
+                if self.rest().starts_with('=') {
+                    return Err(self.error("e-else takes no value"));
+                }
+                self.pos = after_name;
+                if attrs
+                    .insert(
+                        name,
+                        Attribute {
+                            value: String::new(),
+                            offset,
+                        },
+                    )
+                    .is_some()
+                {
+                    return Err(self.error("duplicate attribute 'e-else'"));
+                }
+                continue;
+            }
             if !self.take("=") {
                 return Err(self.error("expected '='"));
             }

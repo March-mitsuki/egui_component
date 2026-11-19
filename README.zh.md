@@ -195,7 +195,7 @@ Gallery 的 **Text** 页面提供字体切换、缺字回退和字体 URL 加载
 cargo run --features ecml --example ecml_hello_world
 ```
 
-运行后编辑 `examples/ecml_hello_world/counter.ecml`。目前支持内置 `layout` 以及 `text`、`button`、`text_edit`、`switch`、`checkbox` 组件，列表用 `e-for` 渲染。`cargo run --features ecml --example ecml_todo_app` 运行一个完整的 todo 应用。这是实验性原型。语法及可交互 demo 见 Gallery 的 [ECML 页面](https://march-mitsuki.github.io/egui_component/zh/ecml/set-up-a-view)，接入方式与热更新见 [ECML 示例说明](examples/ecml_hello_world/README.md)。
+运行后编辑 `examples/ecml_hello_world/counter.ecml`。目前支持内置 `layout`、`fragment` 以及 `text`、`button`、`text_edit`、`switch`、`checkbox` 组件，列表用 `e-for` 渲染，条件分支用 `e-if`/`e-else-if`/`e-else`。`cargo run --features ecml --example ecml_todo_app` 运行一个完整的 todo 应用。这是实验性原型。语法及可交互 demo 见 Gallery 的 [ECML 页面](https://march-mitsuki.github.io/egui_component/zh/ecml/set-up-a-view)，接入方式与热更新见 [ECML 示例说明](examples/ecml_hello_world/README.md)。
 
 ## 🌍 谁在用 egui_component ?
 

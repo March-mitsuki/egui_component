@@ -17,8 +17,10 @@ reload. [main.rs](main.rs) holds the state and every registration:
   focus when other rows are added, removed or completed.
 - Inside the loop, `todo.done` and `todo.title` are row models and `todo.remove`
   is a row handler that receives the row's id.
-- The active filter is shown as a disabled button, since ECML has no conditionals
-  yet. The window scrolls because the host wraps `View::show` in an egui
+- `<fragment e-if="has_todos">` hides the list and footer while there are no
+  todos, and `e-if="any_done"` shows "Clear completed" only when something is
+  done. The active filter is still shown as a disabled button, since ECML has no
+  dynamic styling yet. The window scrolls because the host wraps `View::show` in an egui
   `ScrollArea`; ECML layouts do not scroll by themselves.
 
 `cargo test --features ecml --example ecml_todo_app` drives the template through
