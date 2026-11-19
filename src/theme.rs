@@ -218,6 +218,17 @@ impl FocusRing {
     pub fn stroke(self) -> Stroke {
         Stroke::new(self.width, self.color)
     }
+
+    /// Black or white, whichever contrasts more with the ring. Drawn between
+    /// the ring and the control's fill so the ring is visible on any fill.
+    pub fn separator_color(self) -> Color32 {
+        let contrast = |c| crate::theme_gen::contrast_ratio(self.color, c);
+        if contrast(Color32::WHITE) >= contrast(Color32::BLACK) {
+            Color32::WHITE
+        } else {
+            Color32::BLACK
+        }
+    }
 }
 
 #[derive(Clone, Deserialize, Serialize)]

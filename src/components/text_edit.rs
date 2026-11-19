@@ -1,4 +1,4 @@
-use super::focus::{self, Placement};
+use super::focus;
 use egui::{Color32, CornerRadius, Stroke, StrokeKind, Ui};
 
 use crate::{
@@ -504,8 +504,10 @@ fn paint_focus(ui: &Ui, response: &egui::Response, rect: egui::Rect, style: &Sty
             ui,
             rect,
             style.corner_radius,
-            style.palette.focus_stroke,
-            Placement::Outside,
+            crate::theme::FocusRing {
+                color: style.palette.focus_stroke.color,
+                width: style.palette.focus_stroke.width,
+            },
         );
     }
 }

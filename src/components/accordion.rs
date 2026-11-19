@@ -1,5 +1,5 @@
 //! A themed, keyboard-accessible disclosure with optional controlled open state.
-use super::focus::{self, Placement};
+use super::focus;
 use crate::{
     consts::{DEFAULT_FONT_FAMILY_ALIAS, FONT_MANAGER},
     font::weight::FontWeight,
@@ -203,7 +203,6 @@ pub fn render<R>(
             response.header_response.rect,
             style.corner_radius,
             style.focus_ring,
-            Placement::Outside,
         );
         response
     })

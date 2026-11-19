@@ -493,14 +493,7 @@ pub fn render_with_options(
                 ui.painter()
                     .rect(rect, radius, fill, style.border_stroke, StrokeKind::Inside);
             }
-            super::focus::ring(
-                ui,
-                &response,
-                rect,
-                radius,
-                theme.focus_ring,
-                super::focus::Placement::Outside,
-            );
+            super::focus::ring(ui, &response, rect, radius, theme.focus_ring);
             response.widget_info(|| {
                 egui::WidgetInfo::labeled(egui::Role::ColorWell, ui.is_enabled(), color.to_hex())
             });

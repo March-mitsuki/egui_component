@@ -3,7 +3,7 @@ use egui::{
 };
 use egui_component_style_macros::FrameModifier;
 
-use super::focus::{self, Placement};
+use super::focus;
 use crate::components::{icon_button, text, tooltip};
 use crate::icon::ICONS;
 use crate::theme::Theme;
@@ -181,7 +181,6 @@ pub fn render<'a>(
             part.rect,
             style.button.corner_radius,
             style.button.focus_ring,
-            Placement::Inside,
         );
     }
 

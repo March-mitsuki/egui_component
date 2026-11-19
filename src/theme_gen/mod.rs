@@ -1,5 +1,5 @@
 //! Deterministic sRGB theme generation using OKLCH, with role-specific light/dark scales.
-use crate::theme::{Color, CornerRadius, SetColor, UiTheme};
+use crate::theme::{Color, CornerRadius, FocusRing, SetColor, Theme, UiTheme};
 use egui::Color32;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -15,6 +15,11 @@ pub struct Options {
     pub neutral: NeutralTone,
     /// Medium radius; the other radius tokens scale proportionally.
     pub radius: f32,
+    /// Focus ring color; `None` derives one from primary with
+    /// [`auto_focus_color`].
+    pub focus_ring_color: Option<Color32>,
+    /// Focus ring width in points.
+    pub focus_ring_width: f32,
 }
 impl Default for Options {
     fn default() -> Self {
@@ -22,11 +27,14 @@ impl Default for Options {
             seed: Color32::from_rgb(107, 101, 245),
             neutral: NeutralTone::Neutral,
             radius: 8.0,
+            focus_ring_color: None,
+            focus_ring_width: 2.0,
         }
     }
 }
 
-/// Generate colors and radii while retaining component metrics from `base`.
+/// Generate colors, radii and the focus ring while retaining component metrics
+/// from `base`.
 pub fn generate(base: &UiTheme, options: Options) -> UiTheme {
     let (_, chroma, hue) = to_oklch(options.seed);
     let mut result = base.clone();
@@ -80,9 +88,6 @@ pub fn generate(base: &UiTheme, options: Options) -> UiTheme {
         ] {
             correct_roles(color, &backgrounds, dark);
         }
-        // The corrected primary keeps >= 4.5:1 on every background, above the
-        // 3:1 a focus indicator needs. The ring width is kept from `base`.
-        theme.focus_ring.color = theme.colors.primary.normal();
         let r = if options.radius.is_finite() {
             options.radius.clamp(0.0, 32.0)
         } else {
@@ -96,8 +101,67 @@ pub fn generate(base: &UiTheme, options: Options) -> UiTheme {
             lg: r * 1.5,
             xl: r * 2.0,
         };
+        apply_focus_ring(theme, options);
     }
     result
+}
+
+/// Set `theme.focus_ring` from `options`, deriving the color when it is `None`.
+pub fn apply_focus_ring(theme: &mut Theme, options: Options) {
+    let width = options.focus_ring_width;
+    theme.focus_ring = FocusRing {
+        color: options
+            .focus_ring_color
+            .unwrap_or_else(|| auto_focus_color(theme)),
+        width: if width.is_finite() {
+            width.clamp(1.0, 8.0)
+        } else {
+            2.0
+        },
+    };
+}
+
+/// A focus ring color derived from primary: same hue and chroma, at the
+/// lightness closest to primary that has 3:1 contrast with every background
+/// (required, WCAG 1.4.11) and with primary's solid fill `l6`, so it stays
+/// distinct on primary buttons and selected days. When both cannot be met
+/// (typical in dark mode, where primary is light), it keeps the background
+/// contrast, moves away from the background, and maximizes the fill contrast;
+/// the ring's separator line keeps it visible on the fill either way.
+pub fn auto_focus_color(theme: &Theme) -> Color32 {
+    let primary = theme.colors.primary;
+    let backgrounds = [
+        theme.colors.bg.base,
+        theme.colors.bg.subtle,
+        theme.colors.bg.accent,
+    ];
+    let fills = [primary.l6];
+    let (l, c, h) = to_oklch(primary.l6);
+    // Keep away from pure black/white so the ring keeps primary's hue.
+    let candidates = (40..=192).map(|i| i as f32 * 0.005).map(|lightness| {
+        let color = oklch(lightness, c, h);
+        let on_bg = min_contrast(color, &backgrounds);
+        let on_fill = min_contrast(color, &fills);
+        (lightness, color, on_bg, on_fill)
+    });
+    let meets = |&(_, _, on_bg, on_fill): &(f32, Color32, f32, f32)| on_bg >= 3.0 && on_fill >= 3.0;
+    // Otherwise move away from the background (lighter in dark mode): a pale
+    // or deep tint reads clearly against the background, which the ring
+    // borders, while the separator line sets it off from the fill.
+    let away = |lightness: f32| {
+        let bg_l = to_oklch(theme.colors.bg.base).0;
+        (lightness - l) * (l - bg_l) >= 0.0
+    };
+    candidates
+        .clone()
+        .filter(meets)
+        .min_by(|a, b| (a.0 - l).abs().total_cmp(&(b.0 - l).abs()))
+        .or_else(|| {
+            candidates
+                .filter(|&(lightness, _, on_bg, _)| on_bg >= 3.0 && away(lightness))
+                .max_by(|a, b| a.3.total_cmp(&b.3))
+        })
+        .map_or(primary.l6, |(_, color, _, _)| color)
 }
 fn scale(h: f32, c: f32, dark: bool) -> Color {
     let ls = if dark {
@@ -266,7 +330,18 @@ mod tests {
             );
             validate(&theme).unwrap();
             UiTheme::from_json_bytes(theme.to_json().as_bytes()).unwrap();
-            for t in [&theme.light, &theme.dark] {
+            for (t, dark) in [(&theme.light, false), (&theme.dark, true)] {
+                let ring = t.focus_ring.color;
+                for bg in [t.colors.bg.base, t.colors.bg.subtle, t.colors.bg.accent] {
+                    assert!(contrast_ratio(ring, bg) >= 3.0, "seed {seed:?}");
+                }
+                // A light primary on a dark background leaves no room for both.
+                if !dark {
+                    assert!(
+                        contrast_ratio(ring, t.colors.primary.l6) >= 3.0,
+                        "seed {seed:?}"
+                    );
+                }
                 for c in [
                     t.colors.primary,
                     t.colors.gray,
@@ -279,12 +354,6 @@ mod tests {
                     for bg in [t.colors.bg.base, t.colors.bg.subtle, t.colors.bg.accent] {
                         assert!(contrast_ratio(c.l6, bg) >= 4.5, "seed {seed:?}");
                     }
-                    for bg in [t.colors.bg.base, t.colors.bg.subtle, t.colors.bg.accent] {
-                        assert!(
-                            contrast_ratio(t.focus_ring.color, bg) >= 3.0,
-                            "seed {seed:?}"
-                        );
-                    }
                     for bg in [c.l5, c.l6, c.l7] {
                         assert!(
                             contrast_ratio(c.foreground, bg) >= 4.5,
@@ -294,6 +363,29 @@ mod tests {
                     }
                 }
             }
+        }
+    }
+    #[test]
+    fn gallery_theme_uses_the_derived_focus_color() {
+        let base = UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json")).unwrap();
+        for t in [&base.light, &base.dark] {
+            assert_eq!(t.focus_ring.color, auto_focus_color(t));
+        }
+    }
+    #[test]
+    fn focus_ring_options_override_the_derived_color() {
+        let base = UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json")).unwrap();
+        let theme = generate(
+            &base,
+            Options {
+                focus_ring_color: Some(Color32::RED),
+                focus_ring_width: 3.0,
+                ..Default::default()
+            },
+        );
+        for t in [&theme.light, &theme.dark] {
+            assert_eq!(t.focus_ring.color, Color32::RED);
+            assert_eq!(t.focus_ring.width, 3.0);
         }
     }
     #[test]

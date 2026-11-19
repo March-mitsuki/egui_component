@@ -1,4 +1,4 @@
-use super::focus::{self, Placement};
+use super::focus;
 use egui::{Color32, CornerRadius, Popup, Response, Sense, Stroke, Ui};
 
 use crate::theme::{Color, Theme};
@@ -344,14 +344,7 @@ pub(crate) fn render_trigger(
     ui.painter().line_segment([p0, p1], arrow_stroke);
     ui.painter().line_segment([p1, p2], arrow_stroke);
 
-    focus::ring(
-        ui,
-        &response,
-        rect,
-        style.corner_radius,
-        style.focus_ring,
-        Placement::Outside,
-    );
+    focus::ring(ui, &response, rect, style.corner_radius, style.focus_ring);
 
     if style.disabled {
         response.on_hover_cursor(egui::CursorIcon::NotAllowed)
@@ -446,7 +439,6 @@ pub fn render_item(
         rect,
         CornerRadius::same(theme.corner_radius.xs as u8),
         style.focus_ring,
-        Placement::Inside,
     );
     response.on_hover_cursor(egui::CursorIcon::PointingHand)
 }

@@ -1,4 +1,4 @@
-use super::focus::{self, Placement};
+use super::focus;
 use egui::{Color32, CornerRadius, Stroke, StrokeKind, Ui};
 
 use crate::{
@@ -516,16 +516,7 @@ impl Style {
 }
 
 pub fn render(ui: &mut Ui, text: &str, style: Style) -> egui::Response {
-    render_with_focus_placement(ui, text, style, Placement::Outside)
-}
-
-pub(super) fn render_with_focus_placement(
-    ui: &mut Ui,
-    text: &str,
-    style: Style,
-    placement: Placement,
-) -> egui::Response {
-    render_inner(ui, text, style, placement, true)
+    render_inner(ui, text, style, true)
 }
 
 /// `tab_stop: false` keeps the button clickable but out of the Tab order, for
@@ -534,7 +525,6 @@ pub(super) fn render_inner(
     ui: &mut Ui,
     text: &str,
     style: Style,
-    placement: Placement,
     tab_stop: bool,
 ) -> egui::Response {
     let mut font_id = egui::TextStyle::Button.resolve(ui.style());
@@ -734,14 +724,7 @@ pub(super) fn render_inner(
             .paint_at(ui, icon_rect);
     }
 
-    focus::ring(
-        ui,
-        &response,
-        rect,
-        style.corner_radius,
-        style.focus_ring,
-        placement,
-    );
+    focus::ring(ui, &response, rect, style.corner_radius, style.focus_ring);
 
     match style.state {
         ButtonState::Disable => response.on_hover_cursor(egui::CursorIcon::NotAllowed),

@@ -78,11 +78,10 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
     ] {
         let style = button::Style::new_outline_md(theme)
             .width(Some(220.0))
-            .content_align(align);
-        #[cfg(feature = "lucide_icon")]
-        let style = style.icon_left(button::ButtonIcon::Some(
-            egui_component::icon::lucide::LANGUAGES,
-        ));
+            .content_align(align)
+            .icon_left(button::ButtonIcon::Some(
+                egui_component::icon::lucide::LANGUAGES,
+            ));
         button::render(ui, locale.text(label), style);
     }
 }

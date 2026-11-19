@@ -1,4 +1,4 @@
-use super::focus::{self, Placement};
+use super::focus;
 use egui::{Response, Ui};
 
 use crate::theme::Theme;
@@ -62,7 +62,6 @@ pub fn render(ui: &mut Ui, icon: egui::ImageSource, style: Style) -> Response {
         rect,
         egui::CornerRadius::same(2),
         style.focus_ring,
-        Placement::Outside,
     );
     response
 }

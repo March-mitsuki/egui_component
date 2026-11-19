@@ -55,13 +55,8 @@ pub fn render<T: Copy + PartialEq>(
                     if !ui.is_enabled() {
                         button_style.state = button::ButtonState::Disable;
                     }
-                    let response = button::render_inner(
-                        ui,
-                        label,
-                        button_style,
-                        super::focus::Placement::Inside,
-                        index == tab_index,
-                    );
+                    let response =
+                        button::render_inner(ui, label, button_style, index == tab_index);
                     response.widget_info(|| {
                         egui::WidgetInfo::selected(
                             egui::Role::RadioButton,

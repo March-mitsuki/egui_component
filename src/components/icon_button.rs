@@ -2,10 +2,7 @@ use egui::{Color32, CornerRadius, Image, Rect, Rgba, Sense, StrokeKind, Ui, vec2
 
 use crate::theme::{ButtonPalette, ButtonSize, ButtonVariant, Color, Theme};
 
-use super::{
-    button::match_button_palette,
-    focus::{self, Placement},
-};
+use super::{button::match_button_palette, focus};
 
 #[derive(Clone)]
 pub struct Style {
@@ -256,13 +253,6 @@ pub fn render(ui: &mut Ui, icon: egui::ImageSource, label: &str, style: Style) -
         .tint(style.palette.text_color)
         .paint_at(ui, icon_rect);
 
-    focus::ring(
-        ui,
-        &response,
-        rect,
-        style.corner_radius,
-        style.focus_ring,
-        Placement::Outside,
-    );
+    focus::ring(ui, &response, rect, style.corner_radius, style.focus_ring);
     response.on_hover_cursor(egui::CursorIcon::PointingHand)
 }

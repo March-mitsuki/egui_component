@@ -3,7 +3,7 @@
 //! Items are exposed to assistive technology as links. The current item is
 //! marked like HTML `aria-current` (see [`Current`]); wrap a list of items in
 //! [`group`] to expose it as a navigation landmark.
-use super::focus::{self, Placement};
+use super::focus;
 use crate::{components::text, theme::Theme};
 use egui::{Color32, CornerRadius, Response, Role, Sense, Ui, Vec2, WidgetInfo};
 
@@ -125,7 +125,6 @@ pub fn render(ui: &mut Ui, label: &str, current: bool, style: Style) -> Response
         rect,
         CornerRadius::same(style.radius),
         style.focus_ring,
-        Placement::Outside,
     );
     response.on_hover_cursor(egui::CursorIcon::PointingHand)
 }

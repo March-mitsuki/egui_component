@@ -3,6 +3,7 @@ use eframe::egui;
 use egui_component::{
     components::{button, code, icon, scroll_area, text, tooltip},
     icon::ICONS,
+    icon::lucide,
     theme::Theme,
 };
 
@@ -75,7 +76,8 @@ pub fn show_lucide(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         if button::render(
             ui,
             locale.text("demo.icon:lucideBrowse"),
-            button::Style::new_ghost_md(theme),
+            button::Style::new_ghost_md(theme)
+                .icon_right(button::ButtonIcon::Some(lucide::EXTERNAL_LINK)),
         )
         .clicked()
         {
@@ -106,50 +108,39 @@ pub fn show_lucide(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         );
         ui.add_space(8.0);
 
-        #[cfg(feature = "lucide_icon")]
-        {
-            use egui_component::icon::lucide;
-
-            ui.scope(|ui| {
-                let cell_size = 40.0;
-                let gap = 8.0;
-                ui.spacing_mut().item_spacing = egui::vec2(gap, gap);
-                let columns = ((ui.available_width() + gap) / (cell_size + gap))
-                    .floor()
-                    .max(1.0) as usize;
-                let rows = lucide::NAMES.len().div_ceil(columns);
-                // Only rasterize visible rows of the full icon collection.
-                egui::ScrollArea::vertical()
-                    .id_salt("lucide_icons_scroll")
-                    .max_height(300.0)
-                    .auto_shrink([false, true])
-                    .show_rows(ui, cell_size, rows, |ui, range| {
-                        for row in range {
-                            ui.horizontal(|ui| {
-                                for name in lucide::NAMES.iter().skip(row * columns).take(columns) {
-                                    let response = icon::render(
-                                        ui,
-                                        lucide::get(name).expect("known Lucide icon"),
-                                        icon::Style::new(theme).box_size(cell_size).icon_size(24.0),
-                                    );
-                                    tooltip::render(
-                                        &response,
-                                        |ui| {
-                                            text::render(ui, name, text::Style::new(theme));
-                                        },
-                                        &tooltip::Style::new(theme),
-                                    );
-                                }
-                            });
-                        }
-                    });
-            });
-        }
-        #[cfg(not(feature = "lucide_icon"))]
-        text::render(
-            ui,
-            locale.text("demo.icon:lucideDisabled"),
-            text::Style::new(theme),
-        );
+        ui.scope(|ui| {
+            let cell_size = 40.0;
+            let gap = 8.0;
+            ui.spacing_mut().item_spacing = egui::vec2(gap, gap);
+            let columns = ((ui.available_width() + gap) / (cell_size + gap))
+                .floor()
+                .max(1.0) as usize;
+            let rows = lucide::NAMES.len().div_ceil(columns);
+            // Only rasterize visible rows of the full icon collection.
+            egui::ScrollArea::vertical()
+                .id_salt("lucide_icons_scroll")
+                .max_height(300.0)
+                .auto_shrink([false, true])
+                .show_rows(ui, cell_size, rows, |ui, range| {
+                    for row in range {
+                        ui.horizontal(|ui| {
+                            for name in lucide::NAMES.iter().skip(row * columns).take(columns) {
+                                let response = icon::render(
+                                    ui,
+                                    lucide::get(name).expect("known Lucide icon"),
+                                    icon::Style::new(theme).box_size(cell_size).icon_size(24.0),
+                                );
+                                tooltip::render(
+                                    &response,
+                                    |ui| {
+                                        text::render(ui, name, text::Style::new(theme));
+                                    },
+                                    &tooltip::Style::new(theme),
+                                );
+                            }
+                        });
+                    }
+                });
+        });
     });
 }

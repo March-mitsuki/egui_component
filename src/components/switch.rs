@@ -2,7 +2,7 @@
 //!
 //! Space toggles a focused switch; Enter does not, matching checkbox, so Enter
 //! stays free for form submission.
-use super::focus::{self, Placement};
+use super::focus;
 use egui::{Color32, CornerRadius, Response, Sense, Stroke, StrokeKind, Ui};
 
 use crate::theme::{Color, Theme};
@@ -188,14 +188,7 @@ pub fn render(ui: &mut Ui, on: &mut bool, style: Style) -> Response {
 
     ui.painter().circle_filled(knob_center, r, knob_color);
 
-    focus::ring(
-        ui,
-        &response,
-        rect,
-        corner_radius,
-        style.focus_ring,
-        Placement::Outside,
-    );
+    focus::ring(ui, &response, rect, corner_radius, style.focus_ring);
     if style.disabled {
         response.on_hover_cursor(egui::CursorIcon::NotAllowed)
     } else {

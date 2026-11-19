@@ -2,13 +2,8 @@
 use crate::theme::FocusRing;
 use egui::{CornerRadius, Event, Id, Response, Stroke, StrokeKind, Ui};
 
-const GAP: f32 = 1.0;
-
-#[derive(Clone, Copy)]
-pub(super) enum Placement {
-    Outside,
-    Inside,
-}
+/// Width of the contrasting line between the ring and the control's fill.
+const SEPARATOR: f32 = 1.0;
 
 pub(super) fn focused(response: &Response) -> bool {
     response.enabled() && response.sense.is_focusable() && response.has_focus()
@@ -41,47 +36,47 @@ pub(super) fn keyboard_focus(response: &Response) -> bool {
     keyboard && focused(response)
 }
 
+/// Draws the keyboard focus ring when `response` has keyboard focus.
+///
+/// Rings are drawn inside the control, so they are never clipped and take no
+/// extra space. A thin line in a contrasting color separates the ring from the
+/// control's fill, so the ring stays visible on any fill (WCAG technique C40).
 pub(super) fn ring(
     ui: &Ui,
     response: &Response,
     rect: egui::Rect,
     radius: CornerRadius,
     focus_ring: FocusRing,
-    placement: Placement,
 ) {
     if keyboard_focus(response) {
-        draw_ring(ui, rect, radius, focus_ring.stroke(), placement);
+        draw_ring(ui, rect, radius, focus_ring);
     }
 }
 
-pub(super) fn draw_ring(
-    ui: &Ui,
-    rect: egui::Rect,
-    radius: CornerRadius,
-    stroke: Stroke,
-    placement: Placement,
-) {
-    if matches!(placement, Placement::Outside)
-        && ui
-            .clip_rect()
-            .contains_rect(rect.expand(GAP + stroke.width))
-    {
-        ui.painter().rect_stroke(
-            rect.expand(GAP),
-            radius + CornerRadius::same(GAP as u8),
-            stroke,
-            StrokeKind::Inside,
-        );
-    } else {
-        ui.painter().rect_stroke(
-            rect.shrink(GAP),
-            radius - CornerRadius::same(GAP as u8),
-            stroke,
-            StrokeKind::Inside,
-        );
+/// Draws a focus ring unconditionally, for controls that track focus themselves.
+pub(super) fn draw_ring(ui: &Ui, rect: egui::Rect, radius: CornerRadius, focus_ring: FocusRing) {
+    let painter = ui.painter();
+    let width = focus_ring.width;
+    painter.rect_stroke(rect, radius, focus_ring.stroke(), StrokeKind::Inside);
+    painter.rect_stroke(
+        rect.shrink(width),
+        shrink_radius(radius, width),
+        Stroke::new(SEPARATOR, focus_ring.separator_color()),
+        StrokeKind::Inside,
+    );
+}
+
+fn shrink_radius(radius: CornerRadius, by: f32) -> CornerRadius {
+    let by = by.round().clamp(0.0, 255.0) as u8;
+    CornerRadius {
+        nw: radius.nw.saturating_sub(by),
+        ne: radius.ne.saturating_sub(by),
+        sw: radius.sw.saturating_sub(by),
+        se: radius.se.saturating_sub(by),
     }
 }
 
+/// Circular variant of [`ring`] for round controls such as slider thumbs.
 pub(super) fn circle(
     ui: &Ui,
     response: &Response,
@@ -90,16 +85,18 @@ pub(super) fn circle(
     focus_ring: FocusRing,
 ) {
     if keyboard_focus(response) {
-        let width = focus_ring.width;
-        let outer_radius = radius + GAP + width;
-        let bounds = egui::Rect::from_center_size(center, egui::Vec2::splat(2.0 * outer_radius));
-        let stroke_radius = if ui.clip_rect().contains_rect(bounds) {
-            outer_radius - width / 2.0
-        } else {
-            (radius - GAP - width / 2.0).max(0.0)
-        };
-        ui.painter()
-            .circle_stroke(center, stroke_radius, focus_ring.stroke());
+        let width = focus_ring.width.min(radius);
+        let painter = ui.painter();
+        painter.circle_stroke(
+            center,
+            radius - width / 2.0,
+            Stroke::new(width, focus_ring.color),
+        );
+        painter.circle_stroke(
+            center,
+            (radius - width - SEPARATOR / 2.0).max(0.0),
+            Stroke::new(SEPARATOR, focus_ring.separator_color()),
+        );
     }
 }
 
@@ -133,9 +130,25 @@ mod tests {
                 },
             );
             output.textures_delta.clear();
-            output.shapes.iter().any(
-                |shape| matches!(&shape.shape, Shape::Rect(rect) if rect.stroke == ring.stroke()),
-            )
+            let rects: Vec<_> = output
+                .shapes
+                .iter()
+                .filter_map(|shape| match &shape.shape {
+                    Shape::Rect(rect) => Some(rect.clone()),
+                    _ => None,
+                })
+                .collect();
+            let ring_shape = rects.iter().find(|rect| rect.stroke == ring.stroke());
+            if let Some(ring_shape) = ring_shape {
+                // Drawn inside the control, followed by the separator line.
+                assert_eq!(ring_shape.rect, button_rect.get());
+                assert_eq!(ring_shape.stroke_kind, StrokeKind::Inside);
+                assert!(rects.iter().any(|rect| {
+                    rect.rect == button_rect.get().shrink(ring.width)
+                        && rect.stroke == Stroke::new(SEPARATOR, ring.separator_color())
+                }));
+            }
+            ring_shape.is_some()
         };
         let tab = Event::Key {
             key: Key::Tab,

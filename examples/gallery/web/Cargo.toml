@@ -4,10 +4,6 @@ version = "0.1.0"
 edition = "2024"
 publish = false
 
-[features]
-default = ["lucide_icon"]
-lucide_icon = ["egui_component/lucide_icon"]
-
 [[bin]]
 name = "gallery-web"
 path = "../main.rs"
@@ -17,7 +13,7 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 ehttp = { version = "0.7", features = ["streaming"] }
 wuff = { version = "0.2.9", default-features = false, features = ["brotli"] }
-egui_component = { path = "../../..", features = ["calendar", "code"] }
+egui_component = { path = "../../..", features = ["calendar", "code", "lucide_icon"] }
 egui_component_router = { path = "../../../router" }
 egui_extras = { version = "0.37", features = ["syntect", "all_loaders"] }
 log = "0.4"

@@ -1,4 +1,4 @@
-use super::focus::{self, Placement};
+use super::focus;
 use crate::components::icon_button;
 use crate::icon::ICONS;
 use crate::theme::Theme;
@@ -255,7 +255,6 @@ pub fn render(
                         collapse_rect,
                         style.close_button_style.corner_radius,
                         style.close_button_style.focus_ring,
-                        Placement::Outside,
                     );
                     collapse_response.on_hover_cursor(egui::CursorIcon::PointingHand);
                 }

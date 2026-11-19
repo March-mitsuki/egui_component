@@ -662,7 +662,6 @@ pub fn render_with_options(
             cell_rect,
             style.corner_radius,
             style.focus_ring,
-            super::focus::Placement::Inside,
         );
     }
     if before != *selection {

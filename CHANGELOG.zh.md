@@ -12,7 +12,8 @@
 - `icon_button::Style` 的公开字段 `size: f32` 拆分为 `width: f32` 和 `height: f32`。直接读取 `style.size` 的代码应改为读取所需的宽度或高度。使用结构体字面量时，应将 `size` 替换为这两个字段。`.size(value)` 仍可同时设置宽高，`.width(value)` 和 `.height(value)` 可分别设置宽度和高度。
 - `button::Style` 新增公开字段 `content_align: egui::Align`。逐项列出字段的结构体字面量需补上 `content_align: egui::Align::Center` 以保持居中。穷尽解构时需列出该字段或使用 `..`。构造函数默认使用 `Center`。可通过 `.content_align(...)` 选择 `Min`、`Center` 或 `Max`，将整组内容左对齐、居中或右对齐。
 - `accordion`、`avatar`、`button`、`icon`、`icon_button`、`navigation`、`select`、`slider`、`switch` 的 `Style` 新增公开字段 `focus_ring: theme::FocusRing`（`slider::Style` 由原来的 `focus_color: Color32` 替换而来）。逐项列出字段的结构体字面量需补上 `focus_ring: theme.focus_ring`，与构造函数的默认值一致。穷尽解构时需列出 `focus_ring` 或使用 `..`。
-- 主题 JSON 的 `light` 和 `dark` 现在都必须包含 `focus_ring` 对象，含 `color` 和 `width`。所有组件的键盘焦点指示器都由它绘制，`text_edit` 聚焦时的边框也使用它的宽度。在每个模式中加入例如 `"focus_ring": { "color": <你的 primary l6>, "width": 2.0 }`，即与之前的外观一致。颜色与背景的对比度应不低于 3:1。`theme_gen::generate` 会用生成的 primary 设置颜色，宽度沿用基础主题。
+- 主题 JSON 的 `light` 和 `dark` 现在都必须包含 `focus_ring` 对象，含 `color` 和 `width`。所有组件的键盘焦点指示器都由它绘制，`text_edit` 聚焦时的边框也使用它的宽度。在每个模式中加入例如 `"focus_ring": { "color": <颜色>, "width": 2.0 }`，颜色也可以用 `theme_gen::auto_focus_color(&theme)` 计算。颜色与背景的对比度应不低于 3:1。`theme_gen::generate` 默认由生成的 primary 推导颜色（设置了 `Options::focus_ring_color` 时使用该值），宽度取自 `Options::focus_ring_width`。
+- `theme_gen::Options` 新增 `focus_ring_color: Option<Color32>`（默认 `None`，自动推导）和 `focus_ring_width: f32`（默认 `2.0`）。逐项列出字段的结构体字面量需补上这两个字段，或使用 `..Default::default()`。
 - `theme::Color.foreground` 由 `Option<Color32>` 改为必填的 `Color32`。主题 JSON 在两个模式下的每个色阶（`primary`、`gray`、`red`、`green`、`blue`、`yellow`、`orange`）都必须提供 `foreground`。以前缺省时，实心按钮文字回退到 `colors.fg.base`，开关圆钮回退到白色；如需保持原外观，可设为 `fg.base`，或像 gallery 主题现在这样，在 `fg.base` 和 `bg.base` 中选与 `l5`–`l7` 对比度更高的一个。`theme_gen::generate` 已为每个色阶生成该值。Rust 代码中把 `Some(color)` 改为 `color`，并去掉 `unwrap_or(...)`。
 - `Color::to_button_palette` 不再接收 `&Theme`，改为 `color.to_button_palette(variant)`。
 - 移除仅在 debug 构建中可用的 `UiTheme::dummy`。请用 `theme_gen::generate` 或已有的主题文件创建主题。
@@ -51,6 +52,7 @@
 - `segmented_control` 现在整组只有一个 Tab 停留点，位于选中项上。←/→（以及 ↑/↓）选择上一个或下一个选项，到两端时循环。各选项以单选按钮的语义提供给屏幕阅读器。
 - `dialog::render` 和 `drawer::render` 打开时把焦点移到第一个控件，Tab 和 Shift+Tab 在其中循环，关闭后焦点回到打开它们的控件。
 - `select` 以及 `menu_button`/`icon_menu_button` 的弹窗支持键盘操作：回车、空格、↓ 或 ↑ 打开弹窗，并聚焦选中项或第一个选项；↓/↑ 在选项间移动（循环），Home/End 跳到首尾，回车或空格触发选项并关闭弹窗，Tab 或 Esc 关闭弹窗。关闭后焦点回到触发按钮。方向键只在本库的按钮和 select 选项之间移动，其他控件仍可用 Tab 访问。
+- 键盘焦点环现在统一画在控件内侧，不会被裁剪，也不额外占用空间。焦点环与控件填充之间有一条 1px 的黑色或白色细线（取与焦点环对比度更高的一个，见 `FocusRing::separator_color`），因此在实心填充上也清晰可见，例如以前看不到焦点环的 calendar 选中日期。以前大多数焦点环画在控件外侧，并且会压住控件边缘。
 - 按钮、图标按钮、开关、select 的触发按钮与选项、头像、窗口折叠按钮和菜单触发按钮，现在会通过 AccessKit 向屏幕阅读器提供角色、名称和状态（按下、选中、展开）。
 - `switch` 不再响应 Enter 切换，与 `checkbox` 一致：空格、鼠标点击或点击其 `field` 标签可以切换，Enter 留给表单提交。
 - `navigation` 的各项改为以链接（而不是切换按钮）提供给屏幕阅读器，当前项按 HTML `aria-current` 的方式标记（默认是 `Page`；页内目录可设置 `.current_kind(navigation::Current::Location)`）。用 `navigation::group(ui, label, ...)` 包住一组导航项，可将其作为带名称的导航地标。

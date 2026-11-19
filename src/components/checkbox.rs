@@ -8,7 +8,7 @@ use egui::{
     WidgetInfo, WidgetText, pos2, vec2,
 };
 
-use super::focus::{self, Placement};
+use super::focus;
 use super::text;
 use crate::theme::{Color, Theme};
 
@@ -189,7 +189,6 @@ fn show(ui: &mut Ui, checked: &mut bool, label: Option<&str>, mut style: Style) 
         if label.is_some() { rect } else { box_rect },
         CornerRadius::same(style.corner_radius.round() as u8),
         style.focus_ring,
-        Placement::Outside,
     );
     if style.disabled {
         response.on_hover_cursor(egui::CursorIcon::NotAllowed)
