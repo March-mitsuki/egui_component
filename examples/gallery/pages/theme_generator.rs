@@ -100,11 +100,7 @@ impl Generator {
     pub fn show(&mut self, ui: &mut egui::Ui, shell: &Theme, locale: Locale) -> Option<UiTheme> {
         let mut apply = None;
         egui::CentralPanel::default()
-            .frame(
-                egui::Frame::new()
-                    .fill(shell.colors.bg.base)
-                    .inner_margin(egui::Margin::symmetric(24, 20)),
-            )
+            .frame(egui::Frame::new().fill(shell.colors.bg.base))
             .show(ui, |ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(8.0, 8.0);
                 scroll_area::render(
@@ -132,7 +128,9 @@ impl Generator {
                             self.preview(ui, shell, locale);
                         }
                     },
-                    scroll_area::Style::new_no_frame().auto_shrink([false, false]),
+                    scroll_area::Style::new_no_frame()
+                        .auto_shrink([false, false])
+                        .padding(egui::Margin::symmetric(24, 20)),
                 );
             });
         apply
