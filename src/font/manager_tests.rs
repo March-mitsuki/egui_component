@@ -34,7 +34,7 @@ fn latest_update_wins_when_reverting_to_active_fonts_in_the_same_pass() {
     assert!(manager.apply(&ctx));
     finish(&ctx);
     ctx.begin_pass(Default::default());
-    let family = manager.get_egui_font_family(&ctx, "main", FontWeight::Regular);
+    let family = manager.get_egui_font_family(&ctx, "main", FontWeight::Regular, false);
     ctx.fonts(|fonts| {
         let definitions = fonts.definitions();
         let primary = &definitions.families[&family][0];
@@ -45,7 +45,7 @@ fn latest_update_wins_when_reverting_to_active_fonts_in_the_same_pass() {
 }
 
 fn has_chinese(manager: &FontManager, ctx: &egui::Context) -> bool {
-    let family = manager.get_egui_font_family(ctx, "main", FontWeight::Bold);
+    let family = manager.get_egui_font_family(ctx, "main", FontWeight::Bold, false);
     ctx.fonts_mut(|fonts| fonts.has_glyph(&egui::FontId::new(16.0, family), '中'))
 }
 
@@ -139,24 +139,24 @@ fn contexts_activate_independently_and_queries_never_return_pending_names() {
     assert!(manager.apply(&first));
     assert!(!manager.apply(&first));
     assert_eq!(
-        manager.get_egui_font_family(&first, "custom", FontWeight::Regular),
+        manager.get_egui_font_family(&first, "custom", FontWeight::Regular, false),
         egui::FontFamily::Proportional
     );
     finish(&first);
     first.begin_pass(Default::default());
-    let family = manager.get_egui_font_family(&first, "custom", FontWeight::Regular);
+    let family = manager.get_egui_font_family(&first, "custom", FontWeight::Regular, false);
     assert_ne!(family, egui::FontFamily::Proportional);
 
     second.begin_pass(Default::default());
     assert_eq!(
-        manager.get_egui_font_family(&second, "custom", FontWeight::Regular),
+        manager.get_egui_font_family(&second, "custom", FontWeight::Regular, false),
         egui::FontFamily::Proportional
     );
     assert!(manager.apply(&second));
     finish(&second);
     second.begin_pass(Default::default());
     assert_eq!(
-        manager.get_egui_font_family(&second, "custom", FontWeight::Regular),
+        manager.get_egui_font_family(&second, "custom", FontWeight::Regular, false),
         family
     );
 
@@ -165,24 +165,24 @@ fn contexts_activate_independently_and_queries_never_return_pending_names() {
     assert!(manager.apply(&first));
     // First still has the old active snapshot, despite queuing its removal.
     assert_eq!(
-        manager.get_egui_font_family(&first, "custom", FontWeight::Regular),
+        manager.get_egui_font_family(&first, "custom", FontWeight::Regular, false),
         family
     );
     finish(&first);
     first.begin_pass(Default::default());
     assert_ne!(
-        manager.get_egui_font_family(&first, "custom", FontWeight::Regular),
+        manager.get_egui_font_family(&first, "custom", FontWeight::Regular, false),
         family
     );
     assert_eq!(
-        manager.get_egui_font_family(&second, "custom", FontWeight::Regular),
+        manager.get_egui_font_family(&second, "custom", FontWeight::Regular, false),
         family
     );
     assert!(manager.apply(&second));
     finish(&second);
     second.begin_pass(Default::default());
     assert_ne!(
-        manager.get_egui_font_family(&second, "custom", FontWeight::Regular),
+        manager.get_egui_font_family(&second, "custom", FontWeight::Regular, false),
         family
     );
     finish(&first);
@@ -220,7 +220,7 @@ fn late_fallback_load_and_removal_change_actual_glyph_availability() {
     finish(&ctx);
     ctx.begin_pass(Default::default());
     assert!(has_chinese(&manager, &ctx));
-    let family = manager.get_egui_font_family(&ctx, "main", FontWeight::Bold);
+    let family = manager.get_egui_font_family(&ctx, "main", FontWeight::Bold, false);
     ctx.fonts(|fonts| {
         let definitions = fonts.definitions();
         let chain = &definitions.families[&family];

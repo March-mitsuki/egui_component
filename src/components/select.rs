@@ -167,6 +167,7 @@ pub fn render(
 ) -> Response {
     let response = render_trigger(ui, selected_text, &style, Popup::is_id_open(ui.ctx(), id));
     let rect = response.rect;
+    super::menu_nav::trigger(ui, &response, id);
     // 8. Popup Menu logic
     Popup::menu(&response)
         .id(id)
@@ -183,10 +184,13 @@ pub fn render(
             ui.set_width(inner_width);
 
             // Wrap items in ScrollArea
-            egui::ScrollArea::vertical()
-                .max_height(style.popup_max_height)
-                .show(ui, menu_render);
+            super::menu_nav::content(ui, &response, id, |ui| {
+                egui::ScrollArea::vertical()
+                    .max_height(style.popup_max_height)
+                    .show(ui, menu_render);
+            });
         });
+    super::menu_nav::after(ui.ctx(), &response, id);
 
     response
 }
@@ -207,6 +211,14 @@ pub(crate) fn render_trigger(
         Sense::click()
     };
     let (rect, response) = ui.allocate_exact_size(size, sense);
+    response.widget_info(|| {
+        let mut info = egui::WidgetInfo::new(egui::Role::ComboBox);
+        info.enabled = !style.disabled && ui.is_enabled();
+        info.current_text_value = Some(selected_text.to_owned());
+        info
+    });
+    ui.ctx()
+        .accesskit_node_builder(response.id, |node| node.set_expanded(is_open));
 
     // 2. Query popup open state
 
@@ -360,6 +372,10 @@ pub fn render_item(
 
     // Allocate space for option
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    response.widget_info(|| {
+        egui::WidgetInfo::selected(egui::Role::ListBoxOption, ui.is_enabled(), selected, text)
+    });
+    super::menu_nav::register(&response, selected);
 
     let is_hovered = response.hovered();
 

@@ -16,7 +16,7 @@ fn main() -> eframe::Result {
         options,
         Box::new(move |cc| {
             // Set up custom fonts from our font manager
-            egui_component::consts::FONT_MANAGER.set_egui_fonts(&cc.egui_ctx);
+            egui_component::consts::FONT_MANAGER.apply(&cc.egui_ctx);
             egui_extras::install_image_loaders(&cc.egui_ctx);
 
             Ok(Box::new(MyApp {
@@ -77,6 +77,7 @@ impl eframe::App for MyApp {
                         ui.ctx(),
                         &text_style.font_family,
                         text_style.font_weight,
+                        false,
                     );
 
                     let galley = ui.painter().layout_no_wrap(

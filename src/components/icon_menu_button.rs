@@ -1,4 +1,6 @@
-use egui::{Color32, CornerRadius, Image, Popup, Rect, Rgba, Sense, StrokeKind, Ui, vec2};
+use egui::{
+    Color32, CornerRadius, Image, Popup, Rect, Rgba, Role, Sense, StrokeKind, Ui, WidgetInfo, vec2,
+};
 use egui_component_style_macros::FrameModifier;
 
 use super::focus::{self, Placement};
@@ -12,6 +14,8 @@ pub struct Style {
     pub gap: f32,
     pub menu_handle_width: f32,
     pub menu_handle_icon_size: f32,
+    /// Accessible name of the menu handle. Defaults to "More options".
+    pub menu_handle_label: String,
 }
 impl Style {
     pub fn new(theme: &Theme) -> Self {
@@ -21,7 +25,14 @@ impl Style {
             gap: 0.0,
             menu_handle_width: 12.0,
             menu_handle_icon_size: 12.0,
+            menu_handle_label: "More options".to_owned(),
         }
+    }
+
+    /// Localize the menu handle's accessible name.
+    pub fn menu_handle_label(mut self, label: impl Into<String>) -> Self {
+        self.menu_handle_label = label.into();
+        self
     }
 }
 
@@ -181,6 +192,17 @@ pub fn render<'a>(
 
     // 10. Popup Menu logic
     // The menu_handle_response created earlier is used to trigger the popup
+    let main_label = icons.first().map_or("", |icon| icon.tooltip.as_str());
+    response.widget_info(|| WidgetInfo::labeled(Role::Button, ui.is_enabled(), main_label));
+    menu_handle_response.widget_info(|| {
+        WidgetInfo::labeled(Role::Button, ui.is_enabled(), &style.menu_handle_label)
+    });
+    let expanded = Popup::is_id_open(ui.ctx(), id);
+    ui.ctx()
+        .accesskit_node_builder(menu_handle_response.id, |node| {
+            node.set_expanded(expanded);
+        });
+    super::menu_nav::trigger(ui, &menu_handle_response, id);
     Popup::menu(&menu_handle_response)
         .id(id)
         .frame(style.menu.frame)
@@ -188,21 +210,28 @@ pub fn render<'a>(
         .close_behavior(style.menu.close_behavior)
         .gap(style.menu.gap)
         .show(|ui| {
-            for (index, icon_with_tooltip) in icons.iter().skip(1).enumerate() {
-                let btn_resp =
-                    icon_button::render(ui, icon_with_tooltip.icon.clone(), style.button.clone());
-                tooltip::render(
-                    &btn_resp,
-                    |ui| {
-                        text::render(ui, &icon_with_tooltip.tooltip, text::Style::new(theme));
-                    },
-                    &tooltip::Style::new(theme),
-                );
-                if btn_resp.clicked() {
-                    on_click(index + 1);
+            super::menu_nav::content(ui, &menu_handle_response, id, |ui| {
+                for (index, icon_with_tooltip) in icons.iter().skip(1).enumerate() {
+                    let btn_resp = icon_button::render(
+                        ui,
+                        icon_with_tooltip.icon.clone(),
+                        &icon_with_tooltip.tooltip,
+                        style.button.clone(),
+                    );
+                    tooltip::render(
+                        &btn_resp,
+                        |ui| {
+                            text::render(ui, &icon_with_tooltip.tooltip, text::Style::new(theme));
+                        },
+                        &tooltip::Style::new(theme),
+                    );
+                    if btn_resp.clicked() {
+                        on_click(index + 1);
+                    }
                 }
-            }
+            })
         });
+    super::menu_nav::after(ui.ctx(), &menu_handle_response, id);
 
     // Ensure the pointing hand cursor appears for both the component and its handle
     response.on_hover_cursor(egui::CursorIcon::PointingHand);

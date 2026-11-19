@@ -183,7 +183,7 @@ ctx.request_repaint(); // Wake an idle application after asynchronous loading.
 
 // During the UI pass, before rendering components:
 FONT_MANAGER.apply(ctx);
-let family = FONT_MANAGER.get_egui_font_family(ctx, DEFAULT_FONT_FAMILY_ALIAS, FontWeight::Bold);
+let family = FONT_MANAGER.get_egui_font_family(ctx, DEFAULT_FONT_FAMILY_ALIAS, FontWeight::Bold, false);
 ```
 
 Use `replace_family` to replace a whole family, `load_from_bytes` to add or replace a single font, and `set_fallback_chain` to configure missing-character fallback. Remove fonts with `remove_face` or `remove_family`. After asynchronous loading, call `ctx.request_repaint()` to display the update.

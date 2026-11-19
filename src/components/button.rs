@@ -525,6 +525,18 @@ pub(super) fn render_with_focus_placement(
     style: Style,
     placement: Placement,
 ) -> egui::Response {
+    render_inner(ui, text, style, placement, true)
+}
+
+/// `tab_stop: false` keeps the button clickable but out of the Tab order, for
+/// composite widgets that manage focus with arrow keys (roving tabindex).
+pub(super) fn render_inner(
+    ui: &mut Ui,
+    text: &str,
+    style: Style,
+    placement: Placement,
+    tab_stop: bool,
+) -> egui::Response {
     let mut font_id = egui::TextStyle::Button.resolve(ui.style());
     font_id.size = style.text_size;
 
@@ -600,10 +612,23 @@ pub(super) fn render_with_focus_placement(
     let size = egui::vec2(total_width, style.height);
 
     let sense = match style.state {
-        ButtonState::None => egui::Sense::click(),
-        ButtonState::Disable | ButtonState::Loading => egui::Sense::hover(),
+        ButtonState::None if tab_stop => egui::Sense::click(),
+        ButtonState::None => egui::Sense::CLICK,
+        // Loading stays focusable without clicking (like `aria-disabled`), so a
+        // keyboard user who just activated it does not lose focus.
+        ButtonState::Loading => egui::Sense::FOCUSABLE,
+        ButtonState::Disable => egui::Sense::hover(),
     };
     let (rect, response) = ui.allocate_exact_size(size, sense);
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(
+            egui::Role::Button,
+            style.state == ButtonState::None && ui.is_enabled(),
+            text,
+        )
+    });
+    // Buttons inside a menu popup take part in its arrow-key navigation.
+    super::menu_nav::register(&response, false);
 
     // 绘制背景 (0.2s 渐变)
     let is_hovered = response.hovered() && style.state == ButtonState::None;

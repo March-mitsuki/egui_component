@@ -45,7 +45,7 @@ fn main() -> eframe::Result {
         "egui_component Gallery",
         options,
         Box::new(move |cc| {
-            FONT_MANAGER.set_egui_fonts(&cc.egui_ctx);
+            FONT_MANAGER.apply(&cc.egui_ctx);
             egui_extras::install_image_loaders(&cc.egui_ctx);
             tracing::info!("eframe app init");
 
@@ -79,7 +79,7 @@ fn main() {
                 canvas,
                 web_options,
                 Box::new(|cc| {
-                    FONT_MANAGER.set_egui_fonts(&cc.egui_ctx);
+                    FONT_MANAGER.apply(&cc.egui_ctx);
                     egui_extras::install_image_loaders(&cc.egui_ctx);
                     let ui_theme = UiTheme::from_json_bytes(include_bytes!("../theme.json"))
                         .expect("Failed to load theme.json");

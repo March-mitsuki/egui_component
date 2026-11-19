@@ -1,3 +1,7 @@
+//! An on/off switch.
+//!
+//! Space toggles a focused switch; Enter does not, matching checkbox, so Enter
+//! stays free for form submission.
 use super::focus::{self, Placement};
 use egui::{Color32, CornerRadius, Response, Sense, Stroke, StrokeKind, Ui};
 
@@ -121,12 +125,18 @@ pub fn render(ui: &mut Ui, on: &mut bool, style: Style) -> Response {
     };
     let (rect, mut response) = ui.allocate_exact_size(size, sense);
 
-    // Always consume label activation so a disabled switch cannot toggle later.
-    let label_activated = super::activation::take(ui.ctx(), response.id);
-    if (response.clicked() || label_activated) && !style.disabled {
+    if super::activation::toggle_requested(ui, &response) && !style.disabled {
         *on = !*on;
         response.mark_changed();
     }
+    response.widget_info(|| {
+        egui::WidgetInfo::selected(
+            egui::Role::Switch,
+            !style.disabled && ui.is_enabled(),
+            *on,
+            "",
+        )
+    });
 
     // Smooth transition animations
     let animation_factor = ui.ctx().animate_bool_with_time(response.id, *on, 0.15);
@@ -190,5 +200,52 @@ pub fn render(ui: &mut Ui, on: &mut bool, style: Style) -> Response {
         response.on_hover_cursor(egui::CursorIcon::NotAllowed)
     } else {
         response.on_hover_cursor(egui::CursorIcon::PointingHand)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::theme::UiTheme;
+    use egui::{Event, Key, Modifiers, RawInput};
+
+    fn key(key: Key) -> Event {
+        Event::Key {
+            key,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: Modifiers::NONE,
+        }
+    }
+
+    fn pass(ctx: &egui::Context, events: Vec<Event>, on: &mut bool, style: &Style) -> Response {
+        let mut out = None;
+        ctx.run_ui(
+            RawInput {
+                events,
+                ..Default::default()
+            },
+            |ui| out = Some(render(ui, on, style.clone())),
+        )
+        .textures_delta
+        .clear();
+        out.unwrap()
+    }
+
+    #[test]
+    fn space_toggles_but_enter_does_not() {
+        let theme = UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json"))
+            .unwrap()
+            .light;
+        let ctx = egui::Context::default();
+        let style = Style::new(&theme);
+        let mut on = false;
+        pass(&ctx, vec![], &mut on, &style).request_focus();
+        pass(&ctx, vec![], &mut on, &style);
+        pass(&ctx, vec![key(Key::Enter)], &mut on, &style);
+        assert!(!on, "Enter is for form submission");
+        let r = pass(&ctx, vec![key(Key::Space)], &mut on, &style);
+        assert!(on && r.changed());
     }
 }

@@ -218,9 +218,13 @@ impl Style {
     }
 }
 
-pub fn render(ui: &mut Ui, icon: egui::ImageSource, style: Style) -> egui::Response {
+/// `label` is the accessible name read by screen readers, like `aria-label`;
+/// icon-only buttons have no other text. It is not drawn.
+pub fn render(ui: &mut Ui, icon: egui::ImageSource, label: &str, style: Style) -> egui::Response {
     let size = vec2(style.width, style.height);
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), label));
+    super::menu_nav::register(&response, false);
 
     // 绘制背景 (0.2s 渐变)
     let is_hovered = response.hovered();

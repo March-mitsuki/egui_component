@@ -50,13 +50,75 @@ impl Style {
     }
 }
 
+/// Show `content` while `target` is hovered or has keyboard focus (WCAG 1.4.13).
+/// Escape dismisses it until the pointer leaves and focus moves away.
 pub fn render(target: &Response, content: impl FnOnce(&mut Ui), style: &Style) {
-    let mut tooltip = Tooltip::for_enabled(target);
+    let ctx = &target.ctx;
+    let dismissed_id = target.id.with("egui_component_tooltip_dismissed");
+    let hovered = target.enabled() && Tooltip::should_show_tooltip(target, true);
+    let focused = super::focus::keyboard_focus(target);
+    let mut dismissed = ctx.data(|d| d.get_temp::<bool>(dismissed_id).unwrap_or(false));
+    if !target.hovered() && !target.has_focus() {
+        dismissed = false;
+    }
+    let mut open = (hovered || focused) && !dismissed;
+    // Consume Escape only while shown, so an enclosing dialog closes on the next press.
+    if open && ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)) {
+        dismissed = true;
+        open = false;
+    }
+    ctx.data_mut(|d| d.insert_temp(dismissed_id, dismissed));
+
+    let mut tooltip = Tooltip::for_widget(target);
     tooltip.popup = tooltip
         .popup
+        .open(open)
         .frame(style.frame)
         .align(style.align)
         .close_behavior(style.close_behavior)
         .gap(style.gap);
     tooltip.show(content);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{components::button, theme::UiTheme};
+    use egui::{Event, Key, Modifiers, RawInput};
+
+    #[test]
+    fn keyboard_focus_shows_tooltip_and_escape_dismisses_it() {
+        let ctx = egui::Context::default();
+        let theme = UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json"))
+            .unwrap()
+            .light;
+        let key = |key| Event::Key {
+            key,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers: Modifiers::NONE,
+        };
+        let run = |events: Vec<Event>| {
+            let mut shown = false;
+            ctx.run_ui(
+                RawInput {
+                    events,
+                    ..Default::default()
+                },
+                |ui| {
+                    let r = button::render(ui, "Save", button::Style::new_solid_md(&theme));
+                    render(&r, |_| shown = true, &Style::new(&theme));
+                },
+            )
+            .textures_delta
+            .clear();
+            shown
+        };
+        assert!(!run(vec![]));
+        run(vec![key(Key::Tab)]);
+        assert!(run(vec![]), "shown while focused by keyboard");
+        assert!(!run(vec![key(Key::Escape)]), "Escape dismisses");
+        assert!(!run(vec![]), "stays dismissed while focused");
+    }
 }

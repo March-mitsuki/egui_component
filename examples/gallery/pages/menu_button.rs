@@ -60,6 +60,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             icon_button::render(
                 ui,
                 ICONS.arrow_down.clone(),
+                locale.text("common:moreOptions"),
                 icon_button::Style::new_outline_md(theme),
             )
         },

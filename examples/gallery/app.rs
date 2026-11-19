@@ -391,13 +391,16 @@ impl GalleryApp {
         ui.add_space(14.0);
         eyebrow(ui, locale.text("common:onThisPage"), theme);
         ui.add_space(12.0);
-        for (id, title) in Self::outline(page, locale) {
-            let mut style = navigation::Style::new(theme);
-            style.text.size = 13.0;
-            if navigation::render(ui, title, self.active_section == id, style).clicked() {
-                self.jump(id);
+        navigation::group(ui, locale.text("common:onThisPage"), |ui| {
+            for (id, title) in Self::outline(page, locale) {
+                let mut style =
+                    navigation::Style::new(theme).current_kind(navigation::Current::Location);
+                style.text.size = 13.0;
+                if navigation::render(ui, title, self.active_section == id, style).clicked() {
+                    self.jump(id);
+                }
             }
-        }
+        });
         ui.add_space(26.0);
         ui.add_space(18.0);
         muted(ui, locale.text("common:immediateMode"), theme);
@@ -430,7 +433,11 @@ impl GalleryApp {
                         ui,
                         "sidebar-scroll",
                         scroll_area::ScrollAxes::Vertical,
-                        |ui| self.sidebar(ui, theme, &page),
+                        |ui| {
+                            navigation::group(ui, locale.text("nav:main"), |ui| {
+                                self.sidebar(ui, theme, &page)
+                            })
+                        },
                         scroll_area::Style::new_no_frame()
                             .auto_shrink([false, false])
                             .padding(Margin::same(16)),
@@ -465,7 +472,11 @@ impl GalleryApp {
                                     ui,
                                     "mobile-nav",
                                     scroll_area::ScrollAxes::Vertical,
-                                    |ui| self.sidebar(ui, theme, &page),
+                                    |ui| {
+                                        navigation::group(ui, locale.text("nav:main"), |ui| {
+                                            self.sidebar(ui, theme, &page)
+                                        })
+                                    },
                                     scroll_area::Style::new_no_frame().max_height(260.0),
                                 );
                             }

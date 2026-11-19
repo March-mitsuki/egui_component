@@ -146,13 +146,7 @@ fn show(ui: &mut Ui, checked: &mut bool, label: Option<&str>, mut style: Style) 
     };
     let (rect, mut response) = ui.allocate_exact_size(vec2(width, height), sense);
 
-    // Must be consumed even when disabled so a stale request cannot fire later.
-    let label_activated = super::activation::take(ui.ctx(), response.id);
-    // egui treats Enter on a focused widget as a click; a checkbox ignores it.
-    let enter_click = response.clicked()
-        && !response.clicked_by(egui::PointerButton::Primary)
-        && ui.input(|i| i.key_pressed(egui::Key::Enter));
-    if ((response.clicked() && !enter_click) || label_activated) && !style.disabled {
+    if super::activation::toggle_requested(ui, &response) && !style.disabled {
         *checked = !*checked;
         response.mark_changed();
     }

@@ -12,12 +12,15 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         locale.text("demo.navigation:activity"),
         locale.text("demo.navigation:settings"),
     ];
-    for (index, label) in labels.into_iter().enumerate() {
-        if navigation::render(ui, label, selected == index, navigation::Style::new(theme)).clicked()
-        {
-            selected = index;
+    navigation::group(ui, locale.text("component.navigation:name"), |ui| {
+        for (index, label) in labels.into_iter().enumerate() {
+            if navigation::render(ui, label, selected == index, navigation::Style::new(theme))
+                .clicked()
+            {
+                selected = index;
+            }
         }
-    }
+    });
     ui.add_space(12.0);
     text::render(
         ui,

@@ -109,6 +109,7 @@ pub fn render<R>(
                     ui.ctx(),
                     DEFAULT_FONT_FAMILY_ALIAS,
                     FontWeight::SemiBold,
+                    false,
                 );
                 (RichText::new(text).family(family).into(), style.foreground)
             }

@@ -17,6 +17,11 @@ Breaking changes and migration instructions are recorded here.
 - `accordion::Style` replaces `padding: i8` with `header_padding_y: i8` for the padding above and below the title and `body_indent: i8` for the left indent when the guide is enabled. Both default to `12` and clamp negative values to zero. Replace `padding` with the two new fields in full struct literals and exhaustive destructuring patterns. Accordion titles now accept any `Into<egui::WidgetText>`. Pass `egui::RichText` to customize the title, and its explicit color also applies to the hover underline. The default header is transparent and borderless, with a title underline on hover. If you customize `hover_background`, a transparent value now inherits `background`.
 - `egui_component` no longer enables `egui_extras`' `all_loaders` feature; it now enables only `svg`, which the built-in icons need. Applications that load other images, such as `avatar` URLs over `http(s)://` or `file://`, PNG/JPEG, GIF, or WebP, must enable the matching loaders on their own `egui_extras` dependency, for example `egui_extras = { version = "0.37", features = ["all_loaders"] }`, and keep calling `egui_extras::install_image_loaders(ctx)`. Without them, `avatar` falls back to the name initial.
 - `field::render` now requires `input_content` to return the input control's `egui::Response`, and returns `InnerResponse<Response>` instead of `InnerResponse<R>`. Clicking the label focuses that control, and toggle controls such as `switch` also toggle. In most cases, remove the trailing `;` in the closure so it returns the widget's response; `form.field` and `form.field_with_error` already return it. To pass other data out of the closure, assign it to a variable declared outside. Field labels are no longer selectable, regardless of `label_style.selectable`, and are not Tab stops.
+- `icon_button::render` now takes an accessible name: `render(ui, icon, label, style)`. Screen readers read `label` (like `aria-label`); it is not drawn. Pass a short, localized action name such as `"Close"`.
+- `text_edit::Style` adds the public field `password_toggle_label: String`, and `icon_menu_button::Style` adds `menu_handle_label: String`. They are the accessible names of the password visibility toggle and the menu handle, defaulting to `"Show password"` and `"More options"`. Add them to full struct literals, or localize them with `.password_toggle_label(...)` and `.menu_handle_label(...)`. Built-in close buttons in `dialog::render_header`, `drawer::render_header` and `window` use the English name `"Close"`.
+- `toast::custom` adds an `announcement: Option<&str>` parameter before `content`: `custom(ctx, kind, duration, announcement, content)`. Pass `None` when the content draws its own text, which screen readers announce; pass `Some("...")` to name a toast whose content has no text, such as a progress bar alone.
+- `navigation::Style` adds the public field `current_kind: navigation::Current`. Add `current_kind: navigation::Current::Page` to full struct literals, or include the field or use `..` in exhaustive destructuring patterns. The third parameter of `navigation::render` is renamed from `selected` to `current`; its type and meaning are unchanged.
+- `FontManager::set_egui_fonts` is removed; call `FontManager::apply`, which it already forwarded to. `get_egui_font_family_with_style` is merged into `get_egui_font_family`, which now takes `italic: bool` as its last argument: add `false` to existing calls, and rename `get_egui_font_family_with_style` calls to `get_egui_font_family`.
 
 ### Color picker behavior changes
 
@@ -31,6 +36,21 @@ Breaking changes and migration instructions are recorded here.
 ### Text edit behavior changes
 
 - In password inputs, Tab now moves from the input to the show/hide toggle, then to the next control; previously the toggle came first. Clicking the toggle with a pointer keeps focus in the input, while toggling with the keyboard keeps focus on the toggle.
+
+### Accessibility and keyboard behavior changes
+
+These changes follow the WAI-ARIA Authoring Practices and WCAG. They need no code changes unless noted, but may affect UI automation.
+
+- `icon::Style` and `avatar::Style` now default to `Sense::hover()`, so decorative icons and avatars are no longer Tab stops. Pass `.sense(egui::Sense::click())` to make one clickable; prefer `icon_button` for clickable icons.
+- Tooltips from `tooltip::render` also appear while the target has keyboard focus, and Escape dismisses them until the pointer leaves and focus moves away.
+- A `button` in the `Loading` state stays focusable but cannot be activated, so focus is not lost after pressing it. Disabled buttons are still not focusable.
+- `segmented_control` is now a single Tab stop on the selected choice. ArrowLeft/ArrowRight (and ArrowUp/ArrowDown) select the previous or next choice, wrapping at the ends. Choices are exposed as radio buttons.
+- `dialog::render` and `drawer::render` move focus to their first control when they open, keep Tab and Shift+Tab inside, and return focus to the control that opened them once they close.
+- `select` and `menu_button`/`icon_menu_button` popups are keyboard operable: Enter, Space, ArrowDown or ArrowUp opens the popup and focuses the selected option or the first item; ArrowDown/ArrowUp move between items (wrapping), Home/End jump to the ends, Enter or Space activates an item and closes the popup, and Tab or Escape closes it. Focus returns to the trigger after closing. The arrow keys move between this crate's buttons and select items; other widgets remain reachable with Tab.
+- Buttons, icon buttons, switches, select triggers and options, avatars, the window collapse toggle and menu triggers now report roles, names and states (pressed, checked, expanded) to screen readers through AccessKit.
+- `switch` no longer toggles on Enter, matching `checkbox`: Space, a pointer click, or clicking its `field` label toggles it, and Enter stays free for form submission.
+- `navigation` items are exposed as links instead of toggle buttons, and the current item is marked like HTML `aria-current` (`Page` by default; set `.current_kind(navigation::Current::Location)` for a table of contents). Wrap a list of items in `navigation::group(ui, label, ...)` to expose it as a named navigation landmark.
+- Toasts are live regions: info and success toasts are announced politely (`role="status"`), warning and error toasts immediately (`role="alert"`). The auto-dismiss timer now also pauses while keyboard focus is inside a toast, not only while it is hovered. Announcements depend on the platform's AccessKit adapter; eframe on the web does not provide one.
 
 ## 0.3.0
 

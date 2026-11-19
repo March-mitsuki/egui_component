@@ -25,7 +25,7 @@ pub fn start(ctx: &egui::Context) {
     let content_state = state.clone();
     let id = Arc::new(AtomicU64::new(u64::MAX));
     let content_id = id.clone();
-    let toast_id = toast::custom(ctx, toast::ToastKind::Info, None, move |ui, theme| {
+    let toast_id = toast::custom(ctx, toast::ToastKind::Info, None, None, move |ui, theme| {
         let (received, total, error, done) = {
             let state = content_state.lock().unwrap();
             (

@@ -225,6 +225,18 @@ pub fn render(
                     if collapse_response.clicked() {
                         state.is_collapsed = !state.is_collapsed;
                     }
+                    collapse_response.widget_info(|| {
+                        egui::WidgetInfo::labeled(
+                            egui::Role::DisclosureTriangle,
+                            ui.is_enabled(),
+                            "Collapse",
+                        )
+                    });
+                    let expanded = !state.is_collapsed;
+                    ui.ctx()
+                        .accesskit_node_builder(collapse_response.id, |node| {
+                            node.set_expanded(expanded)
+                        });
 
                     // Animate the collapse icon rotation
                     let openness = ui
@@ -259,6 +271,7 @@ pub fn render(
                     if icon_button::render(
                         ui,
                         ICONS.close.clone(),
+                        "Close",
                         style.close_button_style.clone(),
                     )
                     .clicked()

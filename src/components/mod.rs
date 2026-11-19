@@ -1,5 +1,9 @@
+#[cfg(test)]
+mod a11y_tests;
 mod activation;
 mod focus;
+mod menu_nav;
+mod modal_focus;
 
 pub mod accordion;
 pub mod avatar;

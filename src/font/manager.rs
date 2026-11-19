@@ -492,22 +492,9 @@ impl FontManager {
         true
     }
 
-    /// Compatibility entry point; now applies revisions instead of running only once.
-    pub fn set_egui_fonts(&self, ctx: &egui::Context) {
-        self.apply(ctx);
-    }
-
     /// Resolve a family against this context's active fonts. Call during an egui pass.
+    /// Falls back to the default family, then to egui's proportional font.
     pub fn get_egui_font_family(
-        &self,
-        ctx: &egui::Context,
-        family: &str,
-        weight: FontWeight,
-    ) -> egui::FontFamily {
-        self.get_egui_font_family_with_style(ctx, family, weight, false)
-    }
-
-    pub fn get_egui_font_family_with_style(
         &self,
         ctx: &egui::Context,
         family: &str,
@@ -535,7 +522,7 @@ impl FontManager {
     }
 
     pub fn default_egui_font_family(&self, ctx: &egui::Context) -> egui::FontFamily {
-        self.get_egui_font_family(ctx, DEFAULT_FONT_FAMILY_ALIAS, FontWeight::Regular)
+        self.get_egui_font_family(ctx, DEFAULT_FONT_FAMILY_ALIAS, FontWeight::Regular, false)
     }
 
     pub fn find_closest_weight(faces: &[FontFace], target: FontWeight) -> Option<&FontFace> {

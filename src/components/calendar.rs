@@ -690,17 +690,16 @@ fn navigation_button(
     } else {
         egui::include_image!("../../assets/lucide/chevron-left.svg")
     };
-    let response = ui
-        .add_enabled_ui(enabled, |ui| icon_button::render(ui, icon, button_style))
-        .inner;
     let label = options.label(if next {
         Label::NextMonth
     } else {
         Label::PreviousMonth
     });
-    response.widget_info(|| {
-        egui::WidgetInfo::labeled(egui::Role::Button, enabled && ui.is_enabled(), &label)
-    });
+    let response = ui
+        .add_enabled_ui(enabled, |ui| {
+            icon_button::render(ui, icon, &label, button_style)
+        })
+        .inner;
     response.on_hover_text(label)
 }
 

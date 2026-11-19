@@ -17,7 +17,8 @@ impl Style {
             box_size: theme.text_size.md,
             icon_size: theme.text_size.md,
             color: theme.colors.fg.base,
-            sense: egui::Sense::click(),
+            // Icons are decorative by default and must not be Tab stops.
+            sense: egui::Sense::hover(),
         }
     }
 
@@ -36,6 +37,8 @@ impl Style {
         self
     }
 
+    /// Pass `Sense::click()` to make the icon clickable and focusable. Prefer
+    /// [`icon_button`](super::icon_button), which also provides an accessible name.
     pub fn sense(mut self, sense: egui::Sense) -> Self {
         self.sense = sense;
         self

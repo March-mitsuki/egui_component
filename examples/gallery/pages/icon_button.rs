@@ -13,7 +13,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             (locale.text("common:error"), ICONS.error.clone()),
         ] {
             let response =
-                icon_button::render(ui, image, icon_button::Style::new_outline_md(theme));
+                icon_button::render(ui, image, label, icon_button::Style::new_outline_md(theme));
             if response.clicked() {
                 egui_component::toast::create(
                     ui.ctx(),
@@ -40,6 +40,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         icon_button::render(
             ui,
             ICONS.warning.clone(),
+            locale.text("common:warning"),
             icon_button::Style::new_outline_md(theme).corner_radius(egui::CornerRadius {
                 ne: 0,
                 nw: theme.corner_radius.md as u8,
@@ -50,6 +51,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         icon_button::render(
             ui,
             ICONS.arrow_down.clone(),
+            locale.text("common:moreOptions"),
             icon_button::Style::new_outline_md(theme)
                 .corner_radius(egui::CornerRadius {
                     ne: theme.corner_radius.md as u8,

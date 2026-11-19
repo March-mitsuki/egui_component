@@ -178,7 +178,7 @@ ctx.request_repaint(); // 异步加载完成后唤醒空闲的应用。
 
 // 在 UI pass 中，渲染组件之前：
 FONT_MANAGER.apply(ctx);
-let family = FONT_MANAGER.get_egui_font_family(ctx, DEFAULT_FONT_FAMILY_ALIAS, FontWeight::Bold);
+let family = FONT_MANAGER.get_egui_font_family(ctx, DEFAULT_FONT_FAMILY_ALIAS, FontWeight::Bold, false);
 ```
 
 使用 `replace_family` 替换整个字体族，使用 `load_from_bytes` 添加或替换单个字体，使用 `set_fallback_chain` 配置缺字回退。可通过 `remove_face` 或 `remove_family` 删除字体。异步加载完成后调用 `ctx.request_repaint()`，让应用显示更新。

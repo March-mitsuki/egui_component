@@ -2,11 +2,16 @@
 //!
 //! Pass the same Context to mutation functions and render with [`renderer`]
 //! each frame. Background tasks may use a cloned Context handle.
+//!
+//! Toasts are live regions for assistive technology: info and success are
+//! announced politely (`role="status"`), warning and error immediately
+//! (`role="alert"`). The timer pauses while a toast is hovered or holds focus.
 
 use std::collections::HashMap;
 use std::sync::Arc;
 use web_time::{Duration, Instant};
 
+use egui::accesskit::{Live, Role};
 use egui::{Align2, Area, Context, Frame, Id, LayerId, Order, Ui, Vec2};
 
 use crate::{
@@ -38,6 +43,7 @@ pub enum ToastPosition {
 pub struct Toast {
     pub id: u64,
     pub kind: ToastKind,
+    /// Displayed text, or for custom toasts the optional announcement.
     pub message: String,
     pub created_at: Instant,
     pub duration: Duration,
@@ -60,11 +66,11 @@ struct ToastTiming {
 }
 
 impl ToastTiming {
-    fn update(&mut self, toast: &Toast, now: Instant, hovered: bool) {
+    fn update(&mut self, toast: &Toast, now: Instant, paused: bool) {
         if self.exit_started_at.is_some() || toast.duration == Duration::MAX {
             return;
         }
-        if hovered {
+        if paused {
             self.paused_at.get_or_insert_with(|| {
                 let active = now
                     .duration_since(toast.created_at)
@@ -80,7 +86,7 @@ impl ToastTiming {
             .unwrap_or(now)
             .duration_since(toast.created_at);
         let active = elapsed.saturating_sub(self.paused_for);
-        if active >= toast.duration && !hovered {
+        if active >= toast.duration && !paused {
             self.exit_started_at = Some(now - (active - toast.duration));
         }
     }
@@ -129,7 +135,10 @@ pub fn create(ctx: &Context, message: impl Into<String>, kind: ToastKind) {
     ctx.request_repaint();
 }
 
-/// Create a toast with arbitrary UI. `None` keeps it visible until [`dismiss`].
+/// Create a toast with arbitrary UI. A `duration` of `None` keeps it visible
+/// until [`dismiss`]. Text drawn by `content` is announced like a built-in
+/// toast's message; `announcement` names the toast for screen readers when the
+/// content has no text of its own (e.g. only an icon or a progress bar).
 /// The returned ID is local to this context.
 /// The callback runs without the context data lock and may create or dismiss toasts.
 /// Capture shared state to update content between frames.
@@ -137,6 +146,7 @@ pub fn custom(
     ctx: &Context,
     kind: ToastKind,
     duration: Option<Duration>,
+    announcement: Option<&str>,
     content: impl Fn(&mut Ui, &Theme) + Send + Sync + 'static,
 ) -> u64 {
     let id = with_manager(ctx, |manager| {
@@ -145,7 +155,7 @@ pub fn custom(
         manager.toasts.push(Toast {
             id,
             kind,
-            message: String::new(),
+            message: announcement.unwrap_or_default().to_owned(),
             created_at: Instant::now(),
             duration: duration.unwrap_or(Duration::MAX),
         });
@@ -198,19 +208,26 @@ pub fn renderer(ui: &mut Ui, theme: &Theme) {
             .map(|toast| toast.id)
             .collect::<Vec<_>>()
     });
-    let hovered = toast_ids.into_iter().find(|&id| {
-        let area_id = Id::unique("toast_area").with(id);
-        let rect = ctx.memory(|memory| memory.area_rect(area_id));
-        rect.is_some_and(|rect| {
-            ctx.rect_contains_pointer(LayerId::new(Order::Foreground, area_id), rect)
+    // Keyboard users get the same pause as hover while focus is inside a toast.
+    let focused_layer = ctx
+        .memory(|memory| memory.focused())
+        .and_then(|id| ctx.read_response(id))
+        .map(|response| response.layer_id);
+    let paused: Vec<u64> = toast_ids
+        .into_iter()
+        .filter(|&id| {
+            let layer = LayerId::new(Order::Foreground, Id::unique("toast_area").with(id));
+            let rect = ctx.memory(|memory| memory.area_rect(layer.id));
+            focused_layer == Some(layer)
+                || rect.is_some_and(|rect| ctx.rect_contains_pointer(layer, rect))
         })
-    });
+        .collect();
 
     let (now, toasts, pos_config) = with_manager(ctx, |manager| {
         let now = Instant::now();
         manager.toasts.retain(|toast| {
             let timing = manager.timing.entry(toast.id).or_default();
-            timing.update(toast, now, hovered == Some(toast.id));
+            timing.update(toast, now, paused.contains(&toast.id));
             timing
                 .exit_started_at
                 .is_none_or(|start| now.duration_since(start) < EXIT_DURATION)
@@ -373,6 +390,18 @@ fn render_toast_ui(
     };
 
     ui.scope(|ui| {
+        let (role, live) = match toast.kind {
+            ToastKind::Info | ToastKind::Success => (Role::Status, Live::Polite),
+            ToastKind::Warning | ToastKind::Error => (Role::Alert, Live::Assertive),
+        };
+        ui.ctx().accesskit_node_builder(ui.unique_id(), |node| {
+            node.set_role(role);
+            node.set_live(live);
+            // A built-in message is already a text node inside the region.
+            if content.is_some() && !toast.message.is_empty() {
+                node.set_label(toast.message.as_str());
+            }
+        });
         ui.multiply_opacity(alpha);
         ui.visuals_mut().override_text_color = Some(theme.colors.fg.base);
         let frame = Frame::NONE
@@ -425,8 +454,8 @@ mod tests {
         let a = Context::default();
         let b = Context::default();
         set_position(&a, ToastPosition::TopLeft);
-        let first = custom(&a, ToastKind::Info, None, |_, _| {});
-        let second = custom(&b, ToastKind::Success, None, |_, _| {});
+        let first = custom(&a, ToastKind::Info, None, None, |_, _| {});
+        let second = custom(&b, ToastKind::Success, None, None, |_, _| {});
         assert_eq!(first, second); // IDs are local to each Context.
         dismiss(&a, first);
         with_manager(&a, |manager| {
@@ -444,11 +473,78 @@ mod tests {
     }
 
     #[test]
+    fn toasts_are_live_regions_and_focus_pauses_timer() {
+        use egui::accesskit::{Live, Role};
+        let ctx = Context::default();
+        ctx.enable_accesskit();
+        let theme =
+            crate::theme::UiTheme::from_json_bytes(include_bytes!("../examples/theme.json"))
+                .unwrap()
+                .light;
+        info(&ctx, "Saved");
+        error(&ctx, "Failed");
+        let undo_id = Arc::new(std::sync::Mutex::new(None));
+        let rendered = undo_id.clone();
+        let custom_id = custom(
+            &ctx,
+            ToastKind::Info,
+            None,
+            Some("Uploading"),
+            move |ui, _| {
+                *rendered.lock().unwrap() = Some(ui.button("Undo").id);
+            },
+        );
+        let run = |ctx: &Context| {
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| renderer(ui, &theme));
+            output.textures_delta.clear();
+            output.platform_output.accesskit_update.unwrap().nodes
+        };
+        run(&ctx); // Areas measure themselves invisibly on their first pass.
+        let nodes = run(&ctx);
+        let live = |role, live| {
+            nodes
+                .iter()
+                .filter(|(_, n)| n.role() == role && n.live() == Some(live))
+                .count()
+        };
+        assert_eq!(live(Role::Status, Live::Polite), 2, "info and custom");
+        assert_eq!(live(Role::Alert, Live::Assertive), 1, "error");
+        assert!(
+            nodes
+                .iter()
+                .any(|(_, n)| n.role() == Role::Status && n.label() == Some("Uploading"))
+        );
+
+        // Focus the button inside the custom toast, then let its timer run out.
+        let undo = undo_id.lock().unwrap().expect("button rendered");
+        ctx.memory_mut(|m| m.request_focus(undo));
+        run(&ctx);
+        with_manager(&ctx, |manager| {
+            let toast = manager
+                .toasts
+                .iter_mut()
+                .find(|t| t.id == custom_id)
+                .unwrap();
+            toast.duration = Duration::from_millis(1);
+        });
+        run(&ctx);
+        let exiting = |ctx: &Context| {
+            with_manager(ctx, |manager| {
+                manager.timing[&custom_id].exit_started_at.is_some()
+            })
+        };
+        assert!(!exiting(&ctx), "focus inside pauses the timer");
+        ctx.memory_mut(|m| m.surrender_focus(undo));
+        run(&ctx);
+        assert!(exiting(&ctx), "timer resumes once focus leaves");
+    }
+
+    #[test]
     fn custom_content_can_modify_toasts_without_losing_updates() {
         let ctx = Context::default();
         let calls = Arc::new(AtomicUsize::new(0));
         let rendered = calls.clone();
-        let id = custom(&ctx, ToastKind::Info, None, move |ui, _| {
+        let id = custom(&ctx, ToastKind::Info, None, None, move |ui, _| {
             // This callback must run outside the context data lock.
             if rendered.fetch_add(1, Ordering::Relaxed) == 0 {
                 set_position(ui.ctx(), ToastPosition::TopLeft);

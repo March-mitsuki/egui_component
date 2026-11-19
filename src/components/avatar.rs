@@ -22,7 +22,8 @@ impl Style {
             size,
             bg_color: theme.colors.primary.l6,
             text_color: theme.colors.fg.base,
-            sense: Sense::click(),
+            // Avatars are not Tab stops unless made clickable with `.sense(...)`.
+            sense: Sense::hover(),
         }
     }
 
@@ -76,6 +77,13 @@ pub fn render(
     let name = name.into();
     let size = egui::vec2(style.size, style.size);
     let (rect, response) = ui.allocate_at_least(size, style.sense);
+    // Screen readers announce the name, like an <img alt>, or a button when clickable.
+    let role = if style.sense.is_focusable() {
+        egui::Role::Button
+    } else {
+        egui::Role::Image
+    };
+    response.widget_info(|| egui::WidgetInfo::labeled(role, ui.is_enabled(), &name));
 
     // 用作用域块隔离 painter 借用
     {

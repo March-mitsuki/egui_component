@@ -118,6 +118,7 @@ pub fn render_header(ui: &mut Ui, theme: &Theme, title: &str) -> bool {
             clicked = super::icon_button::render(
                 ui,
                 crate::icon::ICONS.close.clone(),
+                "Close",
                 super::icon_button::Style::new_ghost_sm(theme),
             )
             .clicked();
@@ -177,6 +178,11 @@ pub fn render<'a, R>(
     let mut slots = Drawer::default();
     let inner = renderer(&mut slots);
     let mut header_closed = false;
+    // Focus enters on open, wraps inside, and returns to the opener on close
+    // (as soon as `open` is false, without waiting for the exit animation).
+    if open {
+        super::modal_focus::begin(ctx, id);
+    }
     let modal = egui::Modal::new(id)
         .area(area)
         .frame(egui::Frame::NONE)
@@ -248,6 +254,9 @@ pub fn render<'a, R>(
                 );
             }
         });
+    if open {
+        super::modal_focus::end(ctx, id);
+    }
     let close_reason = if !open || !modal.is_top_modal {
         None
     } else if header_closed {
@@ -487,5 +496,58 @@ mod tests {
             }
             assert_eq!(reason.get(), enabled.then_some(CloseReason::Backdrop));
         }
+    }
+
+    #[test]
+    fn focus_moves_in_on_open_and_back_to_opener_on_close() {
+        use crate::components::button;
+        let ctx = Context::default();
+        let theme =
+            crate::theme::UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json"))
+                .unwrap()
+                .light;
+        let ids = Cell::new((Id::NULL, Id::NULL));
+        let run = |n: usize, open: bool, focus_opener: bool| {
+            frame(&ctx, n as f64 / 60.0, |ctx| {
+                let opener = egui::Area::new(Id::unique("drawer_test_background"))
+                    .show(ctx, |ui| {
+                        let opener =
+                            button::render(ui, "Open", button::Style::new_solid_md(&theme));
+                        if focus_opener {
+                            opener.request_focus();
+                        }
+                        opener.id
+                    })
+                    .inner;
+                let inside = Cell::new(ids.get().1);
+                render(
+                    ctx,
+                    "focus",
+                    open,
+                    |drawer| {
+                        drawer.body(|ui| {
+                            inside.set(
+                                button::render(ui, "Inside", button::Style::new_solid_md(&theme))
+                                    .id,
+                            );
+                        });
+                    },
+                    Style::new(&theme).animation_duration(0.0),
+                );
+                ids.set((opener, inside.get()));
+            });
+            ctx.memory(|m| m.focused())
+        };
+        run(0, false, true);
+        run(1, true, false);
+        let mut focused = None;
+        for n in 2..5 {
+            focused = run(n, true, false);
+        }
+        assert_eq!(focused, Some(ids.get().1), "focus moves into the drawer");
+        for n in 5..8 {
+            focused = run(n, false, false);
+        }
+        assert_eq!(focused, Some(ids.get().0), "focus returns to the opener");
     }
 }

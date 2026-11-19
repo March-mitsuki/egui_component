@@ -58,6 +58,10 @@ pub fn render(
     style: Style,
 ) {
     let resp = button_render(ui);
+    let expanded = Popup::is_id_open(ui.ctx(), id);
+    ui.ctx()
+        .accesskit_node_builder(resp.id, |node| node.set_expanded(expanded));
+    super::menu_nav::trigger(ui, &resp, id);
 
     Popup::menu(&resp)
         .id(id)
@@ -65,5 +69,6 @@ pub fn render(
         .align(style.align)
         .close_behavior(style.close_behavior)
         .gap(style.gap)
-        .show(menu_render);
+        .show(|ui| super::menu_nav::content(ui, &resp, id, menu_render));
+    super::menu_nav::after(ui.ctx(), &resp, id);
 }

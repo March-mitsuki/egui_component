@@ -45,6 +45,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             ui.ctx(),
             toast::ToastKind::Info,
             Some(std::time::Duration::from_secs(6)),
+            None,
             move |ui, theme| {
                 ui.label(&label);
                 egui_component::components::progress::render(
