@@ -33,7 +33,7 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 - `layout` 和 `fragment` 是内置保留结构：`layout` 直接映射 egui，`fragment` 只分组、不创建布局。不得仅为标记语言添加公开 Row/Column 组件，也不接受 `row`/`column` 别名。
 - 保留 egui 字段名和 snake_case。结构化属性使用 `item_spacing.x` 这样的点号路径，不使用 `gap_x`、`item_spacing_x`。
 - 解析器保留完整属性名；schema 显式定义每个支持路径的类型、默认值及映射。UI 点号属性不等于嵌套状态绑定或任意 Rust 反射。
-- 指令使用 `e-`，动态属性使用 `:`，事件使用 `@`。当前表达式仅包含已注册名称、文本插值以及 `:disabled`、`e-if`、`e-else-if` 的布尔取反；计算放在 Rust getter 中。
+- 指令使用 `e-`，动态属性使用 `:`，事件使用 `@`。当前表达式仅包含已注册名称、文本插值、条件中的布尔取反，以及样式属性中的 `cond ? value : value`（见“动态样式”）；计算放在 Rust getter 中。
 - 未知标签/属性、重复项、非法值、未注册名称和类型/读写能力不匹配必须报错，不得静默忽略未支持语法或进行有损转换。
 
 自定义语法要求一个根节点，属性值必须带引号；不带值的 `e-else` 是唯一例外。支持自闭合节点、文本、节点内部注释，以及五种具名实体（`amp`、`lt`、`gt`、`quot`、`apos`）。名称段使用 ASCII 字母或下划线开头，后续允许字母、数字、下划线和连字符；属性路径可用点号连接名称段，并可带 `:`/`@` 前缀。模板上限为 256 KiB、64 层节点。错误包含文件、行、列；文本插值错误目前定位到所属节点。
@@ -206,6 +206,22 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 
 以下情况必须报错并给出位置：`e-else`/`e-else-if` 前面没有条件兄弟元素，或用于根节点；`e-else` 带值；条件为空、未注册或不是 bool；同一元素上有多个条件指令；条件指令与 `e-for` 同时使用；fragment 上有其他属性或文本。
 
+## 动态样式
+
+```html
+<text :color="todo.done ? $theme.colors.gray.l6 : $theme.colors.fg.base"
+      :strikethrough="todo.done">{{ todo.title }}</text>
+<button :variant="showing_all ? 'outline' : 'ghost'" color="$theme.colors.red">All</button>
+<button :variant="!enabled ? 'ghost' : at_limit ? 'surface' : 'solid'">Chained</button>
+```
+
+- 样式属性可以是常量，也可以加 `:` 前缀写表达式。常量是一个裸单词（`variant="ghost"`）或一个主题路径（`color="$theme.colors.gray.l6"`）。同一元素不能同时写 `name` 和 `:name`。
+- 表达式语法刻意保持很小：`expr := value | cond "?" value ":" expr`。`value` 是带引号的单词（`'ghost'`，因为属性本身用双引号，所以用单引号）或主题路径；`cond` 是已注册的 bool，可以是根注册或 `alias.name`，可以用 `!` 取反，与 `e-if` 相同。条件成立时取的值只能是单个值，连写发生在 else 位置，取第一个为真的条件。bool 属性（`underline`、`strikethrough`、`disabled`）接受 `true`/`false`，写成 `:name` 时直接写条件。不支持算术、比较和函数调用，计算放在 Rust 的 `bind` getter 里。
+- `$theme` 是保留关键字，路径与 Rust 的 `Theme` 字段一致：`$theme.colors.<色阶>.<foreground|l0..l9>` 和 `$theme.colors.<bg|fg>.<base|subtle|accent>` 是颜色，`$theme.colors.<色阶>` 是整个色阶（用于 button 的 `color`）。色阶有 primary、gray、red、green、blue、yellow、orange。路径在编译模板时与一张固定的表匹配（不做反射），绘制时在传给 `View::show` 的 Theme 里取值，所以切换明暗主题不需要重新编译。其他 `Theme` 字段暂未开放。
+- 每个值都在编译期按属性检查类型：单词必须是该属性的可选值之一，颜色必须是颜色路径，色阶必须是色阶路径。Rust 绑定暂时不能返回颜色或 variant。
+- 目前支持：text 的 `size`、`color`、`underline`、`strikethrough`；button 的 `size`、`variant`、`color`；text_edit 的 `size`、`variant`；switch 和 checkbox 的 `size`。text 的线宽为 1 点，颜色取文字颜色，对应 `text::Style::underline`/`strikethrough`。layout 属性和 `width` 仍只接受常量。
+- 表达式在每次绘制元素时求值，读取规则与 `:disabled` 相同：在循环内，缓冲的写入在下一个 pass 才可见。样式不会改变身份。
+
 ## 文本输入事件与焦点
 
 ```html
@@ -230,7 +246,7 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 
 新增组件或属性时，明确名称、类型、默认值、支持的动态绑定/事件、作用域和身份影响。添加 schema 校验及到现有组件或原生布局操作的渲染映射。提供有效用法测试及有意义的失败/行为回归测试。新语法在 Gallery 的 ECML 页面中配可编辑 demo 说明（模板放在 `examples/gallery/ecml_docs/templates/`，并补齐 en/zh/ja 文案）；约定变化时同步更新中英文设计指南。新语法先在本文设计，实现后语法说明迁到 Gallery，运行时约定与不变量保留在本文。只为完整应用场景新增 ECML 示例，命名为 `ecml_*`。
 
-当前适配项为 layout、fragment、text、button、text_edit、switch、checkbox，以及 `e-for`、`e-if`、`e-else-if`、`e-else` 指令。事件有 `@click` 和上述 text_edit 事件。其他事件（如 text 的双击）、多行输入、动态样式、嵌套状态路径、自定义 Rust 插槽、更多事件/类型/组件、derive 辅助、延迟 model 和浏览器热更新均属未来工作，不是已接受语法。derive 必须保持可选，并生成与显式注册相同的模型。
+当前适配项为 layout、fragment、text、button、text_edit、switch、checkbox，以及 `e-for`、`e-if`、`e-else-if`、`e-else` 指令。事件有 `@click` 和上述 text_edit 事件。其他事件（如 text 的双击）、多行输入、由 Rust 计算的样式值、其他 `$theme` 字段、嵌套状态路径、自定义 Rust 插槽、更多事件/类型/组件、derive 辅助、延迟 model 和浏览器热更新均属未来工作，不是已接受语法。derive 必须保持可选，并生成与显式注册相同的模型。
 
 ## 提交前验证
 

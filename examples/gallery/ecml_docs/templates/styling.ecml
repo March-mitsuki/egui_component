@@ -1,0 +1,17 @@
+<layout item_spacing.y="12">
+    <!-- Constant values: a word, or a $theme path that mirrors the Rust Theme fields. -->
+    <text color="$theme.colors.primary.l6" underline="true">A constant theme color with an underline</text>
+    <!-- :attr takes cond ? value : value; words are quoted and conditions may use !. -->
+    <layout e-for="todo in todos" id="styled_row" direction="left_to_right" item_spacing.x="8" cross_align="center">
+        <checkbox e-model="todo.done" />
+        <text :color="todo.done ? $theme.colors.gray.l6 : $theme.colors.fg.base"
+              :strikethrough="todo.done">{{ todo.title }}</text>
+    </layout>
+    <layout direction="left_to_right" item_spacing.x="8" cross_align="center">
+        <switch size="sm" e-model="enabled" />
+        <button :variant="enabled ? 'solid' : 'outline'" color="$theme.colors.red">Follows the switch</button>
+        <!-- Conditions chain: the first true one picks the value. -->
+        <button :variant="!enabled ? 'ghost' : at_limit ? 'surface' : 'solid'"
+                :size="enabled ? 'md' : 'sm'">Chained</button>
+    </layout>
+</layout>

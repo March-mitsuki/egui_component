@@ -6,7 +6,7 @@
 //! show submits edits immediately and then handlers in tree order. Later passes render the
 //! resulting state without resubmitting interactions. This is not rollback/transaction semantics.
 use super::Source;
-use super::template::{BoolExpr, Kind, Node, Ref, TextPart};
+use super::template::{BoolExpr, Expr, Kind, Node, Ref, TextPart};
 use super::{parser, source, template};
 use crate::{
     components::{button, checkbox, switch, text, text_edit},
@@ -769,6 +769,18 @@ impl<S: 'static> Runtime<'_, S> {
             BoolExpr::Binding(r, not) => matches!(self.get(access, *r), Value::Bool(true)) ^ not,
         }
     }
+    fn value<T: Copy>(&self, access: &Access<'_, S>, expr: &Expr<T>) -> T {
+        match expr {
+            Expr::Const(v) => *v,
+            Expr::If(condition, then, otherwise) => {
+                if self.boolean(access, condition) {
+                    *then
+                } else {
+                    self.value(access, otherwise)
+                }
+            }
+        }
+    }
     fn text(&self, access: &Access<'_, S>, parts: &[TextPart]) -> String {
         parts
             .iter()
@@ -955,27 +967,42 @@ fn render<S: 'static>(
                 Kind::Text {
                     text: parts,
                     heading,
+                    color,
+                    underline,
+                    strikethrough,
                 } => {
-                    let style = if *heading {
+                    let mut style = if rt.value(access, heading) {
                         text::Style::new_heading(theme)
                     } else {
                         text::Style::new(theme)
                     };
+                    if let Some(color) = color {
+                        style = style.color(rt.value(access, color).get(theme));
+                    }
+                    // Lines take the text's color, as egui's RichText decorations do.
+                    let line = egui::Stroke::new(1.0, style.color);
+                    if rt.boolean(access, underline) {
+                        style = style.underline(line);
+                    }
+                    if rt.boolean(access, strikethrough) {
+                        style = style.strikethrough(line);
+                    }
                     Some(text::render(ui, &rt.text(access, parts), style))
                 }
                 Kind::Button {
                     text,
                     size,
                     variant,
+                    color,
                     width,
                     disabled,
                     click,
                 } => {
                     let style = button::Style::new(
                         theme,
-                        None,
-                        *size,
-                        *variant,
+                        color.as_ref().map(|c| *(rt.value(access, c).0)(theme)),
+                        rt.value(access, size),
+                        rt.value(access, variant),
                         button::ButtonIcon::None,
                         button::ButtonIcon::None,
                     )
@@ -1019,11 +1046,16 @@ fn render<S: 'static>(
                     {
                         ui.memory_mut(|m| m.request_focus(*widget));
                     }
-                    let style = text_edit::Style::new(theme, None, *size, *variant)
-                        .width(*width)
-                        .placeholder(rt.text(access, placeholder))
-                        .disabled(disabled)
-                        .read_only(!rt.first);
+                    let style = text_edit::Style::new(
+                        theme,
+                        None,
+                        rt.value(access, size),
+                        rt.value(access, variant),
+                    )
+                    .width(*width)
+                    .placeholder(rt.text(access, placeholder))
+                    .disabled(disabled)
+                    .read_only(!rt.first);
                     let response = text_edit::render(ui, &mut value, style);
                     if response.changed() {
                         rt.write(access, *model, Value::String(value));
@@ -1081,7 +1113,7 @@ fn render<S: 'static>(
                     let Value::Bool(mut value) = rt.get(access, *model) else {
                         unreachable!()
                     };
-                    let style = match size.as_str() {
+                    let style = match rt.value(access, size) {
                         "sm" => switch::Style::new_sm(theme),
                         "lg" => switch::Style::new_lg(theme),
                         _ => switch::Style::new_md(theme),
@@ -1105,7 +1137,7 @@ fn render<S: 'static>(
                     let Value::Bool(mut value) = rt.get(access, *model) else {
                         unreachable!()
                     };
-                    let style = match size.as_str() {
+                    let style = match rt.value(access, size) {
                         "sm" => checkbox::Style::new_sm(theme),
                         "lg" => checkbox::Style::new_lg(theme),
                         _ => checkbox::Style::new_md(theme),

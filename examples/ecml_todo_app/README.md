@@ -26,9 +26,13 @@ reload. [main.rs](main.rs) holds the state and every registration:
   text has no events yet, so an Edit button starts it.
 - `<fragment e-if="has_todos">` hides the list and footer while there are no
   todos, and `e-if="any_done"` shows "Clear completed" only when something is
-  done. The active filter is still shown as a disabled button, since ECML has no
-  dynamic styling yet. The window scrolls because the host wraps `View::show` in an egui
-  `ScrollArea`; ECML layouts do not scroll by themselves.
+  done.
+- Styling follows state with `:` expressions: a done todo is gray and struck
+  through (`:color="todo.done ? $theme.colors.gray.l6 : $theme.colors.fg.base"`
+  and `:strikethrough="todo.done"`), and the active filter is an outline button
+  (`:variant="showing_all ? 'outline' : 'ghost'"`).
+- The window scrolls because the host wraps `View::show` in an egui `ScrollArea`;
+  ECML layouts do not scroll by themselves.
 
 `cargo test --features ecml --example ecml_todo_app` drives the template through
 adding, filtering and clearing todos. For integration, hot reload and

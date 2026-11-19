@@ -64,8 +64,9 @@ Keep the public `egui_component::ecml::*` paths stable when reorganizing interna
   each supported path, value type, default, and mapping. Dotted UI properties do
   not imply nested application-state binding or automatic Rust reflection.
 - Use `e-` for directives, `:` for dynamic properties and `@` for events. Current
-  expressions are registered names, text interpolation and bool negation for
-  `:disabled`, `e-if` and `e-else-if`. Computations belong in Rust getters.
+  expressions are registered names, text interpolation, bool negation for
+  conditions, and `cond ? value : value` in styling attributes (see Dynamic
+  styling). Computations belong in Rust getters.
 - Reject unknown tags/attributes, duplicates, invalid values, unresolved names
   and type/capability mismatches. Never silently ignore unsupported syntax or
   perform lossy conversions.
@@ -367,6 +368,48 @@ non-bool condition; several conditional directives on one element; a
 conditional directive together with `e-for`; any other attribute or text on a
 fragment.
 
+## Dynamic styling
+
+```html
+<text :color="todo.done ? $theme.colors.gray.l6 : $theme.colors.fg.base"
+      :strikethrough="todo.done">{{ todo.title }}</text>
+<button :variant="showing_all ? 'outline' : 'ghost'" color="$theme.colors.red">All</button>
+<button :variant="!enabled ? 'ghost' : at_limit ? 'surface' : 'solid'">Chained</button>
+```
+
+- A styling attribute is a constant or, with a `:` prefix, an expression. A
+  constant is a bare word (`variant="ghost"`) or a theme path
+  (`color="$theme.colors.gray.l6"`). An element cannot carry both `name` and
+  `:name`.
+- The expression grammar is deliberately small:
+  `expr := value | cond "?" value ":" expr`, where `value` is a quoted word
+  (`'ghost'`, single quotes because the attribute uses double quotes) or a theme
+  path, and `cond` is a registered bool, root or `alias.name`, optionally negated
+  with `!`, as in `e-if`. The value chosen when a condition holds is a single value;
+  chaining happens in the else position and the first true condition wins. Bool
+  attributes (`underline`, `strikethrough`, `disabled`) take `true`/`false` or,
+  as `:name`, a condition directly. There is no arithmetic, comparison or call;
+  computations belong in Rust `bind` getters.
+- `$theme` is reserved. Its paths mirror the Rust `Theme` fields:
+  `$theme.colors.<scale>.<foreground|l0..l9>` and
+  `$theme.colors.<bg|fg>.<base|subtle|accent>` are colors, and
+  `$theme.colors.<scale>` is a whole scale (button `color`). Scales are primary,
+  gray, red, green, blue, yellow and orange. Paths are matched against a fixed
+  table when the template compiles (no reflection) and looked up in the Theme
+  passed to `View::show`, so a light/dark switch restyles without recompiling.
+  Other `Theme` fields are not exposed yet.
+- Every value is type-checked at compile time against its attribute: words must
+  be one of the attribute's choices, colors must be color paths and scales must
+  be scale paths. Rust bindings cannot return colors or variants yet.
+- Supported now: text `size`, `color`, `underline`, `strikethrough`; button
+  `size`, `variant`, `color`; text_edit `size`, `variant`; switch and checkbox
+  `size`. Text lines are 1 point wide in the text color, mapping to
+  `text::Style::underline`/`strikethrough`. Layout attributes and `width` stay
+  constant.
+- Expressions are evaluated each pass when the element is drawn, with the same
+  read rules as `:disabled`: inside loops, buffered writes show on the next pass.
+  Styling never changes identity.
+
 ## Text input events and focus
 
 ```html
@@ -428,7 +471,7 @@ scenarios and are named `ecml_*`.
 Current adapters are layout, fragment, text, button, text_edit, switch and
 checkbox, plus the `e-for`, `e-if`, `e-else-if` and `e-else` directives. Events
 are `@click` and the text_edit events above. Other events (such as double-click
-on text), multiline input, dynamic styling, nested state paths, custom Rust slots, more
+on text), multiline input, Rust-computed style values, other `$theme` fields, nested state paths, custom Rust slots, more
 events/types/components, derive helpers, lazy models and browser hot reload are
 future work, not accepted syntax. A derive helper must remain optional and
 generate the same explicit registration model.

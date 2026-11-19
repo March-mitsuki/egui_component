@@ -11,16 +11,17 @@
             <text_edit e-if="todo.editing" id="edit" e-model="todo.draft" width="300" autofocus="true"
                        @submit="todo.save" @blur="todo.save" @cancel="todo.cancel" />
             <fragment e-else>
-                <text>{{ todo.title }}</text>
+                <text :color="todo.done ? $theme.colors.gray.l6 : $theme.colors.fg.base"
+                      :strikethrough="todo.done">{{ todo.title }}</text>
                 <button id="edit_button" size="sm" variant="ghost" @click="todo.edit">Edit</button>
             </fragment>
             <button id="remove" size="sm" variant="ghost" @click="todo.remove">Delete</button>
         </layout>
         <text>{{ remaining }}</text>
         <layout direction="left_to_right" item_spacing.x="4">
-            <button id="all" size="sm" variant="ghost" :disabled="showing_all" @click="show_all">All</button>
-            <button id="active" size="sm" variant="ghost" :disabled="showing_active" @click="show_active">Active</button>
-            <button id="completed" size="sm" variant="ghost" :disabled="showing_completed" @click="show_completed">Completed</button>
+            <button id="all" size="sm" :variant="showing_all ? 'outline' : 'ghost'" @click="show_all">All</button>
+            <button id="active" size="sm" :variant="showing_active ? 'outline' : 'ghost'" @click="show_active">Active</button>
+            <button id="completed" size="sm" :variant="showing_completed ? 'outline' : 'ghost'" @click="show_completed">Completed</button>
         </layout>
         <layout direction="left_to_right" item_spacing.x="8">
             <button id="complete_all" size="sm" variant="outline" :disabled="all_done" @click="complete_all">Complete all</button>

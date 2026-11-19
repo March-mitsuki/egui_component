@@ -333,6 +333,7 @@ pub enum EcmlTopic {
     Loops,
     NestedLoops,
     Conditionals,
+    Styling,
     Text,
     Button,
     TextEdit,
@@ -353,6 +354,7 @@ impl EcmlTopic {
         Self::Loops,
         Self::NestedLoops,
         Self::Conditionals,
+        Self::Styling,
         Self::Text,
         Self::Button,
         Self::TextEdit,
@@ -378,6 +380,7 @@ impl EcmlTopic {
             Self::Loops => "loops",
             Self::NestedLoops => "nested-loops",
             Self::Conditionals => "conditionals",
+            Self::Styling => "dynamic-styling",
             Self::Fragment => "fragment",
             Self::TextEvents => "text-edit-events",
             Self::Sources => "hot-reload",
@@ -391,7 +394,8 @@ impl EcmlTopic {
             | Self::Syntax
             | Self::Loops
             | Self::NestedLoops
-            | Self::Conditionals => EcmlGroup::Basics,
+            | Self::Conditionals
+            | Self::Styling => EcmlGroup::Basics,
             Self::Text
             | Self::Button
             | Self::TextEdit
@@ -416,6 +420,7 @@ impl EcmlTopic {
             Self::Loops => "ecml.loops:title",
             Self::NestedLoops => "ecml.nestedLoops:title",
             Self::Conditionals => "ecml.conditionals:title",
+            Self::Styling => "ecml.styling:title",
             Self::Fragment => "ecml.fragment:title",
             Self::TextEvents => "ecml.textEvents:title",
             Self::Layout => "ecml.layout:title",
@@ -436,6 +441,7 @@ impl EcmlTopic {
             Self::Loops => "ecml.loops:body",
             Self::NestedLoops => "ecml.nestedLoops:body",
             Self::Conditionals => "ecml.conditionals:body",
+            Self::Styling => "ecml.styling:body",
             Self::Fragment => "ecml.fragment:body",
             Self::TextEvents => "ecml.textEvents:body",
             Self::Layout => "ecml.layout:body",

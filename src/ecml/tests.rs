@@ -1,6 +1,7 @@
 use super::*;
 use crate::theme::{Theme, UiTheme};
 use egui::{Event, PointerButton, Pos2, RawInput};
+use std::collections::HashMap;
 
 #[derive(Default)]
 struct State {
@@ -1422,4 +1423,158 @@ fn a_focus_loss_fires_once_with_single_pass_frames() {
         frame(&ctx, &mut v, &mut state, vec![], false);
     }
     assert_eq!((state.count, state.blurs), (1, 1));
+}
+
+/// What one drawn text looks like: its color and its underline and strikethrough.
+#[derive(Debug, PartialEq)]
+struct Drawn {
+    color: egui::Color32,
+    underline: egui::Stroke,
+    strikethrough: egui::Stroke,
+}
+/// Draws one frame and returns the drawn text by content.
+fn drawn(view: &mut View<State>, state: &mut State) -> HashMap<String, Drawn> {
+    let ctx = egui::Context::default();
+    let theme = theme();
+    let mut output = ctx.run_ui(
+        RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                Pos2::ZERO,
+                egui::vec2(600.0, 500.0),
+            )),
+            ..Default::default()
+        },
+        |ui| view.show(ui, &theme, state),
+    );
+    output.textures_delta.clear();
+    let mut found = HashMap::new();
+    for clipped in output.shapes {
+        if let egui::Shape::Text(shape) = clipped.shape {
+            let format = &shape.galley.job.sections[0].format;
+            let color = if format.color == egui::Color32::PLACEHOLDER {
+                shape.fallback_color
+            } else {
+                format.color
+            };
+            found.insert(
+                shape.galley.text().to_owned(),
+                Drawn {
+                    color,
+                    underline: format.underline,
+                    strikethrough: format.strikethrough,
+                },
+            );
+        }
+    }
+    found
+}
+
+#[test]
+fn styling_attributes_take_constants_and_conditional_expressions() {
+    let mut view = view(
+        r#"<layout>
+            <text :color="enabled ? $theme.colors.red.l6 : $theme.colors.gray.l6"
+                  :strikethrough="enabled" underline="true">Task</text>
+            <text color="$theme.colors.fg.base">Plain</text>
+            <button :variant="!enabled ? 'ghost' : 'solid'" color="$theme.colors.red">Go</button>
+            <button id="sized" :size="enabled ? 'lg' : disabled ? 'xs' : 'md'">Size</button>
+        </layout>"#,
+    );
+    let t = theme();
+    let line = |color| egui::Stroke::new(1.0, color);
+    let mut state = State::default();
+    let off = drawn(&mut view, &mut state);
+    assert_eq!(
+        off["Task"],
+        Drawn {
+            color: t.colors.gray.l6,
+            underline: line(t.colors.gray.l6),
+            strikethrough: egui::Stroke::NONE,
+        }
+    );
+    assert_eq!(off["Plain"].color, t.colors.fg.base);
+    // A ghost button's text uses the scale's normal color.
+    assert_eq!(off["Go"].color, t.colors.red.l6);
+    assert_eq!(
+        view.response("sized").unwrap().rect.height(),
+        t.button.xs.size
+    );
+
+    state.enabled = true;
+    let on = drawn(&mut view, &mut state);
+    assert_eq!(
+        on["Task"],
+        Drawn {
+            color: t.colors.red.l6,
+            underline: line(t.colors.red.l6),
+            strikethrough: line(t.colors.red.l6),
+        }
+    );
+    // A solid button's text uses the scale's foreground.
+    assert_eq!(on["Go"].color, t.colors.red.foreground);
+    assert_eq!(
+        view.response("sized").unwrap().rect.height(),
+        t.button.lg.size
+    );
+    assert!(view.last_error().is_none());
+}
+
+#[test]
+fn styling_expression_errors_have_source_locations() {
+    for (source, message) in [
+        ("<text :color=\"gray\" />", "expected a quoted value"),
+        ("<text color=\"gray.l6\" />", "is not a color"),
+        (
+            "<text color=\"$theme.colors.gray.l11\" />",
+            "unknown theme color",
+        ),
+        (
+            "<text color=\"$theme.colors.gray\" />",
+            "unknown theme color",
+        ),
+        (
+            "<text color=\"$theme.text_size.md\" />",
+            "only $theme.colors",
+        ),
+        (
+            "<text color=\"$theme.colors.fg.base\" :color=\"$theme.colors.fg.base\" />",
+            "cannot combine",
+        ),
+        (
+            "<button color=\"$theme.colors.gray.l6\" />",
+            "unknown color scale",
+        ),
+        ("<button variant=\"$theme.colors.red\" />", "must be one of"),
+        (
+            "<button :variant=\"enabled ? 'big' : 'solid'\" />",
+            "must be one of",
+        ),
+        (
+            "<button :variant=\"count ? 'ghost' : 'solid'\" />",
+            "expected Bool",
+        ),
+        (
+            "<button :variant=\"nope ? 'ghost' : 'solid'\" />",
+            "unknown binding 'nope'",
+        ),
+        ("<button :variant=\"enabled ? 'ghost'\" />", "expected ':'"),
+        ("<button :variant=\"'ghost' : 'solid'\" />", "unexpected"),
+        (
+            "<button :variant=\"enabled ? ghost : 'solid'\" />",
+            "expected a quoted value",
+        ),
+        (
+            "<button :variant=\"? 'ghost' : 'solid'\" />",
+            "needs a registered bool name",
+        ),
+        ("<text :strikethrough=\"count\" />", "expected Bool"),
+        ("<text underline=\"yes\" />", "must be one of"),
+    ] {
+        let error = builder()
+            .load(Source::inline("bad.ecml", format!("\n{source}")))
+            .err()
+            .expect(source);
+        assert!(error.message.contains(message), "{source}: {error}");
+        assert_eq!(error.line, 2, "{source}");
+    }
 }

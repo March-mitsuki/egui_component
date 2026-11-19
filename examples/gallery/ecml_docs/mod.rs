@@ -47,6 +47,7 @@ pub fn example(topic: EcmlTopic) -> Option<(&'static str, &'static str)> {
         | EcmlTopic::Checkbox
         | EcmlTopic::Layout
         | EcmlTopic::Conditionals
+        | EcmlTopic::Styling
         | EcmlTopic::Fragment
         | EcmlTopic::TextEvents => return None,
     })
@@ -64,15 +65,17 @@ pub enum Demo {
     Todos,
     Projects,
     Conditionals,
+    Styling,
     Fragment,
     TextEvents,
 }
 impl Demo {
-    pub const ALL: [Self; 12] = [
+    pub const ALL: [Self; 13] = [
         Self::Counter,
         Self::Todos,
         Self::Projects,
         Self::Conditionals,
+        Self::Styling,
         Self::Text,
         Self::Button,
         Self::TextEdit,
@@ -95,6 +98,7 @@ impl Demo {
             EcmlTopic::Loops => Self::Todos,
             EcmlTopic::NestedLoops => Self::Projects,
             EcmlTopic::Conditionals => Self::Conditionals,
+            EcmlTopic::Styling => Self::Styling,
             EcmlTopic::Fragment => Self::Fragment,
             EcmlTopic::TextEvents => Self::TextEvents,
             EcmlTopic::Setup | EcmlTopic::Syntax | EcmlTopic::Sources | EcmlTopic::Diagnostics => {
@@ -114,6 +118,7 @@ impl Demo {
             Self::Todos => "todos.ecml",
             Self::Projects => "projects.ecml",
             Self::Conditionals => "conditionals.ecml",
+            Self::Styling => "styling.ecml",
             Self::Fragment => "fragment.ecml",
             Self::TextEvents => "text_events.ecml",
         }
@@ -130,6 +135,7 @@ impl Demo {
             Self::Todos => include_str!("templates/todos.ecml"),
             Self::Projects => include_str!("templates/projects.ecml"),
             Self::Conditionals => include_str!("templates/conditionals.ecml"),
+            Self::Styling => include_str!("templates/styling.ecml"),
             Self::Fragment => include_str!("templates/fragment.ecml"),
             Self::TextEvents => include_str!("templates/text_events.ecml"),
         }

@@ -3,7 +3,10 @@ use super::{
     parser::Element,
     runtime::{Action, Binding, List},
 };
-use crate::theme::{ButtonSize, ButtonVariant, TextEditSize, TextEditVariant};
+use crate::theme::{
+    self, ButtonSize, ButtonVariant, SetColor, TextEditSize, TextEditVariant, Theme,
+};
+use egui::Color32;
 use std::collections::{HashMap, HashSet};
 
 /// A resolved name: a root registration, or a registration of the list of the loop
@@ -16,6 +19,162 @@ pub(super) enum Ref {
 pub(super) enum BoolExpr {
     Literal(bool),
     Binding(Ref, bool),
+}
+/// An attribute value: a constant, or `cond ? then : otherwise` from a `:` attribute.
+pub(super) enum Expr<T> {
+    Const(T),
+    If(BoolExpr, T, Box<Expr<T>>),
+}
+/// A `$theme.colors.<scale>.<level>` or `$theme.colors.<bg|fg>.<tone>` color, looked up
+/// in the theme being drawn with. Paths mirror the Rust `Theme` fields; nothing is reflected.
+#[derive(Clone, Copy)]
+pub(super) enum ThemeColor {
+    Scale(fn(&Theme) -> &theme::Color, fn(&theme::Color) -> Color32),
+    Set(fn(&Theme) -> &SetColor, fn(&SetColor) -> Color32),
+}
+impl ThemeColor {
+    pub fn get(self, theme: &Theme) -> Color32 {
+        match self {
+            Self::Scale(scale, level) => level(scale(theme)),
+            Self::Set(set, tone) => tone(set(theme)),
+        }
+    }
+}
+/// A `$theme.colors.<scale>` color scale, as taken by button's `color`.
+#[derive(Clone, Copy)]
+pub(super) struct ThemeScale(pub fn(&Theme) -> &theme::Color);
+const SCALES: &str = "primary, gray, red, green, blue, yellow, orange";
+fn scale(name: &str) -> Option<fn(&Theme) -> &theme::Color> {
+    Some(match name {
+        "primary" => |t| &t.colors.primary,
+        "gray" => |t| &t.colors.gray,
+        "red" => |t| &t.colors.red,
+        "green" => |t| &t.colors.green,
+        "blue" => |t| &t.colors.blue,
+        "yellow" => |t| &t.colors.yellow,
+        "orange" => |t| &t.colors.orange,
+        _ => return None,
+    })
+}
+fn level(name: &str) -> Option<fn(&theme::Color) -> Color32> {
+    Some(match name {
+        "foreground" => |c| c.foreground,
+        "l0" => |c| c.l0,
+        "l1" => |c| c.l1,
+        "l2" => |c| c.l2,
+        "l3" => |c| c.l3,
+        "l4" => |c| c.l4,
+        "l5" => |c| c.l5,
+        "l6" => |c| c.l6,
+        "l7" => |c| c.l7,
+        "l8" => |c| c.l8,
+        "l9" => |c| c.l9,
+        _ => return None,
+    })
+}
+fn set(name: &str) -> Option<fn(&Theme) -> &SetColor> {
+    Some(match name {
+        "bg" => |t| &t.colors.bg,
+        "fg" => |t| &t.colors.fg,
+        _ => return None,
+    })
+}
+fn tone(name: &str) -> Option<fn(&SetColor) -> Color32> {
+    Some(match name {
+        "base" => |c| c.base,
+        "subtle" => |c| c.subtle,
+        "accent" => |c| c.accent,
+        _ => return None,
+    })
+}
+/// The part of a theme path after `$theme.colors.`, split at dots.
+fn theme_path(path: &str) -> Result<Vec<&str>, String> {
+    let rest = path.strip_prefix("$theme.colors.").ok_or_else(|| {
+        format!("unknown theme value '{path}'; only $theme.colors.… is available")
+    })?;
+    Ok(rest.split('.').collect())
+}
+fn theme_color(path: &str) -> Result<ThemeColor, String> {
+    let found = match theme_path(path)?[..] {
+        [s, l] => scale(s)
+            .zip(level(l))
+            .map(|(s, l)| ThemeColor::Scale(s, l))
+            .or_else(|| set(s).zip(tone(l)).map(|(s, t)| ThemeColor::Set(s, t))),
+        _ => None,
+    };
+    found.ok_or_else(|| {
+        format!(
+            "unknown theme color '{path}'; use $theme.colors.<scale>.<foreground|l0..l9> with scale one of {SCALES}, or $theme.colors.<bg|fg>.<base|subtle|accent>"
+        )
+    })
+}
+fn theme_scale(path: &str) -> Result<ThemeScale, String> {
+    match theme_path(path)?[..] {
+        [s] => scale(s).map(ThemeScale),
+        _ => None,
+    }
+    .ok_or_else(|| {
+        format!(
+            "unknown color scale '{path}'; use $theme.colors.<scale> with scale one of {SCALES}"
+        )
+    })
+}
+/// One value in an attribute: a word (`ghost` statically, `'ghost'` in a `:` attribute)
+/// or a `$theme` path.
+#[derive(Clone, Copy)]
+enum Leaf<'a> {
+    Word(&'a str),
+    Theme(&'a str),
+}
+type LeafFn<'f, T> = &'f dyn Fn(Leaf) -> Result<T, String>;
+fn words<T: Copy>(name: &str, options: &[(&str, T)]) -> impl Fn(Leaf) -> Result<T, String> {
+    let message = format!(
+        "'{name}' must be one of {}",
+        options
+            .iter()
+            .map(|(w, _)| *w)
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
+    let options = options.to_vec();
+    move |leaf| match leaf {
+        Leaf::Word(w) => options
+            .iter()
+            .find(|(o, _)| *o == w)
+            .map(|(_, v)| *v)
+            .ok_or_else(|| message.clone()),
+        Leaf::Theme(_) => Err(message.clone()),
+    }
+}
+fn color(leaf: Leaf) -> Result<ThemeColor, String> {
+    match leaf {
+        Leaf::Theme(path) => theme_color(path),
+        Leaf::Word(w) => Err(format!(
+            "'{w}' is not a color; use a theme path such as $theme.colors.gray.l6"
+        )),
+    }
+}
+fn color_scale(leaf: Leaf) -> Result<ThemeScale, String> {
+    match leaf {
+        Leaf::Theme(path) => theme_scale(path),
+        Leaf::Word(w) => Err(format!(
+            "'{w}' is not a color scale; use a theme path such as $theme.colors.red"
+        )),
+    }
+}
+/// Splits the leading value off `s`: `'word'` or a `$theme` path.
+fn leaf(s: &str) -> Option<(Leaf<'_>, &str)> {
+    if let Some(rest) = s.strip_prefix('\'') {
+        let end = rest.find('\'')?;
+        Some((Leaf::Word(&rest[..end]), &rest[end + 1..]))
+    } else if let Some(path) = s.strip_prefix('$') {
+        let end = path
+            .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == '.'))
+            .map_or(s.len(), |i| i + 1);
+        Some((Leaf::Theme(&s[..end]), &s[end..]))
+    } else {
+        None
+    }
 }
 pub(super) enum TextPart {
     Literal(String),
@@ -32,9 +191,7 @@ pub(super) enum Kind {
         branches: Vec<(Option<BoolExpr>, Node)>,
     },
     /// Children drawn directly into the parent Ui, without a layout of their own.
-    Fragment {
-        children: Vec<Node>,
-    },
+    Fragment { children: Vec<Node> },
     /// Repeats `body` once per list row; `line`/`column` locate the e-for attribute.
     For {
         /// A root list, or a child list (`Row::index`) of the row at `Row::depth`.
@@ -52,20 +209,24 @@ pub(super) enum Kind {
     },
     Text {
         text: Vec<TextPart>,
-        heading: bool,
+        heading: Expr<bool>,
+        color: Option<Expr<ThemeColor>>,
+        underline: BoolExpr,
+        strikethrough: BoolExpr,
     },
     Button {
         text: Vec<TextPart>,
-        size: ButtonSize,
-        variant: ButtonVariant,
+        size: Expr<ButtonSize>,
+        variant: Expr<ButtonVariant>,
+        color: Option<Expr<ThemeScale>>,
         width: Option<f32>,
         disabled: BoolExpr,
         click: Option<Ref>,
     },
     TextEdit {
         model: Ref,
-        size: TextEditSize,
-        variant: TextEditVariant,
+        size: Expr<TextEditSize>,
+        variant: Expr<TextEditVariant>,
         width: Option<f32>,
         placeholder: Vec<TextPart>,
         disabled: BoolExpr,
@@ -77,13 +238,13 @@ pub(super) enum Kind {
     },
     Switch {
         model: Ref,
-        size: String,
+        size: Expr<&'static str>,
         disabled: BoolExpr,
     },
     Checkbox {
         model: Ref,
         label: Vec<TextPart>,
-        size: String,
+        size: Expr<&'static str>,
         disabled: BoolExpr,
     },
 }
@@ -513,7 +674,10 @@ impl<'r> Compiler<'r> {
     }
     /// A bool name, optionally negated with `!`: the condition syntax of :disabled and e-if.
     fn condition(&self, e: &Element, attr: &str) -> Result<(Ref, bool), Error> {
-        let expr = self.attr(e, attr, "").trim();
+        self.condition_in(e, attr, self.attr(e, attr, ""))
+    }
+    fn condition_in(&self, e: &Element, attr: &str, expr: &str) -> Result<(Ref, bool), Error> {
+        let expr = expr.trim();
         let (name, negate) = expr
             .strip_prefix('!')
             .map_or((expr, false), |n| (n.trim(), true));
@@ -525,18 +689,114 @@ impl<'r> Compiler<'r> {
             negate,
         ))
     }
-    fn boolean(&self, e: &Element) -> Result<BoolExpr, Error> {
-        if e.attrs.contains_key("disabled") && e.attrs.contains_key(":disabled") {
-            return Err(self.error(e, ":disabled", "cannot combine disabled and :disabled"));
+    /// A bool attribute such as `disabled`: `true`/`false`, or `:name` with a condition.
+    fn flag(&self, e: &Element, name: &str) -> Result<BoolExpr, Error> {
+        let dynamic = format!(":{name}");
+        if e.attrs.contains_key(name) && e.attrs.contains_key(&dynamic) {
+            return Err(self.error(e, &dynamic, format!("cannot combine {name} and {dynamic}")));
         }
-        if e.attrs.contains_key(":disabled") {
-            let (r, negate) = self.condition(e, ":disabled")?;
+        if e.attrs.contains_key(&dynamic) {
+            let (r, negate) = self.condition(e, &dynamic)?;
             Ok(BoolExpr::Binding(r, negate))
         } else {
             Ok(BoolExpr::Literal(
-                self.choice(e, "disabled", "false", &["true", "false"])? == "true",
+                self.choice(e, name, "false", &["true", "false"])? == "true",
             ))
         }
+    }
+    /// A styling attribute: a constant `name="value"`, or `:name` with an expression.
+    fn value<T: Copy>(
+        &self,
+        e: &Element,
+        name: &str,
+        default: T,
+        leaf: LeafFn<T>,
+    ) -> Result<Expr<T>, Error> {
+        Ok(self
+            .optional(e, name, leaf)?
+            .unwrap_or(Expr::Const(default)))
+    }
+    fn optional<T: Copy>(
+        &self,
+        e: &Element,
+        name: &str,
+        leaf: LeafFn<T>,
+    ) -> Result<Option<Expr<T>>, Error> {
+        let dynamic = format!(":{name}");
+        match (e.attrs.get(name), e.attrs.get(&dynamic)) {
+            (Some(_), Some(_)) => {
+                Err(self.error(e, &dynamic, format!("cannot combine {name} and {dynamic}")))
+            }
+            (Some(a), None) => {
+                let value = a.value.trim();
+                let parsed = if value.starts_with('$') {
+                    Leaf::Theme(value)
+                } else {
+                    Leaf::Word(value)
+                };
+                leaf(parsed)
+                    .map(|v| Some(Expr::Const(v)))
+                    .map_err(|m| self.error(e, name, m))
+            }
+            (None, Some(a)) => self.expr(e, &dynamic, &a.value, leaf).map(Some),
+            (None, None) => Ok(None),
+        }
+    }
+    fn leaf_value<'s, T>(
+        &self,
+        e: &Element,
+        attr: &str,
+        s: &'s str,
+        leaf: LeafFn<T>,
+        shape: &str,
+    ) -> Result<(T, &'s str), Error> {
+        let (l, rest) = self::leaf(s.trim_start()).ok_or_else(|| self.error(e, attr, shape))?;
+        Ok((
+            leaf(l).map_err(|m| self.error(e, attr, m))?,
+            rest.trim_start(),
+        ))
+    }
+    /// `value` or `cond ? value : expr`, where a value is `'word'` or a `$theme` path and
+    /// `cond` is a bool name, optionally negated with `!`.
+    fn expr<T: Copy>(
+        &self,
+        e: &Element,
+        attr: &str,
+        src: &str,
+        leaf: LeafFn<T>,
+    ) -> Result<Expr<T>, Error> {
+        const SHAPE: &str =
+            "expected a quoted value like 'ghost', a $theme path, or cond ? value : value";
+        let src = src.trim();
+        let value = |s| self.leaf_value(e, attr, s, leaf, SHAPE);
+        if src.starts_with(['\'', '$']) {
+            let (v, rest) = value(src)?;
+            if !rest.is_empty() {
+                return Err(self.error(
+                    e,
+                    attr,
+                    format!("unexpected '{rest}'; a condition goes first: cond ? value : value"),
+                ));
+            }
+            return Ok(Expr::Const(v));
+        }
+        let Some((condition, rest)) = src.split_once('?') else {
+            return Err(self.error(e, attr, SHAPE));
+        };
+        let (r, negate) = self.condition_in(e, attr, condition)?;
+        let (then, rest) = value(rest)?;
+        let Some(otherwise) = rest.strip_prefix(':') else {
+            return Err(self.error(
+                e,
+                attr,
+                "expected ':' after the value chosen when the condition holds",
+            ));
+        };
+        Ok(Expr::If(
+            BoolExpr::Binding(r, negate),
+            then,
+            Box::new(self.expr(e, attr, otherwise, leaf)?),
+        ))
     }
     fn text(&self, e: &Element, attr: &str, raw: &str) -> Result<Vec<TextPart>, Error> {
         let mut parts = vec![];
@@ -562,10 +822,10 @@ impl<'r> Compiler<'r> {
             // Only id and directives, which are handled before reaching here.
             "fragment" => &[],
             "layout" => &["direction", "cross_align", "item_spacing.x", "item_spacing.y"],
-            "text" => &["size"],
-            "button" => &["size", "variant", "width", "disabled", ":disabled", "@click"],
-            "text_edit" => &["size", "variant", "width", "placeholder", "disabled", ":disabled", "e-model", "autofocus", "@submit", "@cancel", "@blur"],
-            "switch" | "checkbox" => &["size", "disabled", ":disabled", "e-model"],
+            "text" => &["size", ":size", "color", ":color", "underline", ":underline", "strikethrough", ":strikethrough"],
+            "button" => &["size", ":size", "variant", ":variant", "color", ":color", "width", "disabled", ":disabled", "@click"],
+            "text_edit" => &["size", ":size", "variant", ":variant", "width", "placeholder", "disabled", ":disabled", "e-model", "autofocus", "@submit", "@cancel", "@blur"],
+            "switch" | "checkbox" => &["size", ":size", "disabled", ":disabled", "e-model"],
             _ => return Err(self.error(&e, "", format!("unknown component '{}'; prototype supports built-in layout and fragment and components text, button, text_edit, switch, checkbox (no aliases)", e.tag))),
         };
         for name in e.attrs.keys() {
@@ -625,53 +885,84 @@ impl<'r> Compiler<'r> {
             },
             "text" => Kind::Text {
                 text: self.text(&e, "", e.text.trim())?,
-                heading: self.choice(&e, "size", "md", &["md", "heading"])? == "heading",
+                heading: self.value(
+                    &e,
+                    "size",
+                    false,
+                    &words("size", &[("md", false), ("heading", true)]),
+                )?,
+                color: self.optional(&e, "color", &color)?,
+                underline: self.flag(&e, "underline")?,
+                strikethrough: self.flag(&e, "strikethrough")?,
             },
             "button" => {
-                let size = match self.choice(&e, "size", "md", &["xs", "sm", "md", "lg"])? {
-                    "xs" => ButtonSize::Xs,
-                    "sm" => ButtonSize::Sm,
-                    "lg" => ButtonSize::Lg,
-                    _ => ButtonSize::Md,
-                };
-                let variant = match self.choice(
+                let size = self.value(
+                    &e,
+                    "size",
+                    ButtonSize::Md,
+                    &words(
+                        "size",
+                        &[
+                            ("xs", ButtonSize::Xs),
+                            ("sm", ButtonSize::Sm),
+                            ("md", ButtonSize::Md),
+                            ("lg", ButtonSize::Lg),
+                        ],
+                    ),
+                )?;
+                let variant = self.value(
                     &e,
                     "variant",
-                    "solid",
-                    &["solid", "surface", "outline", "ghost"],
-                )? {
-                    "surface" => ButtonVariant::Surface,
-                    "outline" => ButtonVariant::Outline,
-                    "ghost" => ButtonVariant::Ghost,
-                    _ => ButtonVariant::Solid,
-                };
+                    ButtonVariant::Solid,
+                    &words(
+                        "variant",
+                        &[
+                            ("solid", ButtonVariant::Solid),
+                            ("surface", ButtonVariant::Surface),
+                            ("outline", ButtonVariant::Outline),
+                            ("ghost", ButtonVariant::Ghost),
+                        ],
+                    ),
+                )?;
                 let click = self.event(&e, "@click")?;
                 Kind::Button {
                     text: self.text(&e, "", e.text.trim())?,
                     size,
                     variant,
+                    color: self.optional(&e, "color", &color_scale)?,
                     click,
                     width: self.number(&e, "width")?,
-                    disabled: self.boolean(&e)?,
+                    disabled: self.flag(&e, "disabled")?,
                 }
             }
             "text_edit" => {
-                let size = match self.choice(&e, "size", "md", &["xs", "sm", "md", "lg"])? {
-                    "xs" => TextEditSize::Xs,
-                    "sm" => TextEditSize::Sm,
-                    "lg" => TextEditSize::Lg,
-                    _ => TextEditSize::Md,
-                };
-                let variant = match self.choice(
+                let size = self.value(
+                    &e,
+                    "size",
+                    TextEditSize::Md,
+                    &words(
+                        "size",
+                        &[
+                            ("xs", TextEditSize::Xs),
+                            ("sm", TextEditSize::Sm),
+                            ("md", TextEditSize::Md),
+                            ("lg", TextEditSize::Lg),
+                        ],
+                    ),
+                )?;
+                let variant = self.value(
                     &e,
                     "variant",
-                    "outline",
-                    &["subtle", "outline", "flushed"],
-                )? {
-                    "subtle" => TextEditVariant::Subtle,
-                    "flushed" => TextEditVariant::Flushed,
-                    _ => TextEditVariant::Outline,
-                };
+                    TextEditVariant::Outline,
+                    &words(
+                        "variant",
+                        &[
+                            ("subtle", TextEditVariant::Subtle),
+                            ("outline", TextEditVariant::Outline),
+                            ("flushed", TextEditVariant::Flushed),
+                        ],
+                    ),
+                )?;
                 Kind::TextEdit {
                     model: self.binding(
                         &e,
@@ -684,7 +975,7 @@ impl<'r> Compiler<'r> {
                     variant,
                     placeholder: self.text(&e, "placeholder", self.attr(&e, "placeholder", ""))?,
                     width: self.number(&e, "width")?,
-                    disabled: self.boolean(&e)?,
+                    disabled: self.flag(&e, "disabled")?,
                     autofocus: self.choice(&e, "autofocus", "false", &["true", "false"])? == "true",
                     submit: self.event(&e, "@submit")?,
                     cancel: self.event(&e, "@cancel")?,
@@ -699,8 +990,13 @@ impl<'r> Compiler<'r> {
                     Some(ValueKind::Bool),
                     true,
                 )?,
-                size: self.choice(&e, "size", "md", &["sm", "md", "lg"])?.into(),
-                disabled: self.boolean(&e)?,
+                size: self.value(
+                    &e,
+                    "size",
+                    "md",
+                    &words("size", &[("sm", "sm"), ("md", "md"), ("lg", "lg")]),
+                )?,
+                disabled: self.flag(&e, "disabled")?,
             },
             "checkbox" => Kind::Checkbox {
                 model: self.binding(
@@ -711,8 +1007,13 @@ impl<'r> Compiler<'r> {
                     true,
                 )?,
                 label: self.text(&e, "", e.text.trim())?,
-                size: self.choice(&e, "size", "md", &["sm", "md", "lg"])?.into(),
-                disabled: self.boolean(&e)?,
+                size: self.value(
+                    &e,
+                    "size",
+                    "md",
+                    &words("size", &[("sm", "sm"), ("md", "md"), ("lg", "lg")]),
+                )?,
+                disabled: self.flag(&e, "disabled")?,
             },
             _ => unreachable!(),
         };
