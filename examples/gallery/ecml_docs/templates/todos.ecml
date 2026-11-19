@@ -1,0 +1,16 @@
+<layout item_spacing.y="8">
+    <layout direction="left_to_right" item_spacing.x="8">
+        <text_edit id="new_todo" e-model="new_title" placeholder="What needs doing?" width="200" />
+        <button :disabled="!can_add" @click="add">Add</button>
+    </layout>
+    <layout e-for="todo in todos" id="todo_row" direction="left_to_right" item_spacing.x="8" cross_align="center">
+        <checkbox e-model="todo.done" />
+        <text_edit id="title" e-model="todo.title" variant="flushed" width="180" />
+        <button size="sm" variant="ghost" @click="todo.remove">Delete</button>
+    </layout>
+    <layout direction="left_to_right" item_spacing.x="8" cross_align="center">
+        <text>{{ remaining }} left</text>
+        <switch size="sm" e-model="hide_done" />
+        <text>Hide done</text>
+    </layout>
+</layout>

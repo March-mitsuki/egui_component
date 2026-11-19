@@ -43,10 +43,10 @@ fn theme() -> Theme {
         .unwrap()
         .light
 }
-fn frame(
+fn frame<S: 'static>(
     ctx: &egui::Context,
-    view: &mut View<State>,
-    state: &mut State,
+    view: &mut View<S>,
+    state: &mut S,
     events: Vec<Event>,
     multi: bool,
 ) {
@@ -74,6 +74,9 @@ fn frame(
 }
 fn click(ctx: &egui::Context, view: &mut View<State>, state: &mut State, id: &str) {
     let pos = view.response(id).unwrap().rect.center();
+    click_at(ctx, view, state, pos);
+}
+fn click_at<S: 'static>(ctx: &egui::Context, view: &mut View<S>, state: &mut S, pos: Pos2) {
     for pressed in [true, false] {
         frame(
             ctx,
@@ -524,4 +527,534 @@ fn error_window_can_be_disabled_while_last_error_remains() {
     };
     assert_eq!(windows(true), 1);
     assert_eq!(windows(false), 0);
+}
+
+// ---- e-for ----
+
+#[derive(Clone)]
+struct Todo {
+    id: u32,
+    title: String,
+    done: bool,
+}
+#[derive(Default)]
+struct Todos {
+    todos: Vec<Todo>,
+    hide_done: bool,
+    selected: Option<u32>,
+    draft: String,
+    removed: Vec<u32>,
+    /// `done` values seen by a row getter drawn after the row's checkbox.
+    seen: std::cell::RefCell<Vec<bool>>,
+}
+fn todo(id: u32, title: &str) -> Todo {
+    Todo {
+        id,
+        title: title.into(),
+        done: false,
+    }
+}
+fn todos() -> Builder<Todos> {
+    View::<Todos>::builder()
+        .model("draft", |s| &s.draft, |s, v| s.draft = v)
+        .bind("count", |s| s.todos.len() as i64)
+        .list(
+            "todos",
+            |s| Box::new(s.todos.iter().filter(move |t| !(s.hide_done && t.done))),
+            |s, id| s.todos.iter_mut().find(|t| t.id == *id),
+            |t| t.id,
+            |row| {
+                row.model("done", |t| &t.done, |t, v| t.done = v)
+                    .model("title", |t| &t.title, |t, v| t.title = v)
+                    .bind("label", |_, t| format!("#{} {}", t.id, t.title))
+                    .bind("selected", |s, t| s.selected == Some(t.id))
+                    .bind("probe", |s, t| {
+                        s.seen.borrow_mut().push(t.done);
+                        String::new()
+                    })
+                    .on("remove", |s, id| {
+                        s.removed.push(*id);
+                        s.todos.retain(|t| t.id != *id);
+                    })
+                    .on("select", |s, id| s.selected = Some(*id))
+            },
+        )
+}
+const ROWS: &str = r#"<layout>
+    <layout e-for="todo in todos" id="row" direction="left_to_right">
+        <checkbox id="done" e-model="todo.done" />
+        <text>{{ todo.probe }}</text>
+        <text_edit id="title" e-model="todo.title" width="120" />
+        <button id="remove" :disabled="todo.selected" @click="todo.remove">Remove</button>
+        <button id="select" @click="todo.select">{{ todo.label }}</button>
+    </layout>
+    <text_edit id="draft" e-model="draft" width="120" />
+</layout>"#;
+fn todo_view(template: &str) -> View<Todos> {
+    todos()
+        .load(Source::inline("todos.ecml", template))
+        .unwrap()
+}
+fn row_click(ctx: &egui::Context, view: &mut View<Todos>, state: &mut Todos, id: &str, key: u32) {
+    let pos = view.row_response(id, &key).unwrap().rect.center();
+    click_at(ctx, view, state, pos);
+}
+
+#[test]
+fn rows_follow_the_iterator_and_row_handlers_get_their_key_once() {
+    let ctx = egui::Context::default();
+    let mut view = todo_view(ROWS);
+    let mut state = Todos {
+        todos: vec![todo(1, "a"), todo(2, "b"), todo(3, "c")],
+        ..Default::default()
+    };
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    for key in [1, 2, 3] {
+        assert!(view.row_response("remove", &key).is_some());
+    }
+    // Loop controls are not exposed through the root lookup.
+    assert!(view.response("remove").is_none());
+    assert!(view.response("draft").is_some());
+    row_click(&ctx, &mut view, &mut state, "remove", 2);
+    assert_eq!(state.removed, [2]);
+    assert_eq!(state.todos.iter().map(|t| t.id).collect::<Vec<_>>(), [1, 3]);
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    assert!(view.row_response("remove", &2).is_none());
+    // Row bindings may read the whole state.
+    row_click(&ctx, &mut view, &mut state, "select", 3);
+    assert_eq!(state.selected, Some(3));
+    // `selected` disables removing row 3 only.
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    row_click(&ctx, &mut view, &mut state, "remove", 3);
+    assert_eq!(state.removed, [2]);
+    // Rust filters the rows.
+    state.todos[0].done = true;
+    state.hide_done = true;
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    assert!(view.row_response("remove", &1).is_none());
+    assert!(view.row_response("remove", &3).is_some());
+}
+
+#[test]
+fn loop_writes_commit_after_the_loop_and_rows_read_old_values_until_then() {
+    let ctx = egui::Context::default();
+    let mut view = todo_view(ROWS);
+    let mut state = Todos {
+        todos: vec![todo(1, "a"), todo(2, "b")],
+        ..Default::default()
+    };
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    state.seen.borrow_mut().clear();
+    row_click(&ctx, &mut view, &mut state, "done", 2);
+    assert!(state.todos[1].done);
+    assert!(!state.todos[0].done);
+    // The press frame draws nothing new; on the release frame the first pass draws
+    // row 2's probe after its checkbox but before the commit, so it still sees false.
+    // The second pass then shows the committed value.
+    let seen = state.seen.borrow().clone();
+    assert_eq!(&seen[seen.len() - 4..], [false, false, false, true]);
+    // A row text edit writes through the key lookup.
+    view.row_response("title", &1).unwrap().request_focus();
+    frame(
+        &ctx,
+        &mut view,
+        &mut state,
+        vec![Event::Text("!".into())],
+        true,
+    );
+    assert_eq!(state.todos[0].title, "a!");
+    assert_eq!(state.todos[1].title, "b");
+}
+
+#[test]
+fn row_identity_follows_the_key_when_rows_move() {
+    let ctx = egui::Context::default();
+    let mut view = todo_view(ROWS);
+    let mut state = Todos {
+        todos: vec![todo(1, "a"), todo(2, "b")],
+        ..Default::default()
+    };
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    let id = view.row_response("title", &2).unwrap().id;
+    assert_ne!(id, view.row_response("title", &1).unwrap().id);
+    view.row_response("title", &2).unwrap().request_focus();
+    frame(
+        &ctx,
+        &mut view,
+        &mut state,
+        vec![Event::Text("x".into())],
+        true,
+    );
+    // Insert before and reorder: row 2 keeps its id and focus.
+    state.todos.insert(0, todo(9, "new"));
+    state.todos.swap(1, 2);
+    frame(&ctx, &mut view, &mut state, vec![], true);
+    let moved = view.row_response("title", &2).unwrap();
+    assert_eq!(moved.id, id);
+    assert!(moved.has_focus());
+    frame(
+        &ctx,
+        &mut view,
+        &mut state,
+        vec![Event::Text("y".into())],
+        true,
+    );
+    assert_eq!(state.todos[1].title, "bxy");
+    assert_eq!(state.todos[0].title, "new");
+}
+
+#[test]
+fn duplicate_keys_render_the_first_row_and_report_until_fixed() {
+    let ctx = egui::Context::default();
+    let mut view = todos()
+        .error_window(false)
+        .load(Source::inline("todos.ecml", ROWS))
+        .unwrap();
+    let mut state = Todos {
+        todos: vec![todo(1, "first"), todo(1, "second"), todo(2, "b")],
+        ..Default::default()
+    };
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    let error = view.last_error().unwrap();
+    assert!(
+        error.message.contains("list 'todos' has duplicate key 1"),
+        "{error}"
+    );
+    assert_eq!((error.file.as_str(), error.line), ("todos.ecml", 2));
+    assert!(view.row_response("remove", &2).is_some());
+    state.seen.borrow_mut().clear();
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    assert_eq!(state.seen.borrow().len(), 2, "the duplicate row is skipped");
+    state.todos.remove(1);
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    assert!(view.last_error().is_none());
+}
+
+#[test]
+fn root_writes_inside_a_loop_are_buffered_too() {
+    let ctx = egui::Context::default();
+    let mut view = todo_view(
+        r#"<layout><layout e-for="t in todos"><text_edit id="d" e-model="draft" width="120" /><text>{{ draft }}</text></layout></layout>"#,
+    );
+    let mut state = Todos {
+        todos: vec![todo(1, "a")],
+        ..Default::default()
+    };
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    view.row_response("d", &1).unwrap().request_focus();
+    frame(
+        &ctx,
+        &mut view,
+        &mut state,
+        vec![Event::Text("hi".into())],
+        true,
+    );
+    assert_eq!(state.draft, "hi");
+}
+
+#[test]
+fn checkbox_edits_a_root_bool_model() {
+    let ctx = egui::Context::default();
+    let mut v = view(r#"<checkbox id="c" e-model="enabled">Enabled {{ count }}</checkbox>"#);
+    let mut state = State::default();
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    click(&ctx, &mut v, &mut state, "c");
+    assert!(state.enabled);
+    assert_eq!(state.writes, 1);
+}
+
+#[test]
+fn loop_errors_have_source_locations() {
+    for (source, message) in [
+        (r#"<text e-for="t in todos" />"#, "root element"),
+        (
+            r#"<layout><text e-for="t in missing" /></layout>"#,
+            "unknown list 'missing'",
+        ),
+        (
+            r#"<layout><text e-for="t of todos" /></layout>"#,
+            "<alias> in <list>",
+        ),
+        (
+            r#"<layout><text e-for="t in" /></layout>"#,
+            "<alias> in <list>",
+        ),
+        (
+            r#"<layout><text e-for="t.x in todos" /></layout>"#,
+            "plain names",
+        ),
+        (
+            r#"<layout><text e-for="draft in todos" /></layout>"#,
+            "collides",
+        ),
+        (
+            r#"<layout><text e-for="todos in todos" /></layout>"#,
+            "collides",
+        ),
+        (
+            r#"<layout><text>{{ t.label }}</text></layout>"#,
+            "not a loop alias",
+        ),
+        (
+            r#"<layout><text e-for="t in todos" /><text>{{ t.label }}</text></layout>"#,
+            "not a loop alias",
+        ),
+        (
+            r#"<layout><text e-for="t in todos">{{ t.nope }}</text></layout>"#,
+            "unknown row binding 'nope'",
+        ),
+        (
+            r#"<layout><button e-for="t in todos" @click="t.nope" /></layout>"#,
+            "unknown handler 't.nope'",
+        ),
+        (
+            r#"<layout><checkbox e-for="t in todos" e-model="t.selected" /></layout>"#,
+            "read-only",
+        ),
+        (
+            r#"<layout><checkbox e-for="t in todos" e-model="t.title" /></layout>"#,
+            "expected Bool",
+        ),
+        (
+            r#"<layout><text e-for="t in todos">{{ todos }}</text></layout>"#,
+            "unknown binding 'todos'",
+        ),
+        (
+            r#"<layout><layout e-for="t in todos"><text e-for="t in todos" /></layout></layout>"#,
+            "outer alias",
+        ),
+        (
+            r#"<layout><layout e-for="t in todos"><text e-for="u in t.missing" /></layout></layout>"#,
+            "unknown row list 'missing' for 't'",
+        ),
+        (
+            r#"<layout><text e-for="u in t.items" /></layout>"#,
+            "not a loop alias",
+        ),
+        (
+            r#"<layout><layout e-for="t in todos"><text id="a" /><text id="a" /></layout></layout>"#,
+            "unique",
+        ),
+    ] {
+        let error = todos()
+            .load(Source::inline("bad.ecml", format!("\n{source}")))
+            .err()
+            .expect(source);
+        assert!(error.message.contains(message), "{source}: {error}");
+        assert_eq!(error.line, 2, "{source}");
+    }
+    for (builder, message) in [
+        (todos().bind("todos", |_| 1), "collides"),
+        (
+            todos().list(
+                "more",
+                |s| Box::new(s.todos.iter()),
+                |s, id| s.todos.iter_mut().find(|t| t.id == *id),
+                |t| t.id,
+                |row| row.bind("x", |_, _| 1).bind("x", |_, _| 2),
+            ),
+            "duplicate row binding 'x'",
+        ),
+    ] {
+        let error = builder.load(Source::inline("x", "<text/>")).err().unwrap();
+        assert!(error.message.contains(message), "{error}");
+    }
+}
+
+// ---- nested e-for ----
+
+#[derive(Clone)]
+struct Item {
+    id: u32,
+    label: String,
+    done: bool,
+}
+#[derive(Default)]
+struct Groups {
+    groups: Vec<(String, Vec<Item>)>,
+    removed: Vec<(String, u32)>,
+    /// `(group, done)` seen by an item getter drawn after the item's checkbox.
+    seen: std::cell::RefCell<Vec<(String, bool)>>,
+}
+fn item(id: u32, label: &str) -> Item {
+    Item {
+        id,
+        label: label.into(),
+        done: false,
+    }
+}
+fn groups() -> Builder<Groups> {
+    View::<Groups>::builder().list(
+        "groups",
+        |s| Box::new(s.groups.iter()),
+        |s, name| s.groups.iter_mut().find(|g| g.0 == *name),
+        |g| g.0.clone(),
+        |group| {
+            group
+                .bind("name", |_, g| g.0.clone())
+                .bind("size", |_, g| g.1.len() as i64)
+                .list(
+                    "items",
+                    |_, g| Box::new(g.1.iter()),
+                    |g, id| g.1.iter_mut().find(|i| i.id == *id),
+                    |i| i.id,
+                    |item| {
+                        item.model("done", |i| &i.done, |i, v| i.done = v)
+                            .bind("label", |_, i| i.label.clone())
+                            .bind("probe", |s, i| {
+                                let group = s
+                                    .groups
+                                    .iter()
+                                    .find(|g| g.1.iter().any(|j| j.id == i.id))
+                                    .map_or(String::new(), |g| g.0.clone());
+                                s.seen.borrow_mut().push((group, i.done));
+                                String::new()
+                            })
+                            .on("remove", |s, (group, id)| {
+                                s.removed.push((group.clone(), *id));
+                                if let Some(g) = s.groups.iter_mut().find(|g| g.0 == *group) {
+                                    g.1.retain(|i| i.id != *id);
+                                }
+                            })
+                    },
+                )
+        },
+    )
+}
+const GROUPS: &str = r#"<layout>
+    <layout e-for="group in groups" id="group">
+        <text>{{ group.name }} ({{ group.size }})</text>
+        <layout e-for="item in group.items" id="item" direction="left_to_right">
+            <checkbox id="done" e-model="item.done">{{ item.label }} in {{ group.name }}</checkbox>
+            <text>{{ item.probe }}</text>
+            <button id="remove" @click="item.remove">Remove</button>
+        </layout>
+    </layout>
+</layout>"#;
+fn group_view() -> View<Groups> {
+    groups()
+        .error_window(false)
+        .load(Source::inline("groups.ecml", GROUPS))
+        .unwrap()
+}
+fn group_click(
+    ctx: &egui::Context,
+    view: &mut View<Groups>,
+    state: &mut Groups,
+    id: &str,
+    key: u32,
+) {
+    let pos = view.row_response(id, &key).unwrap().rect.center();
+    click_at(ctx, view, state, pos);
+}
+
+#[test]
+fn nested_loops_write_through_parents_and_handlers_get_the_key_path() {
+    let ctx = egui::Context::default();
+    let mut view = group_view();
+    let mut state = Groups {
+        groups: vec![
+            ("fruit".into(), vec![item(1, "apple"), item(2, "pear")]),
+            ("veg".into(), vec![item(3, "leek")]),
+        ],
+        ..Default::default()
+    };
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    for key in [1, 2, 3] {
+        assert!(view.row_response("done", &key).is_some());
+    }
+    // Inner rows reach their own registrations and the outer alias.
+    state.seen.borrow_mut().clear();
+    group_click(&ctx, &mut view, &mut state, "done", 3);
+    assert!(state.groups[1].1[0].done);
+    assert!(!state.groups[0].1.iter().any(|i| i.done));
+    // Buffered until the outermost loop ends: the release frame's first pass still
+    // sees false for item 3, and its second pass sees the committed value.
+    let seen = state.seen.borrow().clone();
+    let leek: Vec<_> = seen
+        .iter()
+        .filter(|(g, _)| g == "veg")
+        .map(|s| s.1)
+        .collect();
+    assert_eq!(&leek[leek.len() - 2..], [false, true]);
+    group_click(&ctx, &mut view, &mut state, "remove", 2);
+    assert_eq!(state.removed, [("fruit".to_owned(), 2)]);
+    assert_eq!(state.groups[0].1.len(), 1);
+    assert!(view.last_error().is_none());
+}
+
+#[test]
+fn nested_identity_and_duplicates_are_per_parent() {
+    let ctx = egui::Context::default();
+    let mut view = group_view();
+    let mut state = Groups {
+        groups: vec![
+            ("a".into(), vec![item(1, "x"), item(1, "dup")]),
+            ("b".into(), vec![item(2, "y")]),
+        ],
+        ..Default::default()
+    };
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    let error = view.last_error().unwrap();
+    assert!(
+        error.message.contains("list 'items' has duplicate key 1"),
+        "{error}"
+    );
+    assert_eq!(error.line, 4);
+    // The same child key under another parent is not a duplicate.
+    state.groups[0].1.pop();
+    state.groups[1].1.push(item(1, "also x"));
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    assert!(view.last_error().is_none());
+    // Moving a group keeps its rows' identity.
+    let before = view.row_response("remove", &2).unwrap().id;
+    state.groups.swap(0, 1);
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    assert_eq!(view.row_response("remove", &2).unwrap().id, before);
+}
+
+#[test]
+fn three_levels_pass_the_full_key_path() {
+    type Tree = (Vec<(u32, Vec<(u32, Vec<u32>)>)>, Vec<((u32, u32), u32)>);
+    let mut view = View::<Tree>::builder()
+        .list(
+            "a",
+            |s| Box::new(s.0.iter()),
+            |s, k| s.0.iter_mut().find(|x| x.0 == *k),
+            |x| x.0,
+            |a| {
+                a.list(
+                    "b",
+                    |_, x| Box::new(x.1.iter()),
+                    |x, k| x.1.iter_mut().find(|y| y.0 == *k),
+                    |y| y.0,
+                    |b| {
+                        b.list(
+                            "c",
+                            |_, y| Box::new(y.1.iter()),
+                            |y, k| y.1.iter_mut().find(|z| **z == *k),
+                            |z| *z,
+                            |c| {
+                                c.bind("value", |_, z| *z as i64)
+                                    .on("pick", |s, path| s.1.push(*path))
+                            },
+                        )
+                    },
+                )
+            },
+        )
+        .load(Source::inline(
+            "tree.ecml",
+            r#"<layout><layout e-for="x in a"><layout e-for="y in x.b"><button e-for="z in y.c" id="pick" @click="z.pick">{{ z.value }}</button></layout></layout></layout>"#,
+        ))
+        .unwrap();
+    let ctx = egui::Context::default();
+    let mut state: Tree = (
+        vec![(1, vec![(10, vec![100, 101])]), (2, vec![(20, vec![200])])],
+        vec![],
+    );
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    let pos = view.row_response("pick", &200u32).unwrap().rect.center();
+    click_at(&ctx, &mut view, &mut state, pos);
+    assert_eq!(state.1, [((2, 20), 200)]);
 }

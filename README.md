@@ -200,7 +200,7 @@ Enable the `ecml` feature for component-named markup and native Debug template h
 cargo run --features ecml --example ecml_hello_world
 ```
 
-Edit `examples/ecml_hello_world/counter.ecml` while the app runs. Supported tags are built-in `layout` and components `text`, `button`, `text_edit`, and `switch`. This is experimental; see the gallery's [ECML page](https://march-mitsuki.github.io/egui_component/en/ecml/set-up-a-view) for the syntax with live demos, and the [ECML example guide](examples/ecml_hello_world/README.md) for integration and hot reload.
+Edit `examples/ecml_hello_world/counter.ecml` while the app runs. Supported tags are built-in `layout` and components `text`, `button`, `text_edit`, `switch`, and `checkbox`; lists render with `e-for`. `cargo run --features ecml --example ecml_todo_app` runs a complete todo list built this way. This is experimental; see the gallery's [ECML page](https://march-mitsuki.github.io/egui_component/en/ecml/set-up-a-view) for the syntax with live demos, and the [ECML example guide](examples/ecml_hello_world/README.md) for integration and hot reload.
 
 ## 🌍 Who's using egui_component ?
 

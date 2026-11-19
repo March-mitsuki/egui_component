@@ -1,0 +1,22 @@
+<layout item_spacing.y="12">
+    <text size="heading">Todos</text>
+    <layout direction="left_to_right" item_spacing.x="8">
+        <text_edit id="draft" e-model="draft" placeholder="What needs to be done?" width="320" />
+        <button id="add" :disabled="!can_add" @click="add">Add</button>
+    </layout>
+    <layout e-for="todo in todos" id="todo" direction="left_to_right" item_spacing.x="8" cross_align="center">
+        <checkbox id="done" e-model="todo.done" />
+        <text_edit id="title" e-model="todo.title" variant="outline" width="300" />
+        <button id="remove" size="sm" variant="ghost" @click="todo.remove">Delete</button>
+    </layout>
+    <text>{{ remaining }}</text>
+    <layout direction="left_to_right" item_spacing.x="4">
+        <button id="all" size="sm" variant="ghost" :disabled="showing_all" @click="show_all">All</button>
+        <button id="active" size="sm" variant="ghost" :disabled="showing_active" @click="show_active">Active</button>
+        <button id="completed" size="sm" variant="ghost" :disabled="showing_completed" @click="show_completed">Completed</button>
+    </layout>
+    <layout direction="left_to_right" item_spacing.x="8">
+        <button id="complete_all" size="sm" variant="outline" :disabled="all_done" @click="complete_all">Complete all</button>
+        <button id="clear" size="sm" variant="outline" :disabled="!any_done" @click="clear_completed">Clear completed</button>
+    </layout>
+</layout>

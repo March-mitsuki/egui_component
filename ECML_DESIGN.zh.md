@@ -59,7 +59,7 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 
 状态属于调用方。View 保存访问器和 handler，不持有字段的长期可变引用，也不维护整个应用状态的 JSON 副本。`.model()` 注册返回借用的 getter 与接收拥有值的 setter；`.bind()` 注册只读 getter；`.on()` 显式注册 handler。类型校验不得依赖执行 getter。
 
-当前值类型为 String、bool、i32、i64；可编辑控件分别要求 text_edit 的 String 和 switch 的 bool。getter 按需执行，没有依赖追踪和缓存，不应产生业务副作用。setter 只应同步更新状态；外部副作用放在显式 handler 中，handler 不应执行阻塞绘制的长任务。
+当前值类型为 String、bool、i32、i64；可编辑控件分别要求 text_edit 的 String，以及 switch 和 checkbox 的 bool。getter 按需执行，没有依赖追踪和缓存，不应产生业务副作用。setter 只应同步更新状态；外部副作用放在显式 handler 中，handler 不应执行阻塞绘制的长任务。
 
 一个 View 表示一个 Context/viewport 中的一个挂载实例，每 pass 调用一次。多个挂载位置使用独立 View。必须保留以下更新约定：
 
@@ -88,9 +88,9 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 
 将轮询替换为系统监听时，也必须保留有界工作、空闲唤醒、原子保存恢复和最新候选行为。文件与嵌入来源共用校验和渲染路径。浏览器热更新需要宿主传输机制，不能依赖原生文件轮询。
 
-## 循环（e-for，已定设计，待实现）
+## 循环（e-for）
 
-本节记录已接受的 `e-for` 设计。实现完成前它不是可用语法；实现时必须遵守本节约定，偏离时先更新本文。
+本节定义 `e-for` 的约定。语法说明和可编辑 demo 见 Gallery 的 ECML 页面；修改下述行为前先更新本文。
 
 ### 模板语法
 
@@ -115,7 +115,7 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
     "todos",
     |s| Box::new(s.todos.iter().filter(|t| s.filter.matches(t))), // 读：Rust 负责过滤与排序
     |s, id| s.todos.iter_mut().find(|t| t.id == *id),             // 写：按 key 定位
-    |t| t.id,                                                     // key：Clone + Eq + Hash + 'static
+    |t| t.id,                                                     // key：Clone + Eq + Hash + Debug + 'static
     |row| row
         .model("done", |t| &t.done, |t, v| t.done = v)
         .bind("title", |_s, t| t.title.clone())
@@ -124,8 +124,8 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 )
 ```
 
-- 读取访问器返回借用 `&S` 的迭代器（`Box<dyn Iterator<Item = &T>>`），可在 Rust 中过滤、排序，不要求底层是 Vec。具体签名可在实现时调整，但必须保持"读返回迭代器"。
-- 写回与 handler 只通过 key 定位行：model 写回调用查找访问器（`Fn(&mut S, &K) -> Option<&mut T>`），返回 `None` 时丢弃该写回并请求重绘；行 handler 为 `FnMut(&mut S, &K)`。不得使用位置定位，因为先执行的 handler 可能已增删行。
+- 读取访问器返回借用 `&S` 的迭代器（`Box<dyn Iterator<Item = &T>>`），可在 Rust 中过滤、排序，不要求底层是 Vec。读取必须保持返回迭代器。key 需要实现 `Debug`，以便报告重复 key。
+- 写回与 handler 只通过 key 定位行：model 写回调用查找访问器（`for<'a> Fn(&'a mut S, &K) -> Option<&'a mut T>`），返回 `None` 时丢弃该写回并请求重绘；行 handler 为 `FnMut(&mut S, &K)`。不得使用位置定位，因为先执行的 handler 可能已增删行。
 - 行 `bind` getter 接收 `(&S, &T)`，用于依赖全局状态的派生值；行 `model` getter 返回 `&T` 内借用值，setter 只接收 `&mut T` 并同步写回。
 - 行注册项名称在该列表内唯一；列表名与根绑定、handler 共用命名空间，不得重名。
 
@@ -134,7 +134,7 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 - 遍历期间迭代器借用 `&S`。循环体内的所有 model 写回（行 model 与根 model）先缓冲，在该循环遍历结束后按树顺序提交：行写回经查找访问器，根写回经根 setter。
 - 因此同一 pass 中，写回之后、同一循环内的节点仍读到旧值。写回会请求重绘，下一 pass 显示新值；这是已接受的取舍，用于避免可变借用冲突和逐行重新查找。
 - 点击仍在整棵树遍历结束后按组件树顺序执行，行事件携带克隆的 key。原有"每帧最多一次提交"和后续 pass 只读的约定不变。
-- 重复 key 无法在编译期发现。运行时只渲染首个出现的行，跳过其后重复行，并通过错误窗口和 `last_error()` 报告列表名与重复 key，不得静默。
+- 重复 key 无法在编译期发现。运行时只渲染首个出现的行，跳过其后重复行，并通过错误窗口和 `last_error()` 报告列表名与重复 key，不得静默。该运行时错误每个 pass 重新计算，key 恢复唯一后自动清除；`last_error()` 优先返回模板错误。内部以 `dyn Any` 擦除行类型，缓冲写回和行事件中的 key 克隆进 `Rc`。
 - 不做虚拟化；长列表的滚动由独立约定的 `scroll_area` 负责。
 
 ### 身份
@@ -146,15 +146,46 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 
 ### 编译期错误（v1）
 
-以下情况必须报错并给出位置：未注册的列表；`e-for` 值格式错误；别名与根注册项或外层别名重名；在循环外使用别名；`别名.名称` 未注册；对只读行绑定使用 `e-model`；值类型不匹配；根节点使用 `e-for`；嵌套 `e-for`；`e-for` 与 `e-if` 位于同一元素。
+以下情况必须报错并给出位置：未注册的列表；`e-for` 值格式错误；别名与根注册项或外层别名重名；在循环外使用别名；`别名.名称` 或 `别名.列表` 未注册；对只读行绑定使用 `e-model`；值类型不匹配；根节点使用 `e-for`；行注册项重名；列表名与同一层的绑定或 handler 重名。引入 `e-if` 后，`e-for` 与 `e-if` 位于同一元素也必须报错，两者的组合语义在设计 `e-if` 时再定义。
 
-嵌套循环暂不支持，但作用域按链式设计，以后可由行 builder 的 `.list()` 扩展。`e-for` 与 `e-if` 的组合语义在设计 `e-if` 时再定义。
+### 嵌套循环
+
+嵌套沿用同样的显式注册，不使用反射：行 builder 注册子列表，`e-for="item in group.items"` 中的 `group.items` 解析到该注册项，与 `group.name` 解析到行绑定的方式相同。
+
+```html
+<layout e-for="group in groups" id="group">
+    <text size="heading">{{ group.name }}</text>
+    <layout e-for="item in group.items" id="item" direction="left_to_right">
+        <text>{{ item.label }}</text>
+        <button @click="item.remove">Delete</button>
+    </layout>
+</layout>
+```
+
+```rust
+.list("groups", |s| Box::new(s.groups.iter()),
+      |s, name| s.groups.iter_mut().find(|g| g.name == *name), |g| g.name.clone(),
+      |group| group
+          .bind("name", |_, g| g.name.clone())
+          .list("items",
+                |_s, g| Box::new(g.items.iter()),          // 读：(&S, &父行)
+                |g, id| g.items.iter_mut().find(|i| i.id == *id), // 查找：在 &mut 父行内
+                |i| i.id,
+                |item| item
+                    .bind("label", |_, i| i.label.clone())
+                    .on("remove", |s, (group, id)| { /* key 路径 */ })))
+```
+
+- 子列表的读取访问器接收 `(&S, &T)`，`T` 为父行；查找访问器接收 `&mut T` 和子 key，因此写回从根开始逐层定位。子列表行的 key 类型是 key 路径 `(父路径, 子 key)`：两层时行 handler 接收 `(&mut S, &(K1, K2))`，三层时为 `&((K1, K2), K3)`。key 函数仍只返回子行自己的 key。
+- 模板必须写明注册名：`{{ item.label }}`，而不是 `{{ item }}`。
+- `别名.列表` 可以引用作用域内任意别名，不限于最内层。内层循环仍可访问外层别名（如在 item 循环内使用 `group.name`）；内层别名不得与外层别名重名。
+- 最外层循环内任意位置的写回都缓冲到该循环结束。重复 key 只在同一父行的子行之间检查，同一子 key 可出现在不同父行下。行身份逐层叠加：循环身份 + 外层 key 哈希 + 内层循环身份 + 内层 key 哈希。
 
 ## 扩展 ECML
 
 新增组件或属性时，明确名称、类型、默认值、支持的动态绑定/事件、作用域和身份影响。添加 schema 校验及到现有组件或原生布局操作的渲染映射。提供有效用法测试及有意义的失败/行为回归测试。新语法在 Gallery 的 ECML 页面中配可编辑 demo 说明（模板放在 `examples/gallery/ecml_docs/templates/`，并补齐 en/zh/ja 文案）；约定变化时同步更新中英文设计指南。新语法先在本文设计，实现后语法说明迁到 Gallery，运行时约定与不变量保留在本文。只为完整应用场景新增 ECML 示例，命名为 `ecml_*`。
 
-当前适配项为 layout、text、button、text_edit、switch。条件分支、`e-for` 实现（设计见上节）、嵌套状态路径、自定义 Rust 插槽、更多事件/类型/组件、derive 辅助、延迟 model 和浏览器热更新均属未来工作，不是已接受语法。derive 必须保持可选，并生成与显式注册相同的模型。
+当前适配项为 layout、text、button、text_edit、switch、checkbox，以及 `e-for` 指令。条件分支、嵌套状态路径、自定义 Rust 插槽、更多事件/类型/组件、derive 辅助、延迟 model 和浏览器热更新均属未来工作，不是已接受语法。derive 必须保持可选，并生成与显式注册相同的模型。
 
 ## 提交前验证
 
@@ -165,6 +196,7 @@ cargo fmt --all --check
 cargo test --features ecml --lib
 cargo check --features ecml --example ecml_hello_world
 cargo check --release --features ecml --example ecml_hello_world
+cargo test --features ecml --example ecml_todo_app
 cargo check --features ecml --lib --target wasm32-unknown-unknown
 ```
 

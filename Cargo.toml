@@ -95,3 +95,8 @@ eframe = { version = "0.37", default-features = false, features = ["default_font
 name = "ecml_hello_world"
 path = "examples/ecml_hello_world/main.rs"
 required-features = ["ecml"]
+
+[[example]]
+name = "ecml_todo_app"
+path = "examples/ecml_todo_app/main.rs"
+required-features = ["ecml"]

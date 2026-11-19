@@ -330,10 +330,13 @@ pub enum EcmlTopic {
     Setup,
     Bindings,
     Syntax,
+    Loops,
+    NestedLoops,
     Text,
     Button,
     TextEdit,
     Switch,
+    Checkbox,
     Layout,
     Sources,
     Diagnostics,
@@ -344,10 +347,13 @@ impl EcmlTopic {
         Self::Setup,
         Self::Bindings,
         Self::Syntax,
+        Self::Loops,
+        Self::NestedLoops,
         Self::Text,
         Self::Button,
         Self::TextEdit,
         Self::Switch,
+        Self::Checkbox,
         Self::Layout,
         Self::Sources,
         Self::Diagnostics,
@@ -361,17 +367,25 @@ impl EcmlTopic {
             Self::Button => "button",
             Self::TextEdit => "text-edit",
             Self::Switch => "switch",
+            Self::Checkbox => "checkbox",
             Self::Layout => "layout",
+            Self::Loops => "loops",
+            Self::NestedLoops => "nested-loops",
             Self::Sources => "hot-reload",
             Self::Diagnostics => "diagnostics",
         }
     }
     pub fn group(self) -> EcmlGroup {
         match self {
-            Self::Setup | Self::Bindings | Self::Syntax => EcmlGroup::Basics,
-            Self::Text | Self::Button | Self::TextEdit | Self::Switch | Self::Layout => {
-                EcmlGroup::Tags
+            Self::Setup | Self::Bindings | Self::Syntax | Self::Loops | Self::NestedLoops => {
+                EcmlGroup::Basics
             }
+            Self::Text
+            | Self::Button
+            | Self::TextEdit
+            | Self::Switch
+            | Self::Checkbox
+            | Self::Layout => EcmlGroup::Tags,
             Self::Sources | Self::Diagnostics => EcmlGroup::Runtime,
         }
     }
@@ -384,6 +398,9 @@ impl EcmlTopic {
             Self::Button => "ecml.button:title",
             Self::TextEdit => "ecml.textEdit:title",
             Self::Switch => "ecml.switch:title",
+            Self::Checkbox => "ecml.checkbox:title",
+            Self::Loops => "ecml.loops:title",
+            Self::NestedLoops => "ecml.nestedLoops:title",
             Self::Layout => "ecml.layout:title",
             Self::Sources => "ecml.sources:title",
             Self::Diagnostics => "ecml.diagnostics:title",
@@ -398,6 +415,9 @@ impl EcmlTopic {
             Self::Button => "ecml.button:body",
             Self::TextEdit => "ecml.textEdit:body",
             Self::Switch => "ecml.switch:body",
+            Self::Checkbox => "ecml.checkbox:body",
+            Self::Loops => "ecml.loops:body",
+            Self::NestedLoops => "ecml.nestedLoops:body",
             Self::Layout => "ecml.layout:body",
             Self::Sources => "ecml.sources:body",
             Self::Diagnostics => "ecml.diagnostics:body",

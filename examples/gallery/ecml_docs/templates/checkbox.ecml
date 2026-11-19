@@ -1,0 +1,9 @@
+<layout item_spacing.y="10">
+    <checkbox e-model="enabled">Enabled</checkbox>
+    <checkbox size="sm" e-model="enabled">Small: enabled = {{ enabled }}</checkbox>
+    <layout direction="left_to_right" item_spacing.x="12" cross_align="center">
+        <checkbox size="lg" e-model="enabled" />
+        <text>Large, without a label</text>
+    </layout>
+    <checkbox disabled="true" e-model="enabled">Disabled</checkbox>
+</layout>

@@ -1,0 +1,14 @@
+<layout item_spacing.y="14">
+    <layout e-for="project in projects" id="project" item_spacing.y="6">
+        <layout direction="left_to_right" item_spacing.x="8" cross_align="center">
+            <text size="heading">{{ project.name }}</text>
+            <text>{{ project.open }} open</text>
+            <button size="sm" variant="outline" @click="project.add">Add task</button>
+        </layout>
+        <layout e-for="task in project.tasks" id="task" direction="left_to_right" item_spacing.x="8" cross_align="center">
+            <checkbox e-model="task.done" />
+            <text_edit id="title" e-model="task.title" variant="flushed" width="160" />
+            <button size="sm" variant="ghost" @click="task.remove">Delete</button>
+        </layout>
+    </layout>
+</layout>

@@ -32,10 +32,19 @@ pub fn example(topic: EcmlTopic) -> Option<(&'static str, &'static str)> {
             "rs",
             "let view = builder\n    .error_window(false) // show errors in your own UI\n    .load(source)?;\nif let Some(error) = view.last_error() {\n    // file:line:column: reason; the last valid tree stays visible\n}\nlet focused = view.response(\"name\").is_some_and(|r| r.has_focus());",
         ),
+        EcmlTopic::Loops => (
+            "rs",
+            "// Rust decides which rows to show and in what order; rows are found by key.\n.list(\n    \"todos\",\n    |s| Box::new(s.todos.iter().filter(move |t| !(s.hide_done && t.done))),\n    |s, id| s.todos.iter_mut().find(|t| t.id == *id),\n    |t| t.id,\n    |row| {\n        row.model(\"done\", |t| &t.done, |t, value| t.done = value)\n            .model(\"title\", |t| &t.title, |t, value| t.title = value)\n            .on(\"remove\", |s, id| s.todos.retain(|t| t.id != *id))\n    },\n)",
+        ),
+        EcmlTopic::NestedLoops => (
+            "rs",
+            "// A row registers a child list: read gets the parent row, find searches it.\n.list(\"projects\", |s| Box::new(s.projects.iter()),\n      |s, name| s.projects.iter_mut().find(|p| p.name == *name), |p| p.name.clone(),\n      |project| project\n          .bind(\"name\", |_, p| p.name.clone())\n          .list(\"tasks\",\n                |_, p| Box::new(p.tasks.iter()),\n                |p, id| p.tasks.iter_mut().find(|t| t.id == *id),\n                |t| t.id,\n                |task| task\n                    .model(\"done\", |t| &t.done, |t, value| t.done = value)\n                    // Handlers receive the key path (project name, task id).\n                    .on(\"remove\", |s, (name, id)| { /* ... */ })))",
+        ),
         EcmlTopic::Text
         | EcmlTopic::Button
         | EcmlTopic::TextEdit
         | EcmlTopic::Switch
+        | EcmlTopic::Checkbox
         | EcmlTopic::Layout => return None,
     })
 }
@@ -47,15 +56,21 @@ pub enum Demo {
     Button,
     TextEdit,
     Switch,
+    Checkbox,
     Layout,
+    Todos,
+    Projects,
 }
 impl Demo {
-    pub const ALL: [Self; 6] = [
+    pub const ALL: [Self; 9] = [
         Self::Counter,
+        Self::Todos,
+        Self::Projects,
         Self::Text,
         Self::Button,
         Self::TextEdit,
         Self::Switch,
+        Self::Checkbox,
         Self::Layout,
     ];
     /// The live demo on a topic page, if any.
@@ -66,7 +81,10 @@ impl Demo {
             EcmlTopic::Button => Self::Button,
             EcmlTopic::TextEdit => Self::TextEdit,
             EcmlTopic::Switch => Self::Switch,
+            EcmlTopic::Checkbox => Self::Checkbox,
             EcmlTopic::Layout => Self::Layout,
+            EcmlTopic::Loops => Self::Todos,
+            EcmlTopic::NestedLoops => Self::Projects,
             EcmlTopic::Setup | EcmlTopic::Syntax | EcmlTopic::Sources | EcmlTopic::Diagnostics => {
                 return None;
             }
@@ -79,7 +97,10 @@ impl Demo {
             Self::Button => "button.ecml",
             Self::TextEdit => "text_edit.ecml",
             Self::Switch => "switch.ecml",
+            Self::Checkbox => "checkbox.ecml",
             Self::Layout => "layout.ecml",
+            Self::Todos => "todos.ecml",
+            Self::Projects => "projects.ecml",
         }
     }
     fn template(self) -> &'static str {
@@ -89,7 +110,10 @@ impl Demo {
             Self::Button => include_str!("templates/button.ecml"),
             Self::TextEdit => include_str!("templates/text_edit.ecml"),
             Self::Switch => include_str!("templates/switch.ecml"),
+            Self::Checkbox => include_str!("templates/checkbox.ecml"),
             Self::Layout => include_str!("templates/layout.ecml"),
+            Self::Todos => include_str!("templates/todos.ecml"),
+            Self::Projects => include_str!("templates/projects.ecml"),
         }
     }
     fn load(self) -> Result<ecml::View<state::State>, ecml::Error> {
@@ -116,6 +140,35 @@ impl EcmlDocs {
         Self {
             state: state::State {
                 enabled: true,
+                todos: ["Read the ECML guide", "Try e-for", "Hide done rows"]
+                    .into_iter()
+                    .zip(1..)
+                    .map(|(title, id)| state::Todo {
+                        id,
+                        title: title.into(),
+                        done: id == 1,
+                    })
+                    .collect(),
+                projects: [
+                    ("Website", &["Draft copy", "Pick a font"][..]),
+                    ("Release", &["Tag v1"][..]),
+                ]
+                .into_iter()
+                .zip(0..)
+                .map(|((name, tasks), p)| state::Project {
+                    name: name.into(),
+                    tasks: tasks
+                        .iter()
+                        .zip(0..)
+                        .map(|(title, t)| state::Todo {
+                            id: 100 + p * 10 + t,
+                            title: (*title).into(),
+                            done: false,
+                        })
+                        .collect(),
+                })
+                .collect(),
+                next_id: 200,
                 ..Default::default()
             },
             playgrounds: Demo::ALL

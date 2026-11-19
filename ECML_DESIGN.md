@@ -109,7 +109,7 @@ mutable field references or a JSON copy of application state. `.model()` registe
 a borrowed getter and owned-value setter; `.bind()` registers a read-only getter;
 `.on()` registers an explicit handler. Validate types without evaluating getters.
 Current values are String, bool, i32 and i64; editable controls accept String for
-text_edit and bool for switch. Getters are evaluated on demand without dependency
+text_edit and bool for switch and checkbox. Getters are evaluated on demand without dependency
 tracking or caching and must not have business side effects. Setters should only
 synchronously update state. External effects belong in explicit handlers, which
 must not block rendering with long work.
@@ -166,11 +166,11 @@ behavior if replacing polling with an OS watcher. File and embedded sources must
 share the same validation/rendering path. Browser hot reload would need a host
 transport, not native filesystem polling.
 
-## Loops (e-for, accepted design, not yet implemented)
+## Loops (e-for)
 
-This section records the accepted `e-for` design. It is not usable syntax until
-implemented; implementations must follow it, and deviations must update this
-document first.
+This section defines the `e-for` contract. The syntax reference and an editable
+demo are on the gallery's ECML page; changes to the behavior below must update
+this document first.
 
 ### Template syntax
 
@@ -200,7 +200,7 @@ document first.
     "todos",
     |s| Box::new(s.todos.iter().filter(|t| s.filter.matches(t))), // read: Rust filters and sorts
     |s, id| s.todos.iter_mut().find(|t| t.id == *id),             // write: locate by key
-    |t| t.id,                                                     // key: Clone + Eq + Hash + 'static
+    |t| t.id,                                                     // key: Clone + Eq + Hash + Debug + 'static
     |row| row
         .model("done", |t| &t.done, |t, v| t.done = v)
         .bind("title", |_s, t| t.title.clone())
@@ -211,10 +211,10 @@ document first.
 
 - The read accessor returns an iterator borrowing `&S`
   (`Box<dyn Iterator<Item = &T>>`), so Rust can filter and sort and storage need
-  not be a Vec. The exact signature may change during implementation, but reads
-  must keep returning an iterator.
+  not be a Vec. Reads must keep returning an iterator. Keys need `Debug` so that
+  duplicate keys can be reported.
 - Writes and handlers locate rows only by key: model writes call the lookup
-  accessor (`Fn(&mut S, &K) -> Option<&mut T>`); `None` drops the write and
+  accessor (`for<'a> Fn(&'a mut S, &K) -> Option<&'a mut T>`); `None` drops the write and
   requests a repaint. Row handlers are `FnMut(&mut S, &K)`. Never locate by
   position, since earlier handlers may have added or removed rows.
 - Row `bind` getters receive `(&S, &T)` for values derived from global state; row
@@ -237,7 +237,11 @@ document first.
   later passes are unchanged.
 - Duplicate keys cannot be found at compile time. At runtime only the first row
   with a key renders; later duplicates are skipped and reported with the list
-  name and key through the error window and `last_error()`, never silently.
+  name and key through the error window and `last_error()`, never silently. This
+  runtime error is recomputed on every pass and clears once the keys are unique;
+  a template error takes precedence in `last_error()`. Rows are type-erased
+  internally (`dyn Any`), and keys are cloned into an `Rc` for buffered writes and
+  row events.
 - No virtualization; scrolling long lists belongs to a separately specified `scroll_area`.
 
 ### Identity
@@ -257,12 +261,56 @@ document first.
 
 Report with location: unknown list; malformed `e-for` value; alias colliding with
 a root registration or outer alias; alias used outside its loop; unregistered
-`alias.name`; `e-model` on a read-only row binding; value type mismatch; `e-for`
-on the root; nested `e-for`; `e-for` and `e-if` on the same element.
-
-Nested loops are not supported yet, but scopes are designed as a chain so a row
-builder `.list()` can add them later. Combining `e-for` with `e-if` is defined
+`alias.name` or `alias.list`; `e-model` on a read-only row binding; value type
+mismatch; `e-for` on the root; duplicate row registration names; a list name that
+collides with a binding or handler at the same level. Once `e-if` exists, `e-for`
+and `e-if` on the same element must also be rejected; combining them is defined
 when `e-if` is designed.
+
+### Nested loops
+
+Nesting uses the same explicit registration, not reflection: a row builder
+registers a child list, and `e-for="item in group.items"` resolves `group.items`
+to that registration exactly as `group.name` resolves to a row binding.
+
+```html
+<layout e-for="group in groups" id="group">
+    <text size="heading">{{ group.name }}</text>
+    <layout e-for="item in group.items" id="item" direction="left_to_right">
+        <text>{{ item.label }}</text>
+        <button @click="item.remove">Delete</button>
+    </layout>
+</layout>
+```
+
+```rust
+.list("groups", |s| Box::new(s.groups.iter()),
+      |s, name| s.groups.iter_mut().find(|g| g.name == *name), |g| g.name.clone(),
+      |group| group
+          .bind("name", |_, g| g.name.clone())
+          .list("items",
+                |_s, g| Box::new(g.items.iter()),          // read: (&S, &parent row)
+                |g, id| g.items.iter_mut().find(|i| i.id == *id), // find: in &mut parent row
+                |i| i.id,
+                |item| item
+                    .bind("label", |_, i| i.label.clone())
+                    .on("remove", |s, (group, id)| { /* key path */ })))
+```
+
+- A child list's read accessor receives `(&S, &T)` for its parent row `T`; its
+  lookup receives `&mut T` and the child key, so writes locate rows level by
+  level from the root. The rows of a child list have the key path
+  `(ParentPath, ChildKey)` as their key type: row handlers receive
+  `(&mut S, &(K1, K2))` at depth two and `&((K1, K2), K3)` at depth three. The
+  key function still returns only the child's own key.
+- Templates name values explicitly: `{{ item.label }}`, not `{{ item }}`.
+- `alias.list` may name any alias in scope, not only the innermost. Inner loops
+  keep access to outer aliases (`group.name` inside the item loop); an inner
+  alias must not repeat an outer one.
+- Writes anywhere inside the outermost loop are buffered until that loop
+  finishes. Duplicate keys are checked among the rows of one parent row; the
+  same child key may appear under different parents. Row identity chains: loop
+  identity + outer key hash + inner loop identity + inner key hash.
 
 ## Extending ECML
 
@@ -277,8 +325,8 @@ designed here first and moves to the gallery once implemented; runtime contracts
 and invariants stay here. New ECML examples are only for complete application
 scenarios and are named `ecml_*`.
 
-Current adapters are layout, text, button, text_edit and switch. Conditionals,
-implementing `e-for` (designed above), nested state paths, custom Rust slots, more
+Current adapters are layout, text, button, text_edit, switch and checkbox, plus the
+`e-for` directive. Conditionals, nested state paths, custom Rust slots, more
 events/types/components, derive helpers, lazy models and browser hot reload are
 future work, not accepted syntax. A derive helper must remain optional and
 generate the same explicit registration model.
@@ -292,6 +340,7 @@ cargo fmt --all --check
 cargo test --features ecml --lib
 cargo check --features ecml --example ecml_hello_world
 cargo check --release --features ecml --example ecml_hello_world
+cargo test --features ecml --example ecml_todo_app
 cargo check --features ecml --lib --target wasm32-unknown-unknown
 ```
 
