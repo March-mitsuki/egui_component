@@ -247,6 +247,34 @@ impl FontDemo {
                 text::Style::new(theme).size(24.0).font_weight(weight),
             );
         }
+        ui.add_space(16.0);
+        text::render(
+            ui,
+            locale.text("demo.text:decorations"),
+            text::Style::new(theme),
+        );
+        // Lines take an egui Stroke, as in TextFormat: width and color of their own.
+        let primary = theme.colors.primary.l6;
+        let muted = theme.colors.gray.l6;
+        text::render(
+            ui,
+            locale.text("demo.text:underline"),
+            text::Style::new(theme).underline(egui::Stroke::new(1.0, primary)),
+        );
+        text::render(
+            ui,
+            locale.text("demo.text:strikethrough"),
+            text::Style::new(theme)
+                .color(muted)
+                .strikethrough(egui::Stroke::new(1.0, muted)),
+        );
+        text::render(
+            ui,
+            locale.text("demo.text:bothLines"),
+            text::Style::new(theme)
+                .underline(egui::Stroke::new(2.0, primary))
+                .strikethrough(egui::Stroke::new(1.0, theme.colors.red.l6)),
+        );
         ui.add_space(12.0);
         text::render(
             ui,

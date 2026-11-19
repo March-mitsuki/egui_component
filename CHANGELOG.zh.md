@@ -30,6 +30,7 @@
 - `toast::custom` 在 `content` 前新增参数 `announcement: Option<&str>`：`custom(ctx, kind, duration, announcement, content)`。内容自己绘制了文字时传 `None`，屏幕阅读器会读出这些文字；内容没有文字（例如只有进度条）时，传 `Some("...")` 作为 toast 的播报名称。
 - `navigation::Style` 新增公开字段 `current_kind: navigation::Current`。逐项列出字段的结构体字面量需补上 `current_kind: navigation::Current::Page`，穷尽解构模式需包含该字段或使用 `..`。`navigation::render` 的第三个参数由 `selected` 改名为 `current`，类型和含义不变。
 - 移除 `FontManager::set_egui_fonts`，请改用它原本转发到的 `FontManager::apply`。`get_egui_font_family_with_style` 合并进 `get_egui_font_family`，后者新增最后一个参数 `italic: bool`：现有调用补上 `false`，`get_egui_font_family_with_style` 的调用改名为 `get_egui_font_family`。
+- `text::Style` 新增公开字段 `underline: egui::Stroke` 和 `strikethrough: egui::Stroke`，名称与 egui `TextFormat` 的字段一致。逐项列出字段的结构体字面量需补上 `underline: egui::Stroke::NONE` 和 `strikethrough: egui::Stroke::NONE` 以保持无装饰线。穷尽解构时需列出这两个字段或使用 `..`。构造函数默认两者均为 `Stroke::NONE`；用 `.underline(Stroke::new(1.0, color))` 或 `.strikethrough(...)` 绘制线条，宽度和颜色各自独立。
 
 ### 颜色选择器行为变更
 
