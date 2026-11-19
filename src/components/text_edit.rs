@@ -33,7 +33,7 @@ pub struct Style {
     pub icon_button_style: icon_button::Style,
     /// Accessible name of the password visibility toggle. Defaults to
     /// "Show password"; the pressed state tells whether it is visible.
-    pub password_toggle_label: String,
+    pub password_toggle_aria_label: String,
 }
 
 pub const TEXT_EDIT_HEIGHT_XS: f32 = 18.0;
@@ -109,7 +109,7 @@ impl Style {
             disabled: false,
             read_only: false,
             icon_button_style,
-            password_toggle_label: "Show password".to_owned(),
+            password_toggle_aria_label: "Show password".to_owned(),
         }
     }
 
@@ -313,8 +313,8 @@ impl Style {
     }
 
     /// Localize the password toggle's accessible name.
-    pub fn password_toggle_label(mut self, label: impl Into<String>) -> Self {
-        self.password_toggle_label = label.into();
+    pub fn password_toggle_aria_label(mut self, label: impl Into<String>) -> Self {
+        self.password_toggle_aria_label = label.into();
         self
     }
 
@@ -429,7 +429,7 @@ fn render_singleline(ui: &mut Ui, text: &mut String, style: Style) -> egui::Resp
         let toggle = icon_button::render(
             &mut button_ui,
             icon,
-            &style.password_toggle_label,
+            &style.password_toggle_aria_label,
             style.icon_button_style.clone(),
         )
         .on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -439,7 +439,7 @@ fn render_singleline(ui: &mut Ui, text: &mut String, style: Style) -> egui::Resp
                 egui::Role::Button,
                 toggle.enabled(),
                 password_visible,
-                &style.password_toggle_label,
+                &style.password_toggle_aria_label,
             )
         });
         toggle_hovered = toggle.hovered();

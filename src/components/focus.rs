@@ -9,6 +9,23 @@ pub(super) fn focused(response: &Response) -> bool {
     response.enabled() && response.sense.is_focusable() && response.has_focus()
 }
 
+/// Keep arrow keys for a focused widget that handles them itself (sliders,
+/// 2D pickers), instead of letting egui move focus to a neighbor.
+pub(super) fn lock_arrows(ui: &Ui, response: &Response) {
+    if response.has_focus() {
+        ui.memory_mut(|m| {
+            m.set_focus_lock_filter(
+                response.id,
+                egui::EventFilter {
+                    horizontal_arrows: true,
+                    vertical_arrows: true,
+                    ..Default::default()
+                },
+            );
+        });
+    }
+}
+
 pub(super) fn keyboard_focus(response: &Response) -> bool {
     let ctx = &response.ctx;
     let frame = ctx.cumulative_frame_nr();

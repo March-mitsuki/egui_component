@@ -108,17 +108,33 @@ impl<'a> Drawer<'a> {
     }
 }
 
+/// Options for [`render_header`].
+#[derive(Clone, Copy, Debug)]
+pub struct HeaderOptions<'a> {
+    /// Screen-reader name of the close button, like `aria-label`. Defaults to "Close".
+    pub close_aria_label: &'a str,
+}
+impl Default for HeaderOptions<'_> {
+    fn default() -> Self {
+        Self {
+            close_aria_label: "Close",
+        }
+    }
+}
+
 /// Standard title and close button. Returns whether the close button was clicked.
 /// Call `ui.close()` (as this helper does) to request closing the drawer.
-pub fn render_header(ui: &mut Ui, theme: &Theme, title: &str) -> bool {
+/// The title also names the drawer for screen readers.
+pub fn render_header(ui: &mut Ui, theme: &Theme, title: &str, options: HeaderOptions<'_>) -> bool {
     let mut clicked = false;
     ui.horizontal(|ui| {
-        super::text::render(ui, title, super::text::Style::new_heading(theme));
+        let title = super::text::render(ui, title, super::text::Style::new_heading(theme));
+        super::modal_focus::label_dialog(ui.ctx(), title.id);
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             clicked = super::icon_button::render(
                 ui,
                 crate::icon::ICONS.close.clone(),
-                "Close",
+                options.close_aria_label,
                 super::icon_button::Style::new_ghost_sm(theme),
             )
             .clicked();
@@ -188,71 +204,73 @@ pub fn render<'a, R>(
         .frame(egui::Frame::NONE)
         .backdrop_color(style.backdrop_color.gamma_multiply(eased))
         .show(ctx, |ui| {
-            ui.set_clip_rect(screen);
-            ui.set_width(width);
-            ui.set_height(screen.height());
-            let outer = egui::Rect::from_min_size(
-                egui::pos2(x, screen.top()),
-                egui::vec2(width, screen.height()),
-            );
-            let rect = outer - style.frame.total_margin();
-            ui.painter().add(style.frame.paint(rect));
-            let mut content =
-                ui.new_child(egui::UiBuilder::new().id_salt("content").max_rect(rect));
-            content.set_clip_rect(rect.intersect(screen));
-            // Measure footer from the bottom, reserving its actual height for the body.
-            let mut bottom = rect.bottom();
-            if let Some(footer) = slots.footer {
-                let mut footer_ui = content.new_child(
-                    egui::UiBuilder::new()
-                        .id_salt("footer")
-                        .max_rect(rect)
-                        .layout(egui::Layout::bottom_up(egui::Align::Min)),
+            super::modal_focus::dialog_scope(ui, |ui| {
+                ui.set_clip_rect(screen);
+                ui.set_width(width);
+                ui.set_height(screen.height());
+                let outer = egui::Rect::from_min_size(
+                    egui::pos2(x, screen.top()),
+                    egui::vec2(width, screen.height()),
                 );
-                // Give horizontal action layouts a content-sized row instead of
-                // the entire panel height (which would center them vertically).
-                let height_id = id.with("footer-height");
-                let height = ctx
-                    .data_mut(|data| data.get_temp::<f32>(height_id))
-                    .unwrap_or(footer_ui.spacing().interact_size.y);
-                let row = footer_ui.allocate_ui_with_layout(
-                    egui::vec2(rect.width(), height),
-                    egui::Layout::top_down(egui::Align::Min),
-                    footer,
-                );
-                let measured = row.response.rect.height();
-                if (measured - height).abs() > 0.5 {
-                    ctx.data_mut(|data| data.insert_temp(height_id, measured));
-                    ctx.request_discard("drawer footer height changed");
+                let rect = outer - style.frame.total_margin();
+                ui.painter().add(style.frame.paint(rect));
+                let mut content =
+                    ui.new_child(egui::UiBuilder::new().id_salt("content").max_rect(rect));
+                content.set_clip_rect(rect.intersect(screen));
+                // Measure footer from the bottom, reserving its actual height for the body.
+                let mut bottom = rect.bottom();
+                if let Some(footer) = slots.footer {
+                    let mut footer_ui = content.new_child(
+                        egui::UiBuilder::new()
+                            .id_salt("footer")
+                            .max_rect(rect)
+                            .layout(egui::Layout::bottom_up(egui::Align::Min)),
+                    );
+                    // Give horizontal action layouts a content-sized row instead of
+                    // the entire panel height (which would center them vertically).
+                    let height_id = id.with("footer-height");
+                    let height = ctx
+                        .data_mut(|data| data.get_temp::<f32>(height_id))
+                        .unwrap_or(footer_ui.spacing().interact_size.y);
+                    let row = footer_ui.allocate_ui_with_layout(
+                        egui::vec2(rect.width(), height),
+                        egui::Layout::top_down(egui::Align::Min),
+                        footer,
+                    );
+                    let measured = row.response.rect.height();
+                    if (measured - height).abs() > 0.5 {
+                        ctx.data_mut(|data| data.insert_temp(height_id, measured));
+                        ctx.request_discard("drawer footer height changed");
+                    }
+                    bottom = footer_ui.min_rect().top() - content.spacing().item_spacing.y;
                 }
-                bottom = footer_ui.min_rect().top() - content.spacing().item_spacing.y;
-            }
-            if let Some(header) = slots.header {
-                content.scope_builder(egui::UiBuilder::new().id_salt("header"), |ui| {
-                    header(ui);
-                    header_closed = ui
-                        .data_mut(|data| {
-                            data.remove_temp::<bool>(ui.scope_id().with("drawer-close-button"))
-                        })
-                        .unwrap_or(false);
-                });
-            }
-            if let Some(body) = slots.body {
-                let body_rect = egui::Rect::from_min_max(
-                    content.cursor().min,
-                    egui::pos2(rect.right(), bottom.max(content.cursor().top())),
-                );
-                content.scope_builder(
-                    egui::UiBuilder::new().id_salt("body").max_rect(body_rect),
-                    |ui| {
-                        ui.set_clip_rect(body_rect.intersect(screen));
-                        egui::ScrollArea::vertical()
-                            .auto_shrink([false, false])
-                            .max_height(body_rect.height())
-                            .show(ui, body);
-                    },
-                );
-            }
+                if let Some(header) = slots.header {
+                    content.scope_builder(egui::UiBuilder::new().id_salt("header"), |ui| {
+                        header(ui);
+                        header_closed = ui
+                            .data_mut(|data| {
+                                data.remove_temp::<bool>(ui.scope_id().with("drawer-close-button"))
+                            })
+                            .unwrap_or(false);
+                    });
+                }
+                if let Some(body) = slots.body {
+                    let body_rect = egui::Rect::from_min_max(
+                        content.cursor().min,
+                        egui::pos2(rect.right(), bottom.max(content.cursor().top())),
+                    );
+                    content.scope_builder(
+                        egui::UiBuilder::new().id_salt("body").max_rect(body_rect),
+                        |ui| {
+                            ui.set_clip_rect(body_rect.intersect(screen));
+                            egui::ScrollArea::vertical()
+                                .auto_shrink([false, false])
+                                .max_height(body_rect.height())
+                                .show(ui, body);
+                        },
+                    );
+                }
+            })
         });
     if open {
         super::modal_focus::end(ctx, id);

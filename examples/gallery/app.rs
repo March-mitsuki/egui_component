@@ -228,6 +228,7 @@ impl GalleryApp {
                 } else {
                     egui::Sense::hover()
                 }),
+            Default::default(),
         )
         .on_hover_text("egui_component")
     }
@@ -1407,6 +1408,7 @@ fn icon_tile(ui: &mut egui::Ui, icon_source: egui::ImageSource<'static>, theme: 
                     .box_size(20.0)
                     .icon_size(20.0)
                     .color(theme.colors.primary.l6),
+                Default::default(),
             );
         });
 }

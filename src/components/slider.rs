@@ -77,6 +77,7 @@ pub fn render(ui: &mut Ui, value: &mut f32, range: RangeInclusive<f32>, style: S
             *value = lo + ((pos.x - x0) / (x1 - x0)).clamp(0.0, 1.0) * (hi - lo);
             response.request_focus();
         }
+        super::focus::lock_arrows(ui, &response);
         if response.has_focus() {
             let step = style
                 .step
@@ -107,6 +108,14 @@ pub fn render(ui: &mut Ui, value: &mut f32, range: RangeInclusive<f32>, style: S
         response.mark_changed();
     }
     response.widget_info(|| WidgetInfo::slider(enabled, *value as f64, ""));
+    let step = style.step.filter(|s| s.is_finite() && *s > 0.0);
+    ui.ctx().accesskit_node_builder(response.id, |node| {
+        node.set_min_numeric_value(lo as f64);
+        node.set_max_numeric_value(hi as f64);
+        if let Some(step) = step {
+            node.set_numeric_value_step(step as f64);
+        }
+    });
     // No Context visuals are read: colors come exclusively from Style.
     let fade = |c: Color32| if enabled { c } else { c.gamma_multiply(0.4) };
     let center = egui::pos2(x0 + (*value - lo) / (hi - lo) * (x1 - x0), rect.center().y);

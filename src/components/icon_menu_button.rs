@@ -15,7 +15,7 @@ pub struct Style {
     pub menu_handle_width: f32,
     pub menu_handle_icon_size: f32,
     /// Accessible name of the menu handle. Defaults to "More options".
-    pub menu_handle_label: String,
+    pub menu_handle_aria_label: String,
 }
 impl Style {
     pub fn new(theme: &Theme) -> Self {
@@ -25,13 +25,13 @@ impl Style {
             gap: 0.0,
             menu_handle_width: 12.0,
             menu_handle_icon_size: 12.0,
-            menu_handle_label: "More options".to_owned(),
+            menu_handle_aria_label: "More options".to_owned(),
         }
     }
 
     /// Localize the menu handle's accessible name.
-    pub fn menu_handle_label(mut self, label: impl Into<String>) -> Self {
-        self.menu_handle_label = label.into();
+    pub fn menu_handle_aria_label(mut self, label: impl Into<String>) -> Self {
+        self.menu_handle_aria_label = label.into();
         self
     }
 }
@@ -194,7 +194,7 @@ pub fn render<'a>(
     let main_label = icons.first().map_or("", |icon| icon.tooltip.as_str());
     response.widget_info(|| WidgetInfo::labeled(Role::Button, ui.is_enabled(), main_label));
     menu_handle_response.widget_info(|| {
-        WidgetInfo::labeled(Role::Button, ui.is_enabled(), &style.menu_handle_label)
+        WidgetInfo::labeled(Role::Button, ui.is_enabled(), &style.menu_handle_aria_label)
     });
     let expanded = Popup::is_id_open(ui.ctx(), id);
     ui.ctx()

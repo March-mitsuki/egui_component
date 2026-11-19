@@ -108,6 +108,7 @@ impl eframe::App for MyApp {
                 },
                 window::Style::new(theme)
                     .init_pos(egui::pos2(150.0, 150.0)),
+                window::Options::default(),
             );
         });
     }

@@ -20,9 +20,15 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         dialog::render(
             ui.ctx(),
             |ui| {
-                dialog::render_header(ui, theme, locale.text("demo.dialog:heading"), || {
-                    open = false
-                });
+                dialog::render_header(
+                    ui,
+                    theme,
+                    locale.text("demo.dialog:heading"),
+                    || open = false,
+                    dialog::HeaderOptions {
+                        close_aria_label: locale.text("common:close"),
+                    },
+                );
                 text::render(ui, locale.text("demo.dialog:body"), text::Style::new(theme));
                 ui.add_space(16.0);
                 if button::render(

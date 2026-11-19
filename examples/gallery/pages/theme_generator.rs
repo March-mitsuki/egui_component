@@ -22,6 +22,8 @@ pub struct Generator {
     edit_dark: bool,
     json: String,
     message: String,
+    /// Result of auditing the pasted JSON; never applied to the editor.
+    audit: Option<Result<[Vec<theme_gen::ContrastCheck>; 2], String>>,
     project: String,
     notifications: bool,
     visibility: usize,
@@ -39,6 +41,7 @@ impl Generator {
             edit_dark: false,
             json: String::new(),
             message: String::new(),
+            audit: None,
             project: "My project".into(),
             notifications: true,
             visibility: 0,
@@ -55,6 +58,14 @@ impl Generator {
         } else {
             theme_gen::generate(&self.base, self.options)
         }
+    }
+    /// Audit the pasted JSON in both modes without touching the editor.
+    fn check_contrast(&mut self) {
+        self.audit = Some(
+            UiTheme::from_json_bytes(self.json.as_bytes())
+                .map(|t| [theme_gen::audit(&t.light), theme_gen::audit(&t.dark)])
+                .map_err(|e| e.to_string()),
+        );
     }
     fn select_gallery_preset(&mut self) {
         self.gallery_preset = true;
@@ -173,6 +184,7 @@ impl Generator {
                         ui.make_persistent_id("seed-color"),
                         &mut self.options.seed,
                         color_picker::Style::new(shell),
+                        Default::default(),
                     )
                     .changed()
                     {
@@ -259,6 +271,7 @@ impl Generator {
                             ui.make_persistent_id("focus-color"),
                             &mut color,
                             color_picker::Style::new(shell),
+                            Default::default(),
                         );
                         field_label(ui, &hex(color), shell);
                     });
@@ -410,28 +423,38 @@ impl Generator {
                     locale.text("generator:pasteACompleteUithemeJsonToImport"),
                     shell.colors.fg.subtle,
                 );
-                scroll_area::render(
+                text_edit::render_multiline(
                     ui,
-                    "theme-json",
-                    scroll_area::ScrollAxes::Vertical,
-                    |ui| {
-                        text_edit::render_multiline(
-                            ui,
-                            &mut self.json,
-                            5,
-                            text_edit::Style::new_outline_sm(shell),
-                        );
-                    },
-                    scroll_area::Style::new_no_frame().max_height(160.0),
+                    &mut self.json,
+                    5,
+                    text_edit::Style::new_outline_sm(shell),
                 );
-                if action(
+                let mut import = false;
+                ui.horizontal_wrapped(|ui| {
+                    import = action(
+                        ui,
+                        locale.text("generator:importJson"),
+                        lucide::UPLOAD,
+                        shell,
+                    )
+                    .clicked();
+                    if action(
+                        ui,
+                        locale.text("generator:checkContrast"),
+                        lucide::CONTRAST,
+                        shell,
+                    )
+                    .clicked()
+                    {
+                        self.check_contrast();
+                    }
+                });
+                hint(
                     ui,
-                    locale.text("generator:importJson"),
-                    lucide::UPLOAD,
-                    shell,
-                )
-                .clicked()
-                {
+                    locale.text("generator:checkContrastHint"),
+                    shell.colors.fg.subtle,
+                );
+                if import {
                     match UiTheme::from_json_bytes(self.json.as_bytes()).and_then(|t| {
                         theme_gen::validate(&t).map_err(anyhow_error)?;
                         Ok(t)
@@ -450,6 +473,18 @@ impl Generator {
                 }
                 if !self.message.is_empty() {
                     hint(ui, &self.message, shell.colors.fg.subtle);
+                }
+                match &self.audit {
+                    None => {}
+                    Some(Err(e)) => hint(ui, e, shell.colors.red.l6),
+                    Some(Ok([light, dark])) => {
+                        ui.add_space(8.0);
+                        for (mode, issues) in [("common:light", light), ("common:dark", dark)] {
+                            field_label(ui, locale.text(mode), shell);
+                            audit_report(ui, shell, issues, locale);
+                            ui.add_space(4.0);
+                        }
+                    }
                 }
             },
         );
@@ -739,9 +774,9 @@ fn theme_details(ui: &mut egui::Ui, t: &Theme, seed_hex: &str, locale: Locale) {
             3.0,
         ),
         (
-            locale.text("generator:focusRingFill"),
-            ratio(t.focus_ring.color, p.l6),
-            3.0,
+            locale.text("generator:focusRingSeparator"),
+            ratio(t.focus_ring.color, t.focus_ring.separator_color()),
+            9.0,
         ),
     ];
     ui.columns(if ui.available_width() > 480.0 { 2 } else { 1 }, |cols| {
@@ -751,6 +786,64 @@ fn theme_details(ui: &mut egui::Ui, t: &Theme, seed_hex: &str, locale: Locale) {
             contrast_row(&mut cols[i / per], t, label, *value, *min);
         }
     });
+    ui.add_space(12.0);
+    field_label(ui, locale.text("generator:audit"), t);
+    audit_report(ui, t, &theme_gen::audit(t), locale);
+}
+/// Every failing pair from [`theme_gen::audit`], errors first. Two lines per
+/// issue so long token paths fit the narrow sidebar.
+fn audit_report(ui: &mut egui::Ui, t: &Theme, issues: &[theme_gen::ContrastCheck], locale: Locale) {
+    let line = |ui: &mut egui::Ui, icon_source, color, label: &str| {
+        ui.horizontal(|ui| {
+            icon::render(
+                ui,
+                icon_source,
+                icon::Style::new(t)
+                    .box_size(16.0)
+                    .icon_size(14.0)
+                    .color(color),
+                Default::default(),
+            );
+            text::render(ui, label, text::Style::new(t).size(13.0));
+        });
+    };
+    if issues.is_empty() {
+        line(
+            ui,
+            lucide::CIRCLE_CHECK,
+            t.colors.green.l6,
+            locale.text("generator:auditPass"),
+        );
+        return;
+    }
+    for issue in issues {
+        let (icon_source, color, severity) = match issue.severity {
+            theme_gen::Severity::Error => (
+                lucide::CIRCLE_X,
+                t.colors.red.l6,
+                locale.text("generator:auditError"),
+            ),
+            theme_gen::Severity::Warning => (
+                lucide::TRIANGLE_ALERT,
+                t.colors.orange.l6,
+                locale.text("generator:auditWarning"),
+            ),
+        };
+        line(
+            ui,
+            icon_source,
+            color,
+            &format!("{} / {}", issue.foreground, issue.background),
+        );
+        ui.horizontal(|ui| {
+            ui.add_space(16.0 + ui.spacing().item_spacing.x);
+            text::render(
+                ui,
+                &format!("{severity} · {:.2}:1 < {}:1", issue.ratio, issue.required),
+                text::Style::new(t).size(12.0).color(t.colors.fg.subtle),
+            );
+        });
+    }
 }
 /// `#rrggbb`, with alpha only when it is not opaque.
 fn hex(color: Color32) -> String {
@@ -784,6 +877,7 @@ fn contrast_row(ui: &mut egui::Ui, t: &Theme, label: &str, value: f32, min: f32)
                 .box_size(16.0)
                 .icon_size(14.0)
                 .color(color),
+            Default::default(),
         );
         text::render(ui, label, text::Style::new(t).size(13.0));
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -865,6 +959,7 @@ fn section(
                     .box_size(18.0)
                     .icon_size(16.0)
                     .color(theme.colors.primary.l6),
+                Default::default(),
             );
             text::render(ui, title, text::Style::new_heading(theme).size(15.0));
         });
@@ -1089,6 +1184,7 @@ fn edit_value(
                         ui.make_persistent_id(path),
                         &mut c,
                         color_picker::Style::new(shell).alpha(true),
+                        Default::default(),
                     )
                     .changed();
                     themed_label(ui, c.to_hex(), shell);
@@ -1279,5 +1375,26 @@ mod tests {
         );
         g.overrides.clear();
         assert_eq!(g.theme().light.corner_radius.md, g.options.radius);
+    }
+    #[test]
+    fn checking_pasted_json_reports_issues_without_importing() {
+        let base = UiTheme::from_json_bytes(include_bytes!("../../theme.json")).unwrap();
+        let mut pasted = base.clone();
+        pasted.dark.colors.fg.subtle = pasted.dark.colors.bg.base;
+        let mut g = Generator::new(base);
+        let before = serde_json::to_value(g.theme()).unwrap();
+        g.json = serde_json::to_string(&pasted).unwrap();
+        g.check_contrast();
+        let Some(Ok([light, dark])) = &g.audit else {
+            panic!("pasted JSON parses");
+        };
+        assert!(light.is_empty());
+        assert_eq!(dark[0].foreground, "fg.subtle");
+        assert_eq!(dark[0].severity, theme_gen::Severity::Error);
+        assert_eq!(serde_json::to_value(g.theme()).unwrap(), before);
+
+        g.json = "{}".into();
+        g.check_contrast();
+        assert!(matches!(g.audit, Some(Err(_))));
     }
 }

@@ -118,6 +118,23 @@ impl Style {
     }
 }
 
+/// Optional behavior configuration, separate from visual styling.
+#[derive(Clone, Copy, Debug)]
+pub struct Options<'a> {
+    /// Screen-reader name of the close button, like `aria-label`. Defaults to "Close".
+    pub close_aria_label: &'a str,
+    /// Screen-reader name of the collapse toggle. Defaults to "Collapse".
+    pub collapse_aria_label: &'a str,
+}
+impl Default for Options<'_> {
+    fn default() -> Self {
+        Self {
+            close_aria_label: "Close",
+            collapse_aria_label: "Collapse",
+        }
+    }
+}
+
 pub fn render(
     ctx: &Context,
     id: egui::Id,
@@ -125,6 +142,7 @@ pub fn render(
     title: impl FnOnce(&mut Ui, &mut WindowState),
     content: impl FnOnce(&mut Ui, &mut WindowState),
     style: Style,
+    options: Options<'_>,
 ) {
     // 1. Load or initialize window state
     let mut state = WindowState::load(ctx, id).unwrap_or_else(|| {
@@ -229,7 +247,7 @@ pub fn render(
                         egui::WidgetInfo::labeled(
                             egui::Role::DisclosureTriangle,
                             ui.is_enabled(),
-                            "Collapse",
+                            options.collapse_aria_label,
                         )
                     });
                     let expanded = !state.is_collapsed;
@@ -270,7 +288,7 @@ pub fn render(
                     if icon_button::render(
                         ui,
                         ICONS.close.clone(),
-                        "Close",
+                        options.close_aria_label,
                         style.close_button_style.clone(),
                     )
                     .clicked()

@@ -63,18 +63,43 @@ pub fn render(
                 ui.set_height(style.size.1);
             }
 
-            ui.vertical(|ui| {
-                // 渲染实际内容
-                renderer(ui);
+            super::modal_focus::dialog_scope(ui, |ui| {
+                ui.vertical(|ui| {
+                    // 渲染实际内容
+                    renderer(ui);
+                });
             });
         });
     super::modal_focus::end(ctx, id);
     response
 }
 
-pub fn render_header(ui: &mut Ui, theme: &Theme, title: &str, on_close: impl FnOnce()) {
+/// Options for [`render_header`].
+#[derive(Clone, Copy, Debug)]
+pub struct HeaderOptions<'a> {
+    /// Screen-reader name of the close button, like `aria-label`. Defaults to "Close".
+    pub close_aria_label: &'a str,
+}
+impl Default for HeaderOptions<'_> {
+    fn default() -> Self {
+        Self {
+            close_aria_label: "Close",
+        }
+    }
+}
+
+/// Standard title and close button. The title also names the dialog for
+/// screen readers.
+pub fn render_header(
+    ui: &mut Ui,
+    theme: &Theme,
+    title: &str,
+    on_close: impl FnOnce(),
+    options: HeaderOptions<'_>,
+) {
     ui.horizontal(|ui| {
-        super::text::render(ui, title, super::text::Style::new_heading(theme));
+        let title = super::text::render(ui, title, super::text::Style::new_heading(theme));
+        super::modal_focus::label_dialog(ui.ctx(), title.id);
         ui.allocate_ui_with_layout(
             ui.available_size(),
             egui::Layout::right_to_left(egui::Align::Center),
@@ -82,7 +107,7 @@ pub fn render_header(ui: &mut Ui, theme: &Theme, title: &str, on_close: impl FnO
                 if super::icon_button::render(
                     ui,
                     ICONS.close.clone(),
-                    "Close",
+                    options.close_aria_label,
                     super::icon_button::Style::new_ghost_sm(theme),
                 )
                 .clicked()

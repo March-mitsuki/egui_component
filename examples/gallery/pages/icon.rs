@@ -44,7 +44,12 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
 
                         for (name, img) in &icons {
                             let response = icon_frame.show(ui, |ui| {
-                                icon::render(ui, img.clone(), icon::Style::new(theme))
+                                icon::render(
+                                    ui,
+                                    img.clone(),
+                                    icon::Style::new(theme),
+                                    Default::default(),
+                                )
                             });
                             tooltip::render(
                                 &response.response,
@@ -129,6 +134,7 @@ pub fn show_lucide(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                                     ui,
                                     lucide::get(name).expect("known Lucide icon"),
                                     icon::Style::new(theme).box_size(cell_size).icon_size(24.0),
+                                    Default::default(),
                                 );
                                 tooltip::render(
                                     &response,

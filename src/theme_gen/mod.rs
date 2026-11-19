@@ -305,6 +305,147 @@ pub fn validate(theme: &UiTheme) -> Result<(), &'static str> {
     Ok(())
 }
 
+/// How much a failed [`ContrastCheck`] matters.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Severity {
+    /// Fails a WCAG AA requirement for how components use the pair.
+    Error,
+    /// Fails a pairing that only some components or states use, or that
+    /// another cue (such as the focus ring's separator line) backs up.
+    Warning,
+}
+
+/// One color pair that components draw together, with its WCAG contrast.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ContrastCheck {
+    /// Token path of the drawn color, for example `"primary.l6"`.
+    pub foreground: String,
+    /// Token path of the color behind it, for example `"bg.base"`.
+    pub background: String,
+    pub ratio: f32,
+    /// 4.5 for text, 3.0 for the focus ring on backgrounds, 9.0 between the
+    /// ring and its separator.
+    pub required: f32,
+    pub severity: Severity,
+}
+impl ContrastCheck {
+    pub fn passes(&self) -> bool {
+        self.ratio >= self.required
+    }
+}
+
+/// Every color pair that components rely on, passing or not. Translucent
+/// colors are composited over the color behind them first.
+///
+/// Errors: `fg.*` text on every background; each scale's `l6` on every
+/// background (outline and ghost button text); each scale's `foreground` on
+/// its solid fills `l5`/`l6`/`l7`; the focus ring on every background.
+/// Warnings: each scale's `l6` on its tint `l0` (surface button text), and
+/// the focus ring on its separator line below 9:1. The ring and the black or
+/// white separator form a two-color indicator (WCAG technique C40): at 9:1
+/// apart, one of them has 3:1 against any fill, such as a light primary
+/// button in dark mode where no single color can contrast with both the
+/// background and the fill.
+pub fn contrast_checks(theme: &Theme) -> Vec<ContrastCheck> {
+    let c = &theme.colors;
+    let backgrounds = [
+        ("bg.base", c.bg.base),
+        ("bg.subtle", c.bg.subtle),
+        ("bg.accent", c.bg.accent),
+    ];
+    let scales = [
+        ("primary", c.primary),
+        ("gray", c.gray),
+        ("red", c.red),
+        ("green", c.green),
+        ("blue", c.blue),
+        ("yellow", c.yellow),
+        ("orange", c.orange),
+    ];
+    let mut checks = Vec::new();
+    let mut check =
+        |foreground: &str, fg: Color32, background: &str, bg: Color32, required, severity| {
+            let bg = over(bg, c.bg.base);
+            checks.push(ContrastCheck {
+                foreground: foreground.to_owned(),
+                background: background.to_owned(),
+                ratio: contrast_ratio(over(fg, bg), bg),
+                required,
+                severity,
+            });
+        };
+    use Severity::*;
+    for (name, color) in [
+        ("fg.base", c.fg.base),
+        ("fg.subtle", c.fg.subtle),
+        ("fg.accent", c.fg.accent),
+    ] {
+        for (bg_name, bg) in backgrounds {
+            check(name, color, bg_name, bg, 4.5, Error);
+        }
+    }
+    for (scale, color) in scales {
+        let token = |level: &str| format!("{scale}.{level}");
+        let l6 = token("l6");
+        for (bg_name, bg) in backgrounds {
+            check(&l6, color.l6, bg_name, bg, 4.5, Error);
+        }
+        let foreground = token("foreground");
+        for (level, fill) in [("l5", color.l5), ("l6", color.l6), ("l7", color.l7)] {
+            check(
+                &foreground,
+                color.foreground,
+                &token(level),
+                fill,
+                4.5,
+                Error,
+            );
+        }
+        check(&l6, color.l6, &token("l0"), color.l0, 4.5, Warning);
+    }
+    for (bg_name, bg) in backgrounds {
+        check(
+            "focus_ring",
+            theme.focus_ring.color,
+            bg_name,
+            bg,
+            3.0,
+            Error,
+        );
+    }
+    let ring = theme.focus_ring;
+    check(
+        "focus_ring",
+        ring.color,
+        "focus_ring.separator",
+        ring.separator_color(),
+        9.0,
+        Warning,
+    );
+    checks
+}
+
+/// The failing [`contrast_checks`], errors first. Empty means every pair passes.
+pub fn audit(theme: &Theme) -> Vec<ContrastCheck> {
+    let mut issues: Vec<_> = contrast_checks(theme)
+        .into_iter()
+        .filter(|check| !check.passes())
+        .collect();
+    issues.sort_by_key(|issue| issue.severity == Severity::Warning);
+    issues
+}
+
+/// Source-over compositing in sRGB, as browsers and egui blend.
+fn over(fg: Color32, bg: Color32) -> Color32 {
+    let [r, g, b, a] = fg.to_srgba_unmultiplied();
+    if a == 255 {
+        return fg;
+    }
+    let a = a as f32 / 255.0;
+    let mix = |f: u8, b: u8| (f as f32 * a + b as f32 * (1.0 - a)).round() as u8;
+    Color32::from_rgb(mix(r, bg.r()), mix(g, bg.g()), mix(b, bg.b()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -335,6 +476,11 @@ mod tests {
                 for bg in [t.colors.bg.base, t.colors.bg.subtle, t.colors.bg.accent] {
                     assert!(contrast_ratio(ring, bg) >= 3.0, "seed {seed:?}");
                 }
+                // Two-color indicator (C40): visible on any fill.
+                assert!(
+                    contrast_ratio(ring, t.focus_ring.separator_color()) >= 9.0,
+                    "seed {seed:?}"
+                );
                 // A light primary on a dark background leaves no room for both.
                 if !dark {
                     assert!(
@@ -391,5 +537,71 @@ mod tests {
     #[test]
     fn contrast_endpoints() {
         assert!((contrast_ratio(Color32::WHITE, Color32::BLACK) - 21.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn generated_themes_pass_the_audit() {
+        let base = UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json")).unwrap();
+        for seed in [
+            Color32::from_rgb(107, 101, 245),
+            Color32::from_rgb(255, 230, 0),
+            Color32::from_rgb(0, 200, 255),
+            Color32::from_rgb(230, 20, 20),
+            Color32::from_rgb(20, 20, 20),
+            Color32::from_rgb(240, 240, 240),
+        ] {
+            let generated = generate(
+                &base,
+                Options {
+                    seed,
+                    ..Default::default()
+                },
+            );
+            for theme in [&generated.light, &generated.dark] {
+                assert!(
+                    audit(theme).is_empty(),
+                    "seed {seed:?}: {:#?}",
+                    audit(theme)
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn gallery_theme_json_passes_every_contrast_check() {
+        let theme = UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json")).unwrap();
+        for theme in [&theme.light, &theme.dark] {
+            assert!(audit(theme).is_empty(), "{:#?}", audit(theme));
+        }
+    }
+
+    #[test]
+    fn audit_reports_failing_pairs_errors_first() {
+        let mut theme = UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json"))
+            .unwrap()
+            .light;
+        theme.colors.fg.base = theme.colors.bg.base;
+        // Passes 3:1 on the white background but is too close to its separator.
+        theme.focus_ring.color = Color32::from_gray(0x77);
+        let issues = audit(&theme);
+        assert_eq!(issues[0].foreground, "fg.base");
+        assert_eq!(issues[0].background, "bg.base");
+        assert!((issues[0].ratio - 1.0).abs() < 0.001);
+        assert_eq!(issues[0].severity, Severity::Error);
+        let last = issues.last().unwrap();
+        assert_eq!(
+            (last.foreground.as_str(), last.background.as_str()),
+            ("focus_ring", "focus_ring.separator")
+        );
+        assert_eq!(last.severity, Severity::Warning);
+    }
+
+    #[test]
+    fn translucent_colors_are_composited_before_measuring() {
+        let half_black = Color32::from_rgba_unmultiplied(0, 0, 0, 128);
+        assert_eq!(
+            over(half_black, Color32::WHITE),
+            Color32::from_rgb(127, 127, 127)
+        );
     }
 }

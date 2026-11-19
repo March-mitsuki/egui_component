@@ -435,6 +435,7 @@ fn render_toast_ui(
                             .icon_size(20.0)
                             .color(color)
                             .sense(egui::Sense::hover()),
+                        Default::default(),
                     );
                     ui.vertical(render_content);
                 });

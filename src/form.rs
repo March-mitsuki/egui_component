@@ -266,7 +266,13 @@ impl FormUi<'_> {
         }
         if let Err(error) = validate(value) {
             if self.state.submit_attempted || self.state.touched.contains(&id) {
-                render_error(ui, &error);
+                let message = ui.scope(|ui| render_error(ui, &error)).response.id;
+                // Like `aria-invalid` with `aria-describedby`: screen readers
+                // announce the error together with the field.
+                ui.ctx().accesskit_node_builder(response.id, |node| {
+                    node.set_invalid(egui::accesskit::Invalid::True);
+                    node.push_described_by(message.accesskit_id());
+                });
             }
             self.errors.insert(id, error);
         }

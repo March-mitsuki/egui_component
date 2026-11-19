@@ -273,8 +273,8 @@ mod tests {
     fn brand_colors_and_solid_foregrounds_follow_each_mode() {
         let ui = brand_theme();
         for (theme, primary, bg, fg, on_primary) in [
-            (&ui.light, "#6B65F5", "#FFFFFF", "#202124", "#FFFFFF"),
-            (&ui.dark, "#8B85FF", "#101318", "#F6F7FB", "#101318"),
+            (&ui.light, "#584EDC", "#FDFDFD", "#141414", "#FFFFFF"),
+            (&ui.dark, "#A1A8FF", "#0D0D0D", "#F2F2F2", "#000000"),
         ] {
             assert_eq!(
                 theme.colors.primary.normal(),

@@ -11,7 +11,13 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         data.get_temp::<egui::Color32>(id)
             .unwrap_or(theme.colors.primary.l6)
     });
-    color_picker::render(ui, id, &mut color, color_picker::Style::new(theme));
+    color_picker::render(
+        ui,
+        id,
+        &mut color,
+        color_picker::Style::new(theme),
+        Default::default(),
+    );
     text::render(ui, &color.to_hex(), text::Style::new(theme));
     ui.data_mut(|data| data.insert_temp(id, color));
     let id = ui.make_persistent_id("color-picker-alpha");
@@ -34,13 +40,20 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             })
             .to_owned()
     };
-    color_picker::render_with_options(
+    color_picker::render(
         ui,
         id,
         &mut alpha,
         color_picker::Style::new(theme).alpha(true),
         color_picker::Options {
             error_message: Some(&error_message),
+            aria_labels: color_picker::AriaLabels {
+                plane: locale.text("colorPicker:ariaPlane"),
+                saturation: locale.text("colorPicker:ariaSaturation"),
+                brightness: locale.text("colorPicker:ariaBrightness"),
+                hue: locale.text("colorPicker:ariaHue"),
+                alpha: locale.text("colorPicker:ariaAlpha"),
+            },
         },
     );
     ui.data_mut(|data| data.insert_temp(id, alpha));
@@ -49,5 +62,6 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui.make_persistent_id("color-disabled"),
         &mut color,
         color_picker::Style::new(theme).disabled(true),
+        Default::default(),
     );
 }

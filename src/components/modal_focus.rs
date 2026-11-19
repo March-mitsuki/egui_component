@@ -93,3 +93,43 @@ impl egui::Plugin for RestorePlugin {
         }
     }
 }
+
+fn dialog_key(ctx: &Context) -> Id {
+    Id::unique("egui_component_current_dialog").with(ctx.viewport_id())
+}
+
+/// Exposes `ui` as a modal dialog (`role="dialog"` with `aria-modal`) and
+/// makes it the target of [`label_dialog`] while `add_contents` runs.
+pub(super) fn dialog_scope<R>(
+    ui: &mut egui::Ui,
+    add_contents: impl FnOnce(&mut egui::Ui) -> R,
+) -> R {
+    let ctx = ui.ctx().clone();
+    let node = ui.unique_id();
+    ctx.accesskit_node_builder(node, |builder| {
+        builder.set_role(egui::accesskit::Role::Dialog);
+        builder.set_modal();
+    });
+    let key = dialog_key(&ctx);
+    let previous = ctx.data(|data| data.get_temp::<Id>(key));
+    ctx.data_mut(|data| data.insert_temp(key, node));
+    let inner = add_contents(ui);
+    ctx.data_mut(|data| match previous {
+        Some(previous) => {
+            data.insert_temp(key, previous);
+        }
+        None => data.remove::<Id>(key),
+    });
+    inner
+}
+
+/// Names the enclosing dialog after `title`, like `aria-labelledby`.
+/// Does nothing outside [`dialog_scope`].
+pub(super) fn label_dialog(ctx: &Context, title: Id) {
+    let key = dialog_key(ctx);
+    if let Some(node) = ctx.data(|data| data.get_temp::<Id>(key)) {
+        ctx.accesskit_node_builder(node, |builder| {
+            builder.push_labelled_by(title.accesskit_id());
+        });
+    }
+}

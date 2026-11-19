@@ -9,7 +9,7 @@
 //! let mut selection = Selection::Single(Some(initial));
 //! let mut state = State::new(YearMonth::from_date(initial));
 //! let result = calendar::render(ui, ui.make_persistent_id("calendar"),
-//!     &mut selection, &mut state, calendar::Style::new(theme));
+//!     &mut selection, &mut state, calendar::Style::new(theme), Default::default());
 //! if result.selection_finished {
 //!     // A containing date picker may close its popup here.
 //! }
@@ -313,16 +313,6 @@ pub fn render(
     selection: &mut Selection,
     state: &mut State,
     style: Style,
-) -> CalendarResponse {
-    render_with_options(ui, id, selection, state, style, Options::default())
-}
-
-pub fn render_with_options(
-    ui: &mut Ui,
-    id: Id,
-    selection: &mut Selection,
-    state: &mut State,
-    style: Style,
     options: Options<'_>,
 ) -> CalendarResponse {
     state.caption_popup_open = false;
@@ -602,7 +592,17 @@ pub fn render_with_options(
             _ => false,
         });
     let selected = bounds(*selection, preview);
+    let committed = bounds(*selection, None);
     for (d, outside, enabled, cell_rect, response) in all_cells {
+        // Like `aria-selected` and `aria-current="date"` on a date grid cell.
+        let is_selected = committed.is_some_and(|(a, b)| d >= a && d <= b);
+        let is_today = options.today == Some(d);
+        ui.ctx().accesskit_node_builder(response.id, |node| {
+            node.set_selected(is_selected);
+            if is_today {
+                node.set_aria_current(egui::accesskit::AriaCurrent::Date);
+            }
+        });
         let in_range = selected.is_some_and(|(a, b)| d >= a && d <= b);
         let endpoint = selected.is_some_and(|(a, b)| d == a || d == b);
         if in_range && matches!(selection, Selection::Range(_)) {
@@ -948,7 +948,7 @@ mod tests {
             },
             |ui| {
                 egui::CentralPanel::default().show(ui, |ui| {
-                    result = Some(render_with_options(
+                    result = Some(render(
                         ui,
                         Id::unique("test-calendar"),
                         selection,
@@ -1152,7 +1152,7 @@ mod tests {
                     ..Default::default()
                 },
                 |ui| {
-                    let r = render_with_options(
+                    let r = render(
                         ui,
                         Id::unique("dropdown"),
                         &mut selection,
@@ -1195,7 +1195,7 @@ mod tests {
                         ..Default::default()
                     },
                     |ui| {
-                        response = Some(render_with_options(
+                        response = Some(render(
                             ui,
                             Id::unique("range-jump"),
                             &mut selection,

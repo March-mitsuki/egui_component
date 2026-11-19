@@ -9,7 +9,7 @@
 //! let mut selection = Selection::Single(None);
 //! let mut state = date_picker::State::new(YearMonth::new(2026, Month::November).unwrap());
 //! let result = date_picker::render(ui, ui.make_persistent_id("birthday"),
-//!     &mut selection, &mut state, date_picker::Style::new(theme));
+//!     &mut selection, &mut state, date_picker::Style::new(theme), Default::default());
 //! if result.response.changed() { /* consume the selected date */ }
 //! # }
 //! ```
@@ -104,15 +104,6 @@ pub fn render(
     id: Id,
     selection: &mut Selection,
     state: &mut State,
-    style: Style,
-) -> DatePickerResponse {
-    render_with_options(ui, id, selection, state, style, Options::default())
-}
-pub fn render_with_options(
-    ui: &mut Ui,
-    id: Id,
-    selection: &mut Selection,
-    state: &mut State,
     mut style: Style,
     options: Options<'_>,
 ) -> DatePickerResponse {
@@ -138,6 +129,9 @@ pub fn render_with_options(
             .inner
         })
         .inner;
+    ui.ctx().accesskit_node_builder(response.id, |node| {
+        node.set_has_popup(egui::accesskit::HasPopup::Dialog);
+    });
     if enabled && response.clicked() {
         state.open = !state.open;
     }
@@ -163,7 +157,12 @@ pub fn render_with_options(
             egui::PopupCloseBehavior::CloseOnClickOutside
         })
         .show(|ui| {
-            let result = calendar::render_with_options(
+            // Like `aria-haspopup="dialog"` on the trigger: the calendar is a
+            // non-modal dialog.
+            ui.ctx().accesskit_node_builder(ui.unique_id(), |node| {
+                node.set_role(egui::Role::Dialog);
+            });
+            let result = calendar::render(
                 ui,
                 id.with("calendar"),
                 selection,
@@ -229,7 +228,7 @@ mod tests {
                     ..Default::default()
                 },
                 |ui| {
-                    result = Some(render_with_options(
+                    result = Some(render(
                         ui,
                         Id::unique("picker"),
                         &mut self.selection,

@@ -37,17 +37,57 @@ impl Style {
         self
     }
 
-    /// Pass `Sense::click()` to make the icon clickable and focusable. Prefer
-    /// [`icon_button`](super::icon_button), which also provides an accessible name.
+    /// Pass `Sense::click()` or `Sense::drag()` to make the icon interactive,
+    /// for example a drag handle. Give an interactive icon an
+    /// [`Options::aria_label`]; for a plain icon button prefer
+    /// [`icon_button`](super::icon_button).
     pub fn sense(mut self, sense: egui::Sense) -> Self {
         self.sense = sense;
         self
     }
 }
 
-pub fn render(ui: &mut Ui, icon: egui::ImageSource, style: Style) -> Response {
+/// Optional behavior configuration, separate from visual styling.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Options<'a> {
+    /// Screen-reader name, like `aria-label`; never drawn. With it an
+    /// interactive icon is exposed as a button and a hover-only icon as a
+    /// named image. Without it a hover-only icon is decorative and hidden from
+    /// screen readers.
+    pub aria_label: Option<&'a str>,
+}
+
+/// Debug builds warn once per icon that is interactive but has no `aria_label`.
+pub fn render(
+    ui: &mut Ui,
+    icon: egui::ImageSource,
+    style: Style,
+    options: Options<'_>,
+) -> Response {
     let box_size = egui::vec2(style.box_size, style.box_size);
     let (rect, response) = ui.allocate_at_least(box_size, style.sense);
+    let interactive = style.sense.interactive();
+    match options.aria_label {
+        Some(label) => {
+            let role = if interactive {
+                egui::Role::Button
+            } else {
+                egui::Role::Image
+            };
+            response.widget_info(|| egui::WidgetInfo::labeled(role, ui.is_enabled(), label));
+        }
+        None if interactive && cfg!(debug_assertions) => {
+            let key = response.id.with("icon-missing-aria-label");
+            let warned = ui.data_mut(|d| std::mem::replace(d.get_temp_mut_or(key, false), true));
+            if !warned {
+                tracing::warn!(
+                    "interactive icon {:?} has no aria_label; screen readers cannot name it",
+                    response.id
+                );
+            }
+        }
+        None => {}
+    }
 
     let icon_size = egui::vec2(style.icon_size, style.icon_size);
     let icon_rect = egui::Align2::CENTER_CENTER.align_size_within_rect(icon_size, rect);

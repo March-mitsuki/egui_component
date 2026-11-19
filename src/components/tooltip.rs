@@ -77,7 +77,16 @@ pub fn render(target: &Response, content: impl FnOnce(&mut Ui), style: &Style) {
         .align(style.align)
         .close_behavior(style.close_behavior)
         .gap(style.gap);
-    tooltip.show(content);
+    let target_id = target.id;
+    tooltip.show(|ui| {
+        // Like `aria-describedby`: screen readers read the tooltip as the
+        // target's description. egui gives the tooltip itself its role.
+        let tooltip_id = ui.unique_id();
+        ui.ctx().accesskit_node_builder(target_id, |node| {
+            node.push_described_by(tooltip_id.accesskit_id());
+        });
+        content(ui);
+    });
 }
 
 #[cfg(test)]

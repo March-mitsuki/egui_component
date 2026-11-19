@@ -123,6 +123,31 @@ pub fn rgba_to_hex([r, g, b, a]: [u8; 4]) -> String {
 pub struct Options<'a> {
     /// Called when a committed input is invalid. Without this, only an error outline is shown.
     pub error_message: Option<&'a dyn Fn(&ColorInputError) -> String>,
+    pub aria_labels: AriaLabels<'a>,
+}
+
+/// Screen-reader names of the popup's sliders, like `aria-label`; never shown.
+/// Defaults to English.
+#[derive(Clone, Copy, Debug)]
+pub struct AriaLabels<'a> {
+    /// The saturation/brightness plane.
+    pub plane: &'a str,
+    /// Prefixes of the plane's spoken value, read as "{saturation} 40%, {brightness} 80%".
+    pub saturation: &'a str,
+    pub brightness: &'a str,
+    pub hue: &'a str,
+    pub alpha: &'a str,
+}
+impl Default for AriaLabels<'_> {
+    fn default() -> Self {
+        Self {
+            plane: "Saturation and brightness",
+            saturation: "Saturation",
+            brightness: "brightness",
+            hue: "Hue",
+            alpha: "Alpha",
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -272,6 +297,31 @@ fn handle(ui: &Ui, position: Pos2) {
     ui.painter()
         .circle_stroke(position, 5.0, Stroke::new(2.0, Color32::WHITE));
 }
+/// Arrow-key steps for a focused color control: 1% per press, 10% with Shift.
+/// `x` grows with Right, `y` with Up.
+fn arrow_steps(ui: &Ui, response: &egui::Response) -> egui::Vec2 {
+    super::focus::lock_arrows(ui, response);
+    if !response.has_focus() {
+        return egui::Vec2::ZERO;
+    }
+    ui.input_mut(|input| {
+        let mut step = egui::Vec2::ZERO;
+        // Shift first: `consume_key` with no modifiers also matches Shift.
+        for (modifiers, amount) in [(egui::Modifiers::SHIFT, 0.1), (egui::Modifiers::NONE, 0.01)] {
+            for (key, delta) in [
+                (egui::Key::ArrowRight, egui::vec2(amount, 0.0)),
+                (egui::Key::ArrowLeft, egui::vec2(-amount, 0.0)),
+                (egui::Key::ArrowUp, egui::vec2(0.0, amount)),
+                (egui::Key::ArrowDown, egui::vec2(0.0, -amount)),
+            ] {
+                while input.consume_key(modifiers, key) {
+                    step += delta;
+                }
+            }
+        }
+        step
+    })
+}
 fn picker_ui(ui: &mut Ui, state: &mut Editor, theme: &Theme, options: &Options<'_>) -> bool {
     ui.set_width(280.0);
     let mut changed = false;
@@ -282,6 +332,29 @@ fn picker_ui(ui: &mut Ui, state: &mut Editor, theme: &Theme, options: &Options<'
         state.hsv.v = (1.0 - (pos.y - plane.top()) / plane.height()).clamp(0.0, 1.0);
         changed = true;
     }
+    // Left/Right adjust saturation, Up/Down brightness.
+    let step = arrow_steps(ui, &response);
+    if step != egui::Vec2::ZERO {
+        state.hsv.s = (state.hsv.s + step.x).clamp(0.0, 1.0);
+        state.hsv.v = (state.hsv.v + step.y).clamp(0.0, 1.0);
+        changed = true;
+    }
+    let (s, v) = (state.hsv.s, state.hsv.v);
+    response.widget_info(|| {
+        let mut info = egui::WidgetInfo::labeled(
+            egui::Role::Slider,
+            ui.is_enabled(),
+            options.aria_labels.plane,
+        );
+        info.current_text_value = Some(format!(
+            "{} {:.0}%, {} {:.0}%",
+            options.aria_labels.saturation,
+            s * 100.0,
+            options.aria_labels.brightness,
+            v * 100.0
+        ));
+        info
+    });
     gradient(ui, plane, 24, 24, |s, y| {
         egui::ecolor::Hsva::new(state.hsv.h, s, 1.0 - y, 1.0).into()
     });
@@ -292,6 +365,7 @@ fn picker_ui(ui: &mut Ui, state: &mut Editor, theme: &Theme, options: &Options<'
             plane.bottom() - state.hsv.v * plane.height(),
         ),
     );
+    super::focus::ring(ui, &response, plane, CornerRadius::ZERO, theme.focus_ring);
     ui.add_space(10.0);
     ui.horizontal(|ui| {
         let (preview, _) = ui.allocate_exact_size(egui::vec2(44.0, 44.0), Sense::hover());
@@ -313,15 +387,31 @@ fn picker_ui(ui: &mut Ui, state: &mut Editor, theme: &Theme, options: &Options<'
             {
                 let (rect, response) =
                     ui.allocate_exact_size(egui::vec2(224.0, 18.0), Sense::click_and_drag());
+                let channel = if alpha {
+                    &mut state.hsv.a
+                } else {
+                    &mut state.hsv.h
+                };
                 if let Some(pos) = response.interact_pointer_pos() {
-                    let value = ((pos.x - rect.left()) / rect.width()).clamp(0.0, 1.0);
-                    if alpha {
-                        state.hsv.a = value;
-                    } else {
-                        state.hsv.h = value;
-                    }
+                    *channel = ((pos.x - rect.left()) / rect.width()).clamp(0.0, 1.0);
                     changed = true;
                 }
+                let step = arrow_steps(ui, &response);
+                if step != egui::Vec2::ZERO {
+                    *channel = (*channel + step.x + step.y).clamp(0.0, 1.0);
+                    changed = true;
+                }
+                // Hue in degrees, alpha in percent, like the text inputs.
+                let (label, value, max) = if alpha {
+                    (options.aria_labels.alpha, *channel as f64 * 100.0, 100.0)
+                } else {
+                    (options.aria_labels.hue, *channel as f64 * 360.0, 360.0)
+                };
+                response.widget_info(|| egui::WidgetInfo::slider(ui.is_enabled(), value, label));
+                ui.ctx().accesskit_node_builder(response.id, |node| {
+                    node.set_min_numeric_value(0.0);
+                    node.set_max_numeric_value(max);
+                });
                 if alpha {
                     paint_checkerboard(ui, rect, CornerRadius::ZERO, 16.0, theme);
                     gradient(ui, rect, 32, 1, |x, _| {
@@ -339,6 +429,7 @@ fn picker_ui(ui: &mut Ui, state: &mut Editor, theme: &Theme, options: &Options<'
                         rect.center().y,
                     ),
                 );
+                super::focus::ring(ui, &response, rect, CornerRadius::ZERO, theme.focus_ring);
             }
         });
     });
@@ -458,15 +549,11 @@ fn paint_checkerboard(ui: &Ui, rect: Rect, radius: CornerRadius, short_side: f32
         .add(RectShape::filled(rect, radius, Color32::WHITE).with_texture(texture.id(), uv));
 }
 
-/// The caller supplies a stable ID; incomplete HEX edits persist without changing the color.
-pub fn render(ui: &mut Ui, id: Id, color: &mut Color32, style: Style) -> Response {
-    render_with_options(ui, id, color, style, Options::default())
-}
-
-/// Render with caller-owned error localization. Valid edits update immediately;
+/// The caller supplies a stable ID; incomplete HEX edits persist without
+/// changing the color. Valid edits update immediately;
 /// Enter or focus loss normalizes the field and reveals validation errors.
 /// The callback is borrowed for this frame and is never stored in egui state.
-pub fn render_with_options(
+pub fn render(
     ui: &mut Ui,
     id: Id,
     color: &mut Color32,
@@ -655,7 +742,8 @@ mod tests {
                                 &mut state,
                                 &theme.dark,
                                 &Options {
-                                    error_message: Some(&message)
+                                    error_message: Some(&message),
+                                    ..Default::default()
                                 }
                             ));
                         })
@@ -667,6 +755,56 @@ mod tests {
             }
         }
         assert!(calls.get() >= 2);
+    }
+
+    #[test]
+    fn plane_and_bars_are_keyboard_sliders() {
+        let ctx = egui::Context::default();
+        ctx.enable_accesskit();
+        let theme =
+            crate::theme::UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json"))
+                .unwrap();
+        let mut state = Editor::new(Color32::from_rgb(128, 64, 64), true);
+        let (s, v, h) = (state.hsv.s, state.hsv.v, state.hsv.h);
+        let key = |key, modifiers| egui::Event::Key {
+            key,
+            physical_key: None,
+            pressed: true,
+            repeat: false,
+            modifiers,
+        };
+        let mut run = |events: Vec<egui::Event>| {
+            let mut output = ctx.run_ui(
+                egui::RawInput {
+                    events,
+                    ..Default::default()
+                },
+                |ui| {
+                    picker_ui(ui, &mut state, &theme.light, &Options::default());
+                },
+            );
+            output.textures_delta.clear();
+            output.platform_output.accesskit_update.unwrap().nodes
+        };
+        run(vec![]);
+        // Tab reaches the plane first; arrows adjust it and keep focus there.
+        run(vec![key(egui::Key::Tab, egui::Modifiers::NONE)]);
+        let plane = ctx.memory(|m| m.focused());
+        run(vec![key(egui::Key::ArrowRight, egui::Modifiers::NONE)]);
+        run(vec![key(egui::Key::ArrowUp, egui::Modifiers::SHIFT)]);
+        assert_eq!(ctx.memory(|m| m.focused()), plane);
+        run(vec![key(egui::Key::Tab, egui::Modifiers::NONE)]);
+        let nodes = run(vec![key(egui::Key::ArrowRight, egui::Modifiers::NONE)]);
+        assert!((state.hsv.s - (s + 0.01)).abs() < 1e-4);
+        assert!((state.hsv.v - (v + 0.1).min(1.0)).abs() < 1e-4);
+        assert!((state.hsv.h - (h + 0.01)).abs() < 1e-4);
+        let mut sliders: Vec<_> = nodes
+            .iter()
+            .filter(|(_, n)| n.role() == egui::Role::Slider)
+            .filter_map(|(_, n)| n.label())
+            .collect();
+        sliders.sort_unstable();
+        assert_eq!(sliders, ["Alpha", "Hue", "Saturation and brightness"]);
     }
 
     #[test]
@@ -691,6 +829,7 @@ mod tests {
                         Id::unique("color"),
                         &mut color,
                         Style::new(&theme.dark).alpha(true),
+                        Options::default(),
                     )
                     .rect;
                 },

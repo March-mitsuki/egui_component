@@ -56,7 +56,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             style.year_select_width = 112.0;
             style.month_select_width = 72.0;
         }
-        calendar::render_with_options(
+        calendar::render(
             ui,
             id,
             &mut selection,

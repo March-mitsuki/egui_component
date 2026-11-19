@@ -22,8 +22,11 @@
 - `accordion::Style` 将 `padding: i8` 拆为 `header_padding_y: i8` 和 `body_indent: i8`，分别控制标题上下各自的内边距，以及开启竖线时的正文左缩进。两者默认均为 `12`，负值按 `0` 处理。逐项列出字段的结构体字面量和穷尽解构需用这两个字段替换 `padding`。折叠组件的标题现在接受可转换为 `egui::WidgetText` 的值。可传入 `egui::RichText` 自定义标题样式，显式设置的标题颜色也会用于悬停下划线。标题栏默认透明、无描边，悬停时标题文字显示下划线。自定义 `hover_background` 时，透明值现在会沿用 `background`。
 - `egui_component` 不再启用 `egui_extras` 的 `all_loaders` feature，只启用内置图标所需的 `svg`。需要加载其他图片的应用，例如 `avatar` 通过 `http(s)://` 或 `file://` 加载的头像，以及 PNG/JPEG、GIF、WebP，请在自己的 `egui_extras` 依赖中启用对应的加载器，例如 `egui_extras = { version = "0.37", features = ["all_loaders"] }`，并继续调用 `egui_extras::install_image_loaders(ctx)`。未启用时，`avatar` 会回退为显示名字首字母。
 - `field::render` 的 `input_content` 闭包现在必须返回输入控件的 `egui::Response`，返回值也从 `InnerResponse<R>` 改为 `InnerResponse<Response>`。点击 label 会聚焦该控件，`switch` 等开关类控件还会同时切换。大多数情况下，只需去掉闭包末尾的 `;`，把控件的 Response 返回即可；`form.field` 和 `form.field_with_error` 本身已返回该值。如需从闭包中带出其他数据，请赋值给闭包外声明的变量。无论 `label_style.selectable` 如何设置，field 的 label 都不再可选中文本，也不会成为 Tab 停留点。
-- `icon_button::render` 新增无障碍名称参数：`render(ui, icon, label, style)`。屏幕阅读器会读出 `label`（相当于 `aria-label`），它不会被绘制。请传入简短、已本地化的操作名称，例如 `"关闭"`。
-- `text_edit::Style` 新增公开字段 `password_toggle_label: String`，`icon_menu_button::Style` 新增 `menu_handle_label: String`，分别是密码显示切换按钮和菜单把手的无障碍名称，默认值为 `"Show password"` 和 `"More options"`。逐项列出字段的结构体字面量需补上这两个字段，也可以用 `.password_toggle_label(...)` 和 `.menu_handle_label(...)` 本地化。`dialog::render_header`、`drawer::render_header` 和 `window` 内置的关闭按钮使用英文名称 `"Close"`。
+- `icon_button::render` 新增无障碍名称参数：`render(ui, icon, aria_label, style)`。屏幕阅读器会读出 `aria_label`（相当于 `aria-label`），它不会被绘制。请传入简短、已本地化的操作名称，例如 `"关闭"`。在整个 crate 中，`label` 指显示在界面上的文字，`aria_label` 指只给屏幕阅读器读的名称。
+- `icon::render` 新增参数 `options: icon::Options`：`render(ui, icon, style, options)`。装饰性图标传 `Default::default()`。设置 `Options::aria_label` 可以为图标命名：可交互的图标（例如用 `.sense(egui::Sense::drag())` 做拖拽把手）会作为按钮，只能悬停的图标会作为图片。可交互但没有设置名称的图标，在 debug 构建下会记录一次警告。
+- 删除 `calendar::render_with_options`、`date_picker::render_with_options` 和 `color_picker::render_with_options`，`render` 改为把原来的 `options` 作为最后一个参数。把 `render_with_options` 调用改名为 `render`，原有的 `render` 调用末尾补上 `Default::default()`。
+- `dialog::render_header` 和 `drawer::render_header` 末尾新增参数 `options: HeaderOptions`，`window::render` 新增 `options: window::Options`。传 `Default::default()` 即可；设置 `close_aria_label`（`window` 还有 `collapse_aria_label`）可以本地化关闭按钮和折叠按钮的屏幕阅读器名称，默认值为 `"Close"` 和 `"Collapse"`。
+- `text_edit::Style` 新增公开字段 `password_toggle_aria_label: String`，`icon_menu_button::Style` 新增 `menu_handle_aria_label: String`，分别是密码显示切换按钮和菜单把手的无障碍名称，默认值为 `"Show password"` 和 `"More options"`。逐项列出字段的结构体字面量需补上这两个字段，也可以用 `.password_toggle_aria_label(...)` 和 `.menu_handle_aria_label(...)` 本地化。
 - `toast::custom` 在 `content` 前新增参数 `announcement: Option<&str>`：`custom(ctx, kind, duration, announcement, content)`。内容自己绘制了文字时传 `None`，屏幕阅读器会读出这些文字；内容没有文字（例如只有进度条）时，传 `Some("...")` 作为 toast 的播报名称。
 - `navigation::Style` 新增公开字段 `current_kind: navigation::Current`。逐项列出字段的结构体字面量需补上 `current_kind: navigation::Current::Page`，穷尽解构模式需包含该字段或使用 `..`。`navigation::render` 的第三个参数由 `selected` 改名为 `current`，类型和含义不变。
 - 移除 `FontManager::set_egui_fonts`，请改用它原本转发到的 `FontManager::apply`。`get_egui_font_family_with_style` 合并进 `get_egui_font_family`，后者新增最后一个参数 `italic: bool`：现有调用补上 `false`，`get_egui_font_family_with_style` 的调用改名为 `get_egui_font_family`。
@@ -31,8 +34,8 @@
 ### 颜色选择器行为变更
 
 - 颜色选择器弹窗改为饱和度／明度色板、色相条、可选透明度条，以及用于切换 HEX 和 RGB(A) 输入的 ghost button。透明度输入使用 `0–1`，替代原先透明度滑块的 `0–255` 刻度；RGB 输入仍为 `0–255` 整数。依赖旧弹窗布局或透明度刻度的 UI 自动化和使用说明需要相应更新。
-- HEX 输入允许省略 `#`，合法输入在按 Enter 或失焦时规范化。关闭透明度时显示 `#rrggbb`，开启时显示 `#rrggbbaa`。合法输入仍实时更新颜色，非法草稿保留最后一个合法颜色，并在 Enter 或失焦时显示错误边框。错误文字需通过 `render_with_options` 的 `Options::error_message` 回调启用，由应用将 `ColorInputError` 转换为本地化的 `String`。
-- 本次重设计没有源码层面的破坏性 API 变更：`render(ui, id, &mut Color32, Style)` 及现有 `Style` 字段和构建方法均保持不变。选项 API 和无损转换函数 `hex_to_rgba` / `rgba_to_hex` 均为新增，现有调用代码无需迁移。
+- HEX 输入允许省略 `#`，合法输入在按 Enter 或失焦时规范化。关闭透明度时显示 `#rrggbb`，开启时显示 `#rrggbbaa`。合法输入仍实时更新颜色，非法草稿保留最后一个合法颜色，并在 Enter 或失焦时显示错误边框。错误文字需通过 `Options::error_message` 回调启用，由应用将 `ColorInputError` 转换为本地化的 `String`。
+- 现有 `Style` 字段和构建方法保持不变，无损转换函数 `hex_to_rgba` / `rgba_to_hex` 为新增。`render` 现在也接收 `Options`（见破坏性变更）。
 
 ### 表单行为变更
 
@@ -54,8 +57,14 @@
 - `select` 以及 `menu_button`/`icon_menu_button` 的弹窗支持键盘操作：回车、空格、↓ 或 ↑ 打开弹窗，并聚焦选中项或第一个选项；↓/↑ 在选项间移动（循环），Home/End 跳到首尾，回车或空格触发选项并关闭弹窗，Tab 或 Esc 关闭弹窗。关闭后焦点回到触发按钮。方向键只在本库的按钮和 select 选项之间移动，其他控件仍可用 Tab 访问。
 - 键盘焦点环现在统一画在控件内侧，不会被裁剪，也不额外占用空间。焦点环与控件填充之间有一条 1px 的黑色或白色细线（取与焦点环对比度更高的一个，见 `FocusRing::separator_color`），因此在实心填充上也清晰可见，例如以前看不到焦点环的 calendar 选中日期。以前大多数焦点环画在控件外侧，并且会压住控件边缘。
 - 按钮、图标按钮、开关、select 的触发按钮与选项、头像、窗口折叠按钮和菜单触发按钮，现在会通过 AccessKit 向屏幕阅读器提供角色、名称和状态（按下、选中、展开）。
+- `field::render` 将标签与控件关联（相当于 `<label for>`），屏幕阅读器会把标签读作控件名称。`Form::field` 和 `field_with_error` 在显示错误时把字段标记为无效，并把错误信息关联为字段的描述（相当于 `aria-invalid` 和 `aria-describedby`）。
+- `dialog::render` 和 `drawer::render` 以模态对话框提供给屏幕阅读器（`role="dialog"`、`aria-modal`）。`dialog::render_header` 和 `drawer::render_header` 用其标题为所在对话框命名（相当于 `aria-labelledby`）。
+- `tooltip::render` 把显示中的提示关联为目标控件的描述。`date_picker` 的触发按钮声明弹出对话框，弹出的日历是非模态对话框。日历中的日期会报告是否选中，今天以 `aria-current="date"` 的方式标记。
+- `slider` 会报告最小值、最大值和步长。在聚焦的 slider 上按方向键时，焦点不再同时跳到相邻控件。
+- 颜色选择器的饱和度/亮度平面和色相/透明度滑条现在会显示焦点环，并可用方向键调整（每次 1%，按住 Shift 为 10%）。它们以滑块的角色提供给屏幕阅读器，名称默认为英文，可通过 `color_picker::Options::aria_labels` 本地化。
 - `switch` 不再响应 Enter 切换，与 `checkbox` 一致：空格、鼠标点击或点击其 `field` 标签可以切换，Enter 留给表单提交。
 - `navigation` 的各项改为以链接（而不是切换按钮）提供给屏幕阅读器，当前项按 HTML `aria-current` 的方式标记（默认是 `Page`；页内目录可设置 `.current_kind(navigation::Current::Location)`）。用 `navigation::group(ui, label, ...)` 包住一组导航项，可将其作为带名称的导航地标。
+- 新增 `theme_gen::audit(&theme)`，列出不满足 WCAG 对比度的颜色组合（`theme_gen::contrast_checks` 列出全部组合），分为错误（文字低于 4.5:1、焦点环对背景低于 3:1）和警告（surface 按钮文字对 `l0`；焦点环对其分隔线低于 9:1，此时按 WCAG 技巧 C40 无法保证在所有填充色上都可见）。`theme_gen::generate` 生成的主题没有错误。gallery 的主题（`examples/theme.json`）改用默认种子色重新生成并通过检测，因此配色略有变化，例如亮色模式的 primary 从 `#6B65F5` 变为 `#584EDC`。gallery 的主题生成器可以检测粘贴的 JSON，而不导入它。
 - toast 现在是 live 区域：info 和 success 会在屏幕阅读器空闲时播报（`role="status"`），warning 和 error 会立即播报（`role="alert"`）。自动消失的计时除了鼠标悬停时，键盘焦点位于 toast 内时也会暂停。播报效果取决于平台的 AccessKit 适配器，eframe 的 web 版没有提供。
 
 ## 0.3.0

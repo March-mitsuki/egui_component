@@ -60,10 +60,18 @@ pub fn render(
         let text = text::render(ui, label, label_style.clone());
         // `Sense::CLICK` without `FOCUSABLE`: like an HTML <label>, the label
         // reacts to clicks but is not a Tab stop.
-        ui.interact(text.rect, text.id.with("field_label"), Sense::CLICK)
+        (
+            ui.interact(text.rect, text.id.with("field_label"), Sense::CLICK),
+            text.id,
+        )
     };
-    let body = |ui: &mut Ui, label: Response| {
+    let body = |ui: &mut Ui, (label, text_id): (Response, egui::Id)| {
         let input = input_content(ui);
+        // Like `<label for>`: screen readers announce the label as the
+        // control's name.
+        ui.ctx().accesskit_node_builder(input.id, |node| {
+            node.push_labelled_by(text_id.accesskit_id());
+        });
         let target = input.enabled() && input.sense.is_focusable();
         if target {
             label.clone().on_hover_cursor(CursorIcon::PointingHand);

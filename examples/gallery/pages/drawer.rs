@@ -24,7 +24,14 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         open,
         |drawer| {
             drawer.header(|ui| {
-                drawer::render_header(ui, theme, locale.text("demo.drawer:heading"));
+                drawer::render_header(
+                    ui,
+                    theme,
+                    locale.text("demo.drawer:heading"),
+                    drawer::HeaderOptions {
+                        close_aria_label: locale.text("common:close"),
+                    },
+                );
             });
             drawer.body(|ui| {
                 ui.label(locale.text("demo.drawer:body"));
