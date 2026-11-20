@@ -27,6 +27,10 @@ reload. [main.rs](main.rs) holds the state and every registration:
   `@cancel` restoring it on Escape. As in TodoMVC, double-clicking a title starts
   editing (`@double_click="todo.edit"`); an Edit button does the same from the
   keyboard. While a todo is edited, only its field is shown.
+- Delete shows only while the pointer is over its row, as in TodoMVC:
+  `:visible="$contains_pointer.todo"` reads the row layout (`id="todo"`), and
+  `visible` keeps the button's space so the row does not shift. Keyboard access
+  to a hidden Delete is not handled yet.
 - `<fragment e-if="has_todos">` hides the list and footer while there are no
   todos, and `e-if="any_done"` shows "Clear completed" only when something is
   done.

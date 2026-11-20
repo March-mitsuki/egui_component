@@ -65,7 +65,7 @@ Keep the public `egui_component::ecml::*` paths stable when reorganizing interna
   not imply nested application-state binding or automatic Rust reflection.
 - Use `e-` for directives, `:` for dynamic properties and `@` for events. Current
   expressions are registered names, text interpolation, bool negation for
-  conditions, and `cond ? value : value` in styling attributes (see Dynamic
+  conditions, `$contains_pointer.<id>`, and `cond ? value : value` in styling attributes (see Dynamic
   styling). Computations belong in Rust getters.
 - Reject unknown tags/attributes, duplicates, invalid values, unresolved names
   and type/capability mismatches. Never silently ignore unsupported syntax or
@@ -456,6 +456,49 @@ fragment.
   (mapped to `render_multiline`), Enter inserts a newline and `@submit` is
   rejected on multiline fields; `@cancel` and `@blur` keep their meaning.
   Single-line-only and multiline-only attributes are validated per mode.
+
+## Pointer state and visibility
+
+```html
+<layout e-for="todo in todos" id="todo" direction="left_to_right">
+    <text>{{ todo.title }}</text>
+    <button :visible="$contains_pointer.todo" @click="todo.remove">Delete</button>
+</layout>
+```
+
+- `$contains_pointer.<id>` is a built-in condition, usable wherever a bool name is
+  (`e-if`, `:disabled`, `:visible`, bool attributes and `cond ?` in styling), and
+  negatable with `!`. It follows egui's `Response::contains_pointer()`: true while
+  the pointer is over the element's area, even over a child widget. egui's
+  `hovered()` is false over a child, so it would hide a row's button as soon as
+  the pointer reached it.
+- In immediate mode an element's area is known only after it is drawn, so the
+  View records the area of every element with an id on each show and the
+  condition compares the last recorded area with this frame's pointer
+  (`Context::rect_contains_pointer`). Ancestors, earlier and later elements all
+  work the same way, a frame late; egui repaints on pointer movement, so the lag
+  is not visible. An element not drawn on the last show (new, hidden by `e-if`)
+  reads false.
+- The id must name one element where the condition is used: an element outside
+  loops, or one in a loop that also encloses the condition (the same row; outer
+  rows of nested loops too). A row element referenced from outside its loop, or
+  from another loop, is a compile-time error, as are unknown ids, fragments (no
+  area of their own) and other `$` names.
+- Feedback loops: if a change driven by `$contains_pointer` moves or resizes the
+  element it reads (for example `e-if` inserting an element before it, or a
+  wider variant), the element can leave the pointer, the condition turns false,
+  the layout returns and the pointer is over it again, flickering every frame.
+  Keep such changes layout-neutral: use `:visible` instead of `e-if`, and colors
+  or same-size variants.
+- `visible`/`:visible` is accepted on every element, fragments included. When
+  false the element keeps its space but is not drawn and does not respond, like
+  egui's `Ui::set_invisible` (CSS `visibility: hidden`); `e-if` removes it (CSS
+  `display: none`). An invisible control cannot take focus, so a control shown
+  only on hover is unreachable by keyboard; keyboard access (something like
+  `:focus-within`) is future work.
+- Applications can also read the last show's responses in Rust: `View::response(id)`
+  for elements outside loops, copied into state before `show` and exposed with
+  `.bind`. Row responses are not public yet.
 
 ## Text click events
 

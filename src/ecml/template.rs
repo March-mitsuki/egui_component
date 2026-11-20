@@ -19,6 +19,14 @@ pub(super) enum Ref {
 pub(super) enum BoolExpr {
     Literal(bool),
     Binding(Ref, bool),
+    /// `$contains_pointer.<id>`: whether the pointer is over the element's area from the
+    /// last frame. `depth` is the loop row the element is drawn in (`None` outside loops),
+    /// `key` its node key; the bool negates.
+    ContainsPointer {
+        depth: Option<usize>,
+        key: String,
+        negate: bool,
+    },
 }
 /// An attribute value: a constant, or `cond ? then : otherwise` from a `:` attribute.
 pub(super) enum Expr<T> {
@@ -183,6 +191,9 @@ pub(super) enum TextPart {
 pub(super) struct Node {
     pub key: String,
     pub explicit_id: Option<String>,
+    /// `visible`/`:visible`: when false the element keeps its space but is not drawn and
+    /// does not respond, like egui's `Ui::set_invisible`.
+    pub visible: Option<BoolExpr>,
     pub kind: Kind,
 }
 pub(super) enum Kind {
@@ -320,6 +331,35 @@ fn lists<S>(
 struct Scope<'a> {
     alias: String,
     names: &'a ListNames,
+    /// Source offset of the loop's element, which identifies the loop.
+    offset: usize,
+}
+/// An element with an explicit id, as `$contains_pointer.<id>` sees it.
+struct Target {
+    key: String,
+    fragment: bool,
+    /// Offsets of the loops the element is drawn in, outermost first.
+    loops: Vec<usize>,
+}
+/// Every explicit id in the template, so a reference may point at a later element.
+fn targets(e: &Element, loops: &mut Vec<usize>, found: &mut HashMap<String, Target>) {
+    let looped = e.attrs.contains_key("e-for");
+    if looped {
+        loops.push(e.offset);
+    }
+    if let Some(id) = e.attrs.get("id") {
+        found.entry(id.value.clone()).or_insert_with(|| Target {
+            key: format!("id:{}:{}", id.value, e.tag),
+            fragment: e.tag == "fragment",
+            loops: loops.clone(),
+        });
+    }
+    for child in &e.children {
+        targets(child, loops, found);
+    }
+    if looped {
+        loops.pop();
+    }
 }
 pub(super) struct Registry {
     bindings: Names,
@@ -361,12 +401,15 @@ impl Registry {
         Ok(result)
     }
     pub fn compile(&self, root: Element, source: &str, file: &str) -> Result<Node, Error> {
+        let mut found = HashMap::new();
+        targets(&root, &mut vec![], &mut found);
         Compiler {
             registry: self,
             source,
             file,
             ids: HashSet::new(),
             scopes: vec![],
+            targets: found,
         }
         .root(root)
     }
@@ -376,6 +419,7 @@ fn chain((condition, node): (Option<BoolExpr>, Node)) -> Node {
     Node {
         key: node.key.clone(),
         explicit_id: None,
+        visible: None,
         kind: Kind::If {
             branches: vec![(condition, node)],
         },
@@ -394,6 +438,7 @@ struct Compiler<'a> {
     file: &'a str,
     ids: HashSet<String>,
     scopes: Vec<Scope<'a>>,
+    targets: HashMap<String, Target>,
 }
 impl<'r> Compiler<'r> {
     fn error(&self, element: &Element, attr: &str, message: impl Into<String>) -> Error {
@@ -576,13 +621,18 @@ impl<'r> Compiler<'r> {
         let at = self.error(&e, "e-for", "");
         let alias = alias.to_owned();
         e.attrs.remove("e-for");
-        self.scopes.push(Scope { alias, names });
+        self.scopes.push(Scope {
+            alias,
+            names,
+            offset: e.offset,
+        });
         let body = self.node(e, path, false);
         self.scopes.pop();
         let body = body?;
         Ok(Node {
             key: body.key.clone(),
             explicit_id: None,
+            visible: None,
             kind: Kind::For {
                 list,
                 body: Box::new(body),
@@ -670,17 +720,17 @@ impl<'r> Compiler<'r> {
         let condition = if directive == "e-else" {
             None
         } else {
-            let (r, negate) = self.condition(&e, directive)?;
-            Some(BoolExpr::Binding(r, negate))
+            Some(self.condition(&e, directive)?)
         };
         e.attrs.remove(directive);
         Ok((condition, self.node(e, path, false)?))
     }
-    /// A bool name, optionally negated with `!`: the condition syntax of :disabled and e-if.
-    fn condition(&self, e: &Element, attr: &str) -> Result<(Ref, bool), Error> {
+    /// A bool name or `$contains_pointer.<id>`, optionally negated with `!`: the condition
+    /// syntax of :disabled, e-if and styling expressions.
+    fn condition(&self, e: &Element, attr: &str) -> Result<BoolExpr, Error> {
         self.condition_in(e, attr, self.attr(e, attr, ""))
     }
-    fn condition_in(&self, e: &Element, attr: &str, expr: &str) -> Result<(Ref, bool), Error> {
+    fn condition_in(&self, e: &Element, attr: &str, expr: &str) -> Result<BoolExpr, Error> {
         let expr = expr.trim();
         let (name, negate) = expr
             .strip_prefix('!')
@@ -688,10 +738,53 @@ impl<'r> Compiler<'r> {
         if name.is_empty() {
             return Err(self.error(e, attr, format!("{attr} needs a registered bool name")));
         }
-        Ok((
+        if name.starts_with('$') {
+            return self.contains_pointer(e, attr, name, negate);
+        }
+        Ok(BoolExpr::Binding(
             self.binding(e, attr, name, Some(ValueKind::Bool), false)?,
             negate,
         ))
+    }
+    /// `$contains_pointer.<id>`. The element must be the same one wherever this is drawn:
+    /// outside loops, or in a loop that also encloses this element (the same row).
+    fn contains_pointer(
+        &self,
+        e: &Element,
+        attr: &str,
+        name: &str,
+        negate: bool,
+    ) -> Result<BoolExpr, Error> {
+        let Some(id) = name.strip_prefix("$contains_pointer.") else {
+            return Err(self.error(
+                e,
+                attr,
+                format!("unknown built-in '{name}'; conditions take a registered bool or $contains_pointer.<id>"),
+            ));
+        };
+        let Some(target) = self.targets.get(id) else {
+            return Err(self.error(e, attr, format!("no element has id '{id}'")));
+        };
+        if target.fragment {
+            return Err(self.error(
+                e,
+                attr,
+                format!("'{id}' is a fragment, which has no area of its own"),
+            ));
+        }
+        let enclosing: Vec<_> = self.scopes.iter().map(|scope| scope.offset).collect();
+        if !enclosing.starts_with(&target.loops) {
+            return Err(self.error(
+                e,
+                attr,
+                format!("'{id}' is drawn once per row of a loop that does not enclose this element, so it is not one element here"),
+            ));
+        }
+        Ok(BoolExpr::ContainsPointer {
+            depth: target.loops.len().checked_sub(1),
+            key: target.key.clone(),
+            negate,
+        })
     }
     /// A bool attribute such as `disabled`: `true`/`false`, or `:name` with a condition.
     fn flag(&self, e: &Element, name: &str) -> Result<BoolExpr, Error> {
@@ -700,8 +793,7 @@ impl<'r> Compiler<'r> {
             return Err(self.error(e, &dynamic, format!("cannot combine {name} and {dynamic}")));
         }
         if e.attrs.contains_key(&dynamic) {
-            let (r, negate) = self.condition(e, &dynamic)?;
-            Ok(BoolExpr::Binding(r, negate))
+            self.condition(e, &dynamic)
         } else {
             Ok(BoolExpr::Literal(
                 self.choice(e, name, "false", &["true", "false"])? == "true",
@@ -787,7 +879,7 @@ impl<'r> Compiler<'r> {
         let Some((condition, rest)) = src.split_once('?') else {
             return Err(self.error(e, attr, SHAPE));
         };
-        let (r, negate) = self.condition_in(e, attr, condition)?;
+        let condition = self.condition_in(e, attr, condition)?;
         let (then, rest) = value(rest)?;
         let Some(otherwise) = rest.strip_prefix(':') else {
             return Err(self.error(
@@ -797,7 +889,7 @@ impl<'r> Compiler<'r> {
             ));
         };
         Ok(Expr::If(
-            BoolExpr::Binding(r, negate),
+            condition,
             then,
             Box::new(self.expr(e, attr, otherwise, leaf)?),
         ))
@@ -832,8 +924,11 @@ impl<'r> Compiler<'r> {
             "switch" | "checkbox" => &["size", ":size", "disabled", ":disabled", "e-model"],
             _ => return Err(self.error(&e, "", format!("unknown component '{}'; prototype supports built-in layout and fragment and components text, button, text_edit, switch, checkbox (no aliases)", e.tag))),
         };
+        // Every element may be hidden while keeping its space.
         for name in e.attrs.keys() {
-            if name != "id" && !allowed.contains(&name.as_str()) {
+            if !["id", "visible", ":visible"].contains(&name.as_str())
+                && !allowed.contains(&name.as_str())
+            {
                 return Err(self.error(
                     &e,
                     name,
@@ -841,6 +936,11 @@ impl<'r> Compiler<'r> {
                 ));
             }
         }
+        let visible = if e.attrs.contains_key("visible") || e.attrs.contains_key(":visible") {
+            Some(self.flag(&e, "visible")?)
+        } else {
+            None
+        };
         let explicit_id = e.attrs.get("id").map(|a| a.value.clone());
         if let Some(id) = &explicit_id
             && (id.trim().is_empty() || !self.ids.insert(id.clone()))
@@ -1026,6 +1126,7 @@ impl<'r> Compiler<'r> {
         Ok(Node {
             key,
             explicit_id,
+            visible,
             kind,
         })
     }

@@ -1683,3 +1683,168 @@ fn text_event_errors_have_source_locations() {
         assert_eq!(error.line, 2, "{source}");
     }
 }
+
+/// Draws one frame with the pointer at `pointer` and returns the painted texts.
+fn painted<S: 'static>(
+    ctx: &egui::Context,
+    view: &mut View<S>,
+    state: &mut S,
+    pointer: Pos2,
+) -> Vec<String> {
+    let theme = theme();
+    let mut output = ctx.run_ui(
+        RawInput {
+            events: vec![Event::PointerMoved(pointer)],
+            screen_rect: Some(egui::Rect::from_min_size(
+                Pos2::ZERO,
+                egui::vec2(600.0, 500.0),
+            )),
+            ..Default::default()
+        },
+        |ui| view.show(ui, &theme, state),
+    );
+    output.textures_delta.clear();
+    output
+        .shapes
+        .into_iter()
+        .filter_map(|clipped| match clipped.shape {
+            egui::Shape::Text(text) => Some(text.galley.text().to_owned()),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn contains_pointer_follows_each_row_and_visible_keeps_the_space() {
+    let ctx = egui::Context::default();
+    let mut view = todo_view(
+        r#"<layout>
+            <layout e-for="todo in todos" id="row" direction="left_to_right">
+                <text id="title">{{ todo.title }}</text>
+                <button id="remove" :visible="$contains_pointer.row">Delete {{ todo.title }}</button>
+            </layout>
+        </layout>"#,
+    );
+    let mut state = Todos {
+        todos: vec![todo(1, "a"), todo(2, "b")],
+        ..Default::default()
+    };
+    let away = Pos2::new(590.0, 490.0);
+    let texts = painted(&ctx, &mut view, &mut state, away);
+    assert!(!texts.iter().any(|t| t.starts_with("Delete")), "{texts:?}");
+    // A hidden button keeps its space and does not respond.
+    let hidden = view.row_response("remove", &2).unwrap().clone();
+    assert!(hidden.rect.width() > 0.0 && !hidden.enabled());
+    let over_b = view.row_response("title", &2).unwrap().rect.center();
+    let texts = painted(&ctx, &mut view, &mut state, over_b);
+    assert!(texts.contains(&"Delete b".to_owned()), "{texts:?}");
+    assert!(!texts.contains(&"Delete a".to_owned()), "{texts:?}");
+    assert!(view.row_response("remove", &2).unwrap().enabled());
+    assert_eq!(view.row_response("remove", &2).unwrap().rect, hidden.rect);
+    // Moving onto the button keeps the row hovered, unlike egui's hovered().
+    let over_button = hidden.rect.center();
+    let texts = painted(&ctx, &mut view, &mut state, over_button);
+    assert!(texts.contains(&"Delete b".to_owned()), "{texts:?}");
+    assert!(view.last_error().is_none());
+}
+
+#[test]
+fn an_earlier_element_can_follow_a_later_one_a_frame_late() {
+    let ctx = egui::Context::default();
+    let mut v = view(
+        r#"<layout direction="left_to_right">
+            <text :visible="$contains_pointer.target" :color="!$contains_pointer.target ? $theme.colors.gray.l6 : $theme.colors.red.l6">Hint</text>
+            <button id="target">Target</button>
+            <fragment visible="false"><text>Hidden</text></fragment>
+        </layout>"#,
+    );
+    let mut state = State::default();
+    let away = Pos2::new(590.0, 490.0);
+    let texts = painted(&ctx, &mut v, &mut state, away);
+    assert!(!texts.contains(&"Hint".to_owned()));
+    assert!(!texts.contains(&"Hidden".to_owned()));
+    let target = v.response("target").unwrap().rect.center();
+    // The hint is drawn before the target, so it reads the target's last area.
+    let texts = painted(&ctx, &mut v, &mut state, target);
+    assert!(texts.contains(&"Hint".to_owned()), "{texts:?}");
+    assert!(!texts.contains(&"Hidden".to_owned()));
+    let texts = painted(&ctx, &mut v, &mut state, away);
+    assert!(!texts.contains(&"Hint".to_owned()));
+    assert!(v.last_error().is_none());
+}
+
+#[test]
+fn contains_pointer_and_visible_errors_have_source_locations() {
+    for (source, message) in [
+        (
+            "<text e-if=\"$contains_pointer.nope\" />",
+            "no element has id 'nope'",
+        ),
+        ("<text e-if=\"$hovered.x\" id=\"x\" />", "unknown built-in"),
+        (
+            "<text e-if=\"$contains_pointer.\" />",
+            "no element has id ''",
+        ),
+        (
+            "<layout><fragment id=\"f\"><text /></fragment><text e-if=\"$contains_pointer.f\" /></layout>",
+            "is a fragment",
+        ),
+        ("<text visible=\"maybe\" />", "must be one of"),
+        (
+            "<text visible=\"false\" :visible=\"enabled\" />",
+            "cannot combine",
+        ),
+        ("<text :visible=\"count\" />", "expected Bool"),
+    ] {
+        let error = builder()
+            .load(Source::inline("bad.ecml", format!("\n{source}")))
+            .err()
+            .expect(source);
+        assert!(error.message.contains(message), "{source}: {error}");
+        assert_eq!(error.line, 2, "{source}");
+    }
+    // A row element is not one element outside its loop, or in another loop.
+    for source in [
+        r#"<layout><text e-for="todo in todos" id="row" /><text e-if="$contains_pointer.row" /></layout>"#,
+        r#"<layout><text e-for="todo in todos" id="row" /><layout e-for="other in todos"><text e-if="$contains_pointer.row" /></layout></layout>"#,
+    ] {
+        let error = todos()
+            .load(Source::inline("bad.ecml", source))
+            .err()
+            .expect(source);
+        assert!(error.message.contains("not one element here"), "{error}");
+    }
+}
+
+#[test]
+fn an_inner_row_reads_its_own_outer_row() {
+    let ctx = egui::Context::default();
+    let mut view = groups()
+        .load(Source::inline(
+            "groups.ecml",
+            r#"<layout>
+                <layout e-for="group in groups" id="group">
+                    <text id="name">{{ group.name }}</text>
+                    <text e-for="item in group.items" :visible="$contains_pointer.group">{{ group.name }} {{ item.label }}</text>
+                </layout>
+            </layout>"#,
+        ))
+        .unwrap();
+    let mut state = Groups {
+        groups: vec![
+            ("a".into(), vec![item(1, "x")]),
+            ("b".into(), vec![item(2, "y")]),
+        ],
+        removed: vec![],
+        seen: Default::default(),
+    };
+    painted(&ctx, &mut view, &mut state, Pos2::new(590.0, 490.0));
+    let over_b = view
+        .row_response("name", &"b".to_owned())
+        .unwrap()
+        .rect
+        .center();
+    let texts = painted(&ctx, &mut view, &mut state, over_b);
+    assert!(texts.contains(&"b y".to_owned()), "{texts:?}");
+    assert!(!texts.contains(&"a x".to_owned()), "{texts:?}");
+}

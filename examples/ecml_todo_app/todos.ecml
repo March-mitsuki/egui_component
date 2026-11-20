@@ -18,7 +18,9 @@
                       :strikethrough="todo.done">{{ todo.title }}</text>
                 <!-- Double-click cannot be done from the keyboard; the button can. -->
                 <button id="edit_button" size="sm" variant="ghost" @click="todo.edit">Edit</button>
-                <button id="remove" size="sm" variant="ghost" @click="todo.remove">Delete</button>
+                <!-- As in TodoMVC, Delete shows while the pointer is over the row; it keeps its space. -->
+                <button id="remove" size="sm" variant="ghost" :visible="$contains_pointer.todo"
+                        @click="todo.remove">Delete</button>
             </fragment>
         </layout>
         <text>{{ remaining }}</text>

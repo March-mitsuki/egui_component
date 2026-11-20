@@ -408,6 +408,7 @@ impl<S: 'static> Builder<S> {
             error: None,
             runtime_error: None,
             autofocused: HashSet::new(),
+            rects: HashMap::new(),
             autofocus_retry: HashMap::new(),
             text_focus: HashSet::new(),
             lost_reported: HashSet::new(),
@@ -438,6 +439,8 @@ pub struct View<S> {
     runtime_error: Option<Error>,
     /// Autofocus controls drawn on the last frame, so they are focused only on appearing.
     autofocused: HashSet<egui::Id>,
+    /// Areas of elements with an id, from the last show, for `$contains_pointer`.
+    rects: HashMap<egui::Id, (egui::Rect, egui::LayerId)>,
     autofocus_retry: HashMap<egui::Id, egui::Id>,
     /// Text edits focused when last drawn and those whose focus loss was reported on the
     /// last frame, so each loss fires one handler (see the text_edit renderer).
@@ -524,6 +527,11 @@ impl<S: 'static> View<S> {
             events: vec![],
             writes: vec![],
             instance: self.instance.with(stamp.0),
+            root: self.instance.with(stamp.0),
+            rows: vec![],
+            ctx: ui.ctx().clone(),
+            rects: &self.rects,
+            rects_now: HashMap::new(),
             responses: &mut self.responses,
             #[cfg(test)]
             row_responses: &mut self.row_responses,
@@ -553,8 +561,10 @@ impl<S: 'static> View<S> {
             autofocus_retry_now,
             text_focus_now,
             lost_now,
+            rects_now,
             ..
         } = runtime;
+        self.rects = rects_now;
         self.runtime_error = runtime_error;
         if first {
             self.autofocused = autofocus_now;
@@ -659,6 +669,12 @@ struct Runtime<'a, S> {
     events: Vec<Event>,
     writes: Vec<Write>,
     instance: egui::Id,
+    /// The identity outside loops and of each enclosing row, outermost first.
+    root: egui::Id,
+    rows: Vec<egui::Id>,
+    ctx: egui::Context,
+    rects: &'a HashMap<egui::Id, (egui::Rect, egui::LayerId)>,
+    rects_now: HashMap<egui::Id, (egui::Rect, egui::LayerId)>,
     responses: &'a mut HashMap<String, egui::Response>,
     #[cfg(test)]
     row_responses: &'a mut HashMap<(String, egui::Id), egui::Response>,
@@ -770,6 +786,14 @@ impl<S: 'static> Runtime<'_, S> {
         match expr {
             BoolExpr::Literal(v) => *v,
             BoolExpr::Binding(r, not) => matches!(self.get(access, *r), Value::Bool(true)) ^ not,
+            BoolExpr::ContainsPointer { depth, key, negate } => {
+                let scope = depth.map_or(self.root, |depth| self.rows[depth]);
+                // Last show's area against this frame's pointer; nothing while unseen.
+                self.rects
+                    .get(&scope.with(key))
+                    .is_some_and(|(rect, layer)| self.ctx.rect_contains_pointer(*layer, *rect))
+                    ^ negate
+            }
         }
     }
     fn value<T: Copy>(&self, access: &Access<'_, S>, expr: &Expr<T>) -> T {
@@ -814,6 +838,7 @@ fn repeat<'s, S: 'static>(
     let duplicate = (list.rows)(state, parent_item, parent_path, &mut |item, key| {
         // Row identity: loop identity plus key, so rows keep state when moved.
         rt.instance = base.with(&node.key).with(key.id);
+        rt.rows.push(rt.instance);
         let mut frames = frames.to_vec();
         frames.push(Frame {
             item,
@@ -822,6 +847,7 @@ fn repeat<'s, S: 'static>(
             parent,
         });
         render(body, ui, theme, rt, &mut Access::Rows { state, frames });
+        rt.rows.pop();
     });
     rt.instance = base;
     duplicate
@@ -847,17 +873,35 @@ fn render<S: 'static>(
             return;
         }
         Kind::Fragment { children } => {
-            for child in children {
-                render(child, ui, theme, rt, access);
-            }
+            let Some(visible) = &node.visible else {
+                for child in children {
+                    render(child, ui, theme, rt, access);
+                }
+                return;
+            };
+            // Hiding needs a scope, so it does not leak to later siblings.
+            let visible = rt.boolean(access, visible);
+            ui.scope(|ui| {
+                if !visible {
+                    ui.set_invisible();
+                }
+                for child in children {
+                    render(child, ui, theme, rt, access);
+                }
+            });
             return;
         }
         _ => {}
     }
     // Explicit scope_id keeps auto-allocated IDs inside existing components stable too.
-    ui.scope_builder(
+    let scope = ui.scope_builder(
         egui::UiBuilder::new().scope_id(rt.instance.with(&node.key)),
         |ui| {
+            if let Some(visible) = &node.visible
+                && !rt.boolean(access, visible)
+            {
+                ui.set_invisible();
+            }
             let response = match &node.kind {
                 Kind::If { .. } | Kind::Fragment { .. } => unreachable!("drawn above"),
                 Kind::For {
@@ -1194,4 +1238,11 @@ fn render<S: 'static>(
             }
         },
     );
+    // A loop's element records each row's area itself, under the row's identity.
+    if node.explicit_id.is_some() && !matches!(node.kind, Kind::For { .. }) {
+        rt.rects_now.insert(
+            rt.instance.with(&node.key),
+            (scope.response.rect, ui.layer_id()),
+        );
+    }
 }

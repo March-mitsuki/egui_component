@@ -33,7 +33,7 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 - `layout` 和 `fragment` 是内置保留结构：`layout` 直接映射 egui，`fragment` 只分组、不创建布局。不得仅为标记语言添加公开 Row/Column 组件，也不接受 `row`/`column` 别名。
 - 保留 egui 字段名和 snake_case。结构化属性使用 `item_spacing.x` 这样的点号路径，不使用 `gap_x`、`item_spacing_x`。
 - 解析器保留完整属性名；schema 显式定义每个支持路径的类型、默认值及映射。UI 点号属性不等于嵌套状态绑定或任意 Rust 反射。
-- 指令使用 `e-`，动态属性使用 `:`，事件使用 `@`。当前表达式仅包含已注册名称、文本插值、条件中的布尔取反，以及样式属性中的 `cond ? value : value`（见“动态样式”）；计算放在 Rust getter 中。
+- 指令使用 `e-`，动态属性使用 `:`，事件使用 `@`。当前表达式仅包含已注册名称、文本插值、条件中的布尔取反、`$contains_pointer.<id>`，以及样式属性中的 `cond ? value : value`（见“动态样式”）；计算放在 Rust getter 中。
 - 未知标签/属性、重复项、非法值、未注册名称和类型/读写能力不匹配必须报错，不得静默忽略未支持语法或进行有损转换。
 
 自定义语法要求一个根节点，属性值必须带引号；不带值的 `e-else` 是唯一例外。支持自闭合节点、文本、节点内部注释，以及五种具名实体（`amp`、`lt`、`gt`、`quot`、`apos`）。名称段使用 ASCII 字母或下划线开头，后续允许字母、数字、下划线和连字符；属性路径可用点号连接名称段，并可带 `:`/`@` 前缀。模板上限为 256 KiB、64 层节点。错误包含文件、行、列；文本插值错误目前定位到所属节点。
@@ -241,6 +241,22 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 - 带 `@submit` 的 text_edit 按 Enter 后保持焦点（重新请求焦点），因此新建输入框可以连续添加多项。如果 handler 隐藏了该输入框，它在下一个 pass 不再存在，焦点随之结束。不带 `@submit` 时保持 egui 默认行为。
 - `autofocus="true"` 在控件出现时请求焦点：View 首次显示、`e-if` 切换到该分支或循环中新增该行时。View 记录上一帧绘制过的 autofocus 控件；保持身份不变的热更新不会重新聚焦。同一帧有多个控件出现时，最后绘制的获得焦点。禁用的输入框不会被聚焦。焦点请求会在下一帧绘制该输入框之前再执行一次：在 Web 上，首次绘制时未获得焦点的输入框可能丢失迟到的焦点请求，因为文本代理只为绘制时已获得焦点的输入框接收键盘输入。
 - ECML 暂不支持多行输入。以后为 `text_edit` 加入多行模式（映射到 `render_multiline`）时，Enter 用于换行，多行输入框上的 `@submit` 会报错，`@cancel` 和 `@blur` 含义不变。仅单行或仅多行的属性按模式分别校验。
+
+## 指针状态与可见性
+
+```html
+<layout e-for="todo in todos" id="todo" direction="left_to_right">
+    <text>{{ todo.title }}</text>
+    <button :visible="$contains_pointer.todo" @click="todo.remove">Delete</button>
+</layout>
+```
+
+- `$contains_pointer.<id>` 是内置条件，凡是可以写 bool 名字的地方都能用（`e-if`、`:disabled`、`:visible`、bool 属性以及样式表达式中的 `cond ?`），也可以用 `!` 取反。它对应 egui 的 `Response::contains_pointer()`：鼠标在该元素的区域内时为真，在其中的子控件上也算。egui 的 `hovered()` 在子控件上为假，一行里的按钮会在鼠标移到它上面时立刻消失。
+- 即时模式下，元素的区域要画完才知道，所以 View 在每次 show 时记录所有带 id 的元素的区域，条件用上一次记录的区域和本帧的鼠标位置比较（`Context::rect_contains_pointer`）。祖先、前面和后面的元素都按同样方式工作，都晚一帧；鼠标移动时 egui 会重画，所以看不出延迟。上一次 show 没画出的元素（新出现的、被 `e-if` 隐藏的）结果为假。
+- id 在使用条件的位置必须对应唯一的元素：要么在循环外，要么在同样包含这个条件的循环里（同一行；嵌套循环的外层行也可以）。在循环外或另一个循环里引用某个循环里的元素，会在编译期报错；未知 id、fragment（没有自己的区域）和其他 `$` 名字也会报错。
+- 反馈循环：如果由 `$contains_pointer` 引起的变化会移动或改变它所读取的元素（例如用 `e-if` 在它前面插入元素，或换成更宽的 variant），元素可能离开鼠标，条件变为假，布局恢复，鼠标又落在元素上，于是每帧来回闪烁。这类变化应保持不影响布局：用 `:visible` 代替 `e-if`，改颜色或换尺寸相同的 variant。
+- 所有元素（包括 fragment）都支持 `visible`/`:visible`。为假时元素仍占位置，但不绘制也不响应，与 egui 的 `Ui::set_invisible` 相同（CSS 的 `visibility: hidden`）；`e-if` 则移除元素（CSS 的 `display: none`）。不可见的控件不能获得焦点，所以只在 hover 时显示的控件无法用键盘访问；键盘访问（类似 `:focus-within`）留作未来工作。
+- 应用也可以在 Rust 里读取上一次 show 的 response：循环外的元素用 `View::response(id)`，在 `show` 之前复制到 state，再用 `.bind` 暴露。行内元素的 response 暂未公开。
 
 ## text 的点击事件
 

@@ -6,6 +6,8 @@
         <checkbox e-model="todo.done" />
         <text :color="todo.done ? $theme.colors.gray.l6 : $theme.colors.fg.base"
               :strikethrough="todo.done">{{ todo.title }}</text>
+        <!-- Shown while the pointer is over this row; visible keeps the space. -->
+        <button size="sm" variant="ghost" :visible="$contains_pointer.styled_row" @click="todo.remove">Delete</button>
     </layout>
     <layout direction="left_to_right" item_spacing.x="8" cross_align="center">
         <switch size="sm" e-model="enabled" />
