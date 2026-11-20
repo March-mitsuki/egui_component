@@ -23,6 +23,7 @@ pub struct FontDemo {
     status: FontStatus,
     font_url: String,
     download: Option<Download>,
+    double_clicks: u32,
 }
 
 impl Default for FontDemo {
@@ -33,6 +34,7 @@ impl Default for FontDemo {
             status: FontStatus::new("demo.text:initial"),
             font_url: GOOGLE_FONT_URL.into(),
             download: None,
+            double_clicks: 0,
         }
     }
 }
@@ -275,6 +277,24 @@ impl FontDemo {
                 .underline(egui::Stroke::new(2.0, primary))
                 .strikethrough(egui::Stroke::new(1.0, theme.colors.red.l6)),
         );
+        ui.add_space(16.0);
+        text::render(
+            ui,
+            locale.text("demo.text:clickable"),
+            text::Style::new(theme),
+        );
+        // Sense, as in egui's Label: not selectable, so a double click does not select a word.
+        let count = self.double_clicks.to_string();
+        let response = text::render(
+            ui,
+            &locale.format("demo.text:doubleClick", &[("count", &count)]),
+            text::Style::new(theme)
+                .selectable(false)
+                .sense(egui::Sense::click()),
+        );
+        if response.double_clicked() {
+            self.double_clicks += 1;
+        }
         ui.add_space(12.0);
         text::render(
             ui,

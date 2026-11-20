@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use egui::{Color32, FontSelection, Label, Response, RichText, Stroke, Ui, WidgetText};
+use egui::{Color32, FontSelection, Label, Response, RichText, Sense, Stroke, Ui, WidgetText};
 
 use crate::{
     consts::{DEFAULT_FONT_FAMILY_ALIAS, FONT_MANAGER},
@@ -20,6 +20,9 @@ pub struct Style {
     pub underline: Stroke,
     /// A line through the text, as in egui's `TextFormat`. `Stroke::NONE` (default) draws none.
     pub strikethrough: Stroke,
+    /// What the text responds to, as in egui's `Label::sense`. `Sense::hover()` (default)
+    /// keeps it inert; selection, when `selectable`, adds its own clicks and drags.
+    pub sense: Sense,
 }
 impl Style {
     pub fn new(theme: &Theme) -> Self {
@@ -32,6 +35,7 @@ impl Style {
             font_weight: FontWeight::Regular,
             underline: Stroke::NONE,
             strikethrough: Stroke::NONE,
+            sense: Sense::hover(),
         }
     }
 
@@ -45,6 +49,7 @@ impl Style {
             font_weight: FontWeight::Bold,
             underline: Stroke::NONE,
             strikethrough: Stroke::NONE,
+            sense: Sense::hover(),
         }
     }
 
@@ -89,6 +94,15 @@ impl Style {
         self.strikethrough = strikethrough.into();
         self
     }
+
+    /// Pass `Sense::click()` to make the text respond to clicks, for example
+    /// `double_clicked()` to start editing it. Also set `.selectable(false)`: on selectable
+    /// text a double click selects a word as well. Clickable text can take keyboard focus,
+    /// which egui marks with an underline.
+    pub fn sense(mut self, sense: Sense) -> Self {
+        self.sense = sense;
+        self
+    }
 }
 
 /// The styled text used by [`render`], for components that lay out text themselves.
@@ -122,6 +136,10 @@ pub(crate) fn rich_text(ui: &Ui, text: &str, style: &Style) -> WidgetText {
 
 pub fn render(ui: &mut Ui, text: &str, style: Style) -> Response {
     let mut label = Label::new(rich_text(ui, text, &style)).selectable(style.selectable);
+    // Hover is egui's own default; leaving it unset keeps egui's screen reader focus.
+    if style.sense != Sense::hover() {
+        label = label.sense(style.sense);
+    }
 
     if style.truncate {
         label = label.truncate();
@@ -139,6 +157,51 @@ mod tests {
         UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json"))
             .unwrap()
             .light
+    }
+
+    /// Double-clicks the text drawn with `style`; returns whether it reported a double click.
+    fn double_clicked(style: Style) -> bool {
+        let ctx = egui::Context::default();
+        let (mut found, mut center) = (false, egui::Pos2::ZERO);
+        let presses = [true, false, true, false];
+        // A first frame to place the text, then a press and a release twice, 50 ms apart.
+        for (frame, pressed) in std::iter::once(None).chain(presses.map(Some)).enumerate() {
+            let events = pressed.map_or(vec![], |pressed| {
+                vec![
+                    egui::Event::PointerMoved(center),
+                    egui::Event::PointerButton {
+                        pos: center,
+                        button: egui::PointerButton::Primary,
+                        pressed,
+                        modifiers: Default::default(),
+                    },
+                ]
+            });
+            let input = egui::RawInput {
+                time: Some(frame as f64 * 0.05),
+                events,
+                ..Default::default()
+            };
+            let mut output = ctx.run_ui(input, |ui| {
+                let response = render(ui, "Double-click me", style.clone());
+                center = response.rect.center();
+                found |= response.double_clicked();
+            });
+            output.textures_delta.clear();
+        }
+        found
+    }
+
+    #[test]
+    fn sense_follows_egui_label_and_defaults_to_hover() {
+        let theme = theme();
+        assert_eq!(Style::new(&theme).sense, Sense::hover());
+        assert_eq!(Style::new_heading(&theme).sense, Sense::hover());
+        // Inert text reports no clicks.
+        assert!(!double_clicked(Style::new(&theme).selectable(false)));
+        assert!(double_clicked(
+            Style::new(&theme).selectable(false).sense(Sense::click())
+        ));
     }
 
     #[test]

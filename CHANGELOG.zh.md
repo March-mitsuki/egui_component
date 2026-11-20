@@ -31,6 +31,7 @@
 - `navigation::Style` 新增公开字段 `current_kind: navigation::Current`。逐项列出字段的结构体字面量需补上 `current_kind: navigation::Current::Page`，穷尽解构模式需包含该字段或使用 `..`。`navigation::render` 的第三个参数由 `selected` 改名为 `current`，类型和含义不变。
 - 移除 `FontManager::set_egui_fonts`，请改用它原本转发到的 `FontManager::apply`。`get_egui_font_family_with_style` 合并进 `get_egui_font_family`，后者新增最后一个参数 `italic: bool`：现有调用补上 `false`，`get_egui_font_family_with_style` 的调用改名为 `get_egui_font_family`。
 - `text::Style` 新增公开字段 `underline: egui::Stroke` 和 `strikethrough: egui::Stroke`，名称与 egui `TextFormat` 的字段一致。逐项列出字段的结构体字面量需补上 `underline: egui::Stroke::NONE` 和 `strikethrough: egui::Stroke::NONE` 以保持无装饰线。穷尽解构时需列出这两个字段或使用 `..`。构造函数默认两者均为 `Stroke::NONE`；用 `.underline(Stroke::new(1.0, color))` 或 `.strikethrough(...)` 绘制线条，宽度和颜色各自独立。
+- `text::Style` 新增公开字段 `sense: egui::Sense`，与 `icon::Style` 和 egui 的 `Label::sense` 一致。逐项列出字段的结构体字面量需补上 `sense: egui::Sense::hover()` 以保持文字不响应交互；穷尽解构时需列出该字段或使用 `..`。构造函数默认为 `Sense::hover()`。用 `.selectable(false).sense(egui::Sense::click())` 让文字可点击，并从返回的 `Response` 读取 `clicked()` 或 `double_clicked()`；不设置 `.selectable(false)` 时，双击还会选中一个单词。
 
 ### 颜色选择器行为变更
 
