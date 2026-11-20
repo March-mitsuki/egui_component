@@ -238,17 +238,18 @@ impl<S, T, K> RowBuilder<S, T, K> {
     }
 }
 impl<S: 'static, T: 'static, K: 'static> RowBuilder<S, T, K> {
-    /// A writable row value. The setter receives only the row and must just assign.
-    pub fn model<V: BindingValue + Clone>(
+    /// A writable row value. The getter returns the value (clone a field, or compute it);
+    /// the setter receives only the row.
+    pub fn model<V: BindingValue>(
         mut self,
         name: impl Into<String>,
-        get: impl for<'a> Fn(&'a T) -> &'a V + 'static,
+        get: impl Fn(&T) -> V + 'static,
         set: impl Fn(&mut T, V) + 'static,
     ) -> Self {
         self.bindings.push(RowBinding {
             name: name.into(),
             kind: V::KIND,
-            get: Box::new(move |_, row| get(downcast(row)).clone().into_value()),
+            get: Box::new(move |_, row| get(downcast(row)).into_value()),
             set: Some(Box::new(move |row, v| {
                 set(row.downcast_mut().expect("row type"), V::from_value(v))
             })),
@@ -319,16 +320,18 @@ pub struct Builder<S> {
     error_window: bool,
 }
 impl<S: 'static> Builder<S> {
-    pub fn model<T: BindingValue + Clone>(
+    /// A readable and writable value for `e-model`. The getter returns the value: clone a
+    /// field, or compute one (such as "all done", with a setter that applies it to all).
+    pub fn model<T: BindingValue>(
         mut self,
         name: impl Into<String>,
-        get: impl for<'a> Fn(&'a S) -> &'a T + 'static,
+        get: impl Fn(&S) -> T + 'static,
         set: impl Fn(&mut S, T) + 'static,
     ) -> Self {
         self.bindings.push(Binding {
             name: name.into(),
             kind: T::KIND,
-            get: Box::new(move |s| get(s).clone().into_value()),
+            get: Box::new(move |s| get(s).into_value()),
             set: Some(Box::new(move |s, v| set(s, T::from_value(v)))),
         });
         self

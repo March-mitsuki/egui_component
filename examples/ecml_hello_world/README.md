@@ -78,7 +78,7 @@ struct Counter {
 impl Counter {
     fn new() -> Result<Self, ecml::Error> {
         let view = ecml::View::<State>::builder()
-            .model("name", |s| &s.name, |s, value| s.name = value)
+            .model("name", |s| s.name.clone(), |s, value| s.name = value)
             .bind("count", |s| s.count)
             .bind("can_increment", |s| s.count < 10)
             .on("increment", |s| s.count += 1)

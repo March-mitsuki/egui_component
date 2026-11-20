@@ -21,8 +21,8 @@ impl eframe::App for App {
 }
 fn main() -> eframe::Result {
     let view = ecml::View::<State>::builder()
-        .model("name", |s| &s.name, |s, value| s.name = value)
-        .model("enabled", |s| &s.enabled, |s, value| s.enabled = value)
+        .model("name", |s| s.name.clone(), |s, value| s.name = value)
+        .model("enabled", |s| s.enabled, |s, value| s.enabled = value)
         .bind("count", |s| s.count)
         .bind("can_increment", |s| s.enabled && s.count < 10)
         .on("increment", |s| s.count += 1)

@@ -71,7 +71,7 @@ impl State {
 
 fn builder() -> ecml::Builder<State> {
     ecml::View::<State>::builder()
-        .model("draft", |s| &s.draft, |s, value| s.draft = value)
+        .model("draft", |s| s.draft.clone(), |s, value| s.draft = value)
         .bind("can_add", |s| !s.draft.trim().is_empty())
         .bind("has_todos", |s| !s.todos.is_empty())
         .bind("remaining", |s| {
@@ -80,7 +80,12 @@ fn builder() -> ecml::Builder<State> {
                 n => format!("{n} items left"),
             }
         })
-        .bind("all_done", |s| s.todos.iter().all(|t| t.done))
+        // A computed model: checked when every todo is done; toggling applies to all.
+        .model(
+            "all_done",
+            |s| s.todos.iter().all(|t| t.done),
+            |s, value| s.todos.iter_mut().for_each(|t| t.done = value),
+        )
         .bind("any_done", |s| s.todos.iter().any(|t| t.done))
         .bind("showing_all", |s| s.filter == Filter::All)
         .bind("showing_active", |s| s.filter == Filter::Active)
@@ -91,9 +96,6 @@ fn builder() -> ecml::Builder<State> {
             if !title.trim().is_empty() {
                 s.add(title.trim());
             }
-        })
-        .on("complete_all", |s| {
-            s.todos.iter_mut().for_each(|t| t.done = true)
         })
         .on("clear_completed", |s| s.todos.retain(|t| !t.done))
         .on("show_all", |s| s.filter = Filter::All)
@@ -107,12 +109,12 @@ fn builder() -> ecml::Builder<State> {
             |s, id| s.todos.iter_mut().find(|t| t.id == *id),
             |t| t.id,
             |row| {
-                row.model("done", |t| &t.done, |t, value| t.done = value)
+                row.model("done", |t| t.done, |t, value| t.done = value)
                     .bind("title", |_, t| t.title.clone())
                     .bind("editing", |_, t| t.editing.is_some())
                     .model(
                         "draft",
-                        |t| t.editing.as_ref().unwrap_or(&t.title),
+                        |t| t.editing.clone().unwrap_or_else(|| t.title.clone()),
                         |t, value| t.editing = Some(value),
                     )
                     .on("edit", |s, id| s.edit(*id))
@@ -254,8 +256,11 @@ mod tests {
         click(&ctx, &mut view, &mut state, "clear");
         let titles: Vec<_> = state.todos.iter().map(|t| t.title.as_str()).collect();
         assert_eq!(titles, ["eggs"]);
-        click(&ctx, &mut view, &mut state, "complete_all");
+        click(&ctx, &mut view, &mut state, "toggle_all");
         assert!(state.todos.iter().all(|t| t.done));
+        click(&ctx, &mut view, &mut state, "toggle_all");
+        assert!(state.todos.iter().all(|t| !t.done));
+        click(&ctx, &mut view, &mut state, "toggle_all");
         click(&ctx, &mut view, &mut state, "clear");
         assert!(state.todos.is_empty());
         assert!(view.response("all").is_none());
@@ -313,7 +318,7 @@ mod tests {
         state.edit(1);
         frame(&ctx, &mut view, &mut state, vec![]);
         frame(&ctx, &mut view, &mut state, vec![Event::Text("?".into())]);
-        click(&ctx, &mut view, &mut state, "complete_all");
+        click(&ctx, &mut view, &mut state, "toggle_all");
         assert_eq!(titles(&state), ["milk!?", "eggs"]);
         assert!(state.todos.iter().all(|t| t.done && t.editing.is_none()));
         // Saving an empty title deletes the todo.

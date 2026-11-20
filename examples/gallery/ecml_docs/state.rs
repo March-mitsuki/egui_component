@@ -27,21 +27,17 @@ pub struct Todo {
 pub fn builder() -> ecml::Builder<State> {
     ecml::View::<State>::builder()
         // Readable and writable: e-model, interpolation, :disabled.
-        .model("name", |s| &s.name, |s, value| s.name = value)
-        .model("enabled", |s| &s.enabled, |s, value| s.enabled = value)
+        .model("name", |s| s.name.clone(), |s, value| s.name = value)
+        .model("enabled", |s| s.enabled, |s, value| s.enabled = value)
         .model(
             "new_title",
-            |s| &s.new_title,
+            |s| s.new_title.clone(),
             |s, value| s.new_title = value,
         )
-        .model(
-            "hide_done",
-            |s| &s.hide_done,
-            |s, value| s.hide_done = value,
-        )
+        .model("hide_done", |s| s.hide_done, |s, value| s.hide_done = value)
         .model(
             "show_focus",
-            |s| &s.show_focus,
+            |s| s.show_focus,
             |s, value| s.show_focus = value,
         )
         // Read-only values and calculations.
@@ -81,8 +77,8 @@ pub fn builder() -> ecml::Builder<State> {
             |s, id| s.todos.iter_mut().find(|t| t.id == *id),
             |t| t.id,
             |row| {
-                row.model("done", |t| &t.done, |t, value| t.done = value)
-                    .model("title", |t| &t.title, |t, value| t.title = value)
+                row.model("done", |t| t.done, |t, value| t.done = value)
+                    .model("title", |t| t.title.clone(), |t, value| t.title = value)
                     .on("remove", |s, id| s.todos.retain(|t| t.id != *id))
             },
         )
@@ -115,8 +111,8 @@ pub fn builder() -> ecml::Builder<State> {
                         |p, id| p.tasks.iter_mut().find(|t| t.id == *id),
                         |t| t.id,
                         |task| {
-                            task.model("done", |t| &t.done, |t, value| t.done = value)
-                                .model("title", |t| &t.title, |t, value| t.title = value)
+                            task.model("done", |t| t.done, |t, value| t.done = value)
+                                .model("title", |t| t.title.clone(), |t, value| t.title = value)
                                 // Child rows receive the key path: (project name, task id).
                                 .on("remove", |s, (name, id)| {
                                     if let Some(p) = s.projects.iter_mut().find(|p| p.name == *name)

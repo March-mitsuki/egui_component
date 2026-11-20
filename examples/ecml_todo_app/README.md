@@ -1,7 +1,7 @@
 # ECML todo app
 
 A TodoMVC-style list built with ECML: add todos with Enter, edit them, complete
-and delete them, filter by All / Active / Completed, complete all, and clear
+and delete them, filter by All / Active / Completed, mark all as complete, and clear
 completed ones. It is the acceptance example for ECML lists, conditionals and text
 input events.
 
@@ -19,6 +19,8 @@ reload. [main.rs](main.rs) holds the state and every registration:
 - Inside the loop, `todo.done` and `todo.draft` are row models, `todo.title` and
   `todo.editing` are row bindings, and `todo.edit`, `todo.save`, `todo.cancel` and
   `todo.remove` are row handlers that receive the row's id.
+- "Mark all as complete" is a checkbox on a computed model: `all_done` reads
+  whether every todo is done, and its setter sets every todo to the new value.
 - The entry field has `autofocus="true"` and `@submit="add"`: it is focused on
   start and keeps focus after Enter. Edit swaps the title for a field with
   `autofocus`, `@submit` and `@blur` saving (an empty title deletes the todo) and

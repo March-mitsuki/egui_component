@@ -57,7 +57,7 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 
 ## 状态、交互与身份
 
-状态属于调用方。View 保存访问器和 handler，不持有字段的长期可变引用，也不维护整个应用状态的 JSON 副本。`.model()` 注册返回借用的 getter 与接收拥有值的 setter；`.bind()` 注册只读 getter；`.on()` 显式注册 handler。类型校验不得依赖执行 getter。
+状态属于调用方。View 保存访问器和 handler，不持有字段的长期可变引用，也不维护整个应用状态的 JSON 副本。`.model()` 注册返回值的 getter 与接收拥有值的 setter；getter 可以 clone 一个字段，也可以返回计算值（如"全部完成"，其 setter 作用于每一行）。`Value` 拥有自己的数据，所以读取最多一次 clone，与改为返回值之前相同；`.bind()` 注册只读 getter；`.on()` 显式注册 handler。类型校验不得依赖执行 getter。
 
 当前值类型为 String、bool、i32、i64；可编辑控件分别要求 text_edit 的 String，以及 switch 和 checkbox 的 bool。getter 按需执行，没有依赖追踪和缓存，不应产生业务副作用。setter 只应同步更新状态；外部副作用放在显式 handler 中，handler 不应执行阻塞绘制的长任务。
 
@@ -117,7 +117,7 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
     |s, id| s.todos.iter_mut().find(|t| t.id == *id),             // 写：按 key 定位
     |t| t.id,                                                     // key：Clone + Eq + Hash + Debug + 'static
     |row| row
-        .model("done", |t| &t.done, |t, v| t.done = v)
+        .model("done", |t| t.done, |t, v| t.done = v)
         .bind("title", |_s, t| t.title.clone())
         .bind("selected", |s, t| s.selected == Some(t.id))
         .on("remove", |s, id| s.todos.retain(|t| t.id != *id)),

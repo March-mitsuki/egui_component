@@ -6,6 +6,7 @@
         <button id="add" :disabled="!can_add" @click="add">Add</button>
     </layout>
     <fragment e-if="has_todos">
+        <checkbox id="toggle_all" e-model="all_done">Mark all as complete</checkbox>
         <layout e-for="todo in todos" id="todo" direction="left_to_right" item_spacing.x="8" cross_align="center">
             <checkbox id="done" e-model="todo.done" />
             <text_edit e-if="todo.editing" id="edit" e-model="todo.draft" width="300" autofocus="true"
@@ -24,7 +25,6 @@
             <button id="completed" size="sm" :variant="showing_completed ? 'outline' : 'ghost'" @click="show_completed">Completed</button>
         </layout>
         <layout direction="left_to_right" item_spacing.x="8">
-            <button id="complete_all" size="sm" variant="outline" :disabled="all_done" @click="complete_all">Complete all</button>
             <button e-if="any_done" id="clear" size="sm" variant="outline" @click="clear_completed">Clear completed</button>
         </layout>
     </fragment>

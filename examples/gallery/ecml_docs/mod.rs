@@ -17,7 +17,7 @@ pub fn example(topic: EcmlTopic) -> Option<(&'static str, &'static str)> {
     Some(match topic {
         EcmlTopic::Setup => (
             "rs",
-            "// Cargo.toml: egui_component = { version = \"...\", features = [\"ecml\"] }\nuse egui_component::ecml;\n\nlet mut view = ecml::View::<State>::builder()\n    .model(\"name\", |s| &s.name, |s, value| s.name = value)\n    .on(\"save\", |s| s.save())\n    .load(ecml::source!(\"ui/form.ecml\"))?;\n\n// In your existing egui pass, with any Ui and Theme:\nview.show(ui, theme, &mut state);",
+            "// Cargo.toml: egui_component = { version = \"...\", features = [\"ecml\"] }\nuse egui_component::ecml;\n\nlet mut view = ecml::View::<State>::builder()\n    .model(\"name\", |s| s.name.clone(), |s, value| s.name = value)\n    .on(\"save\", |s| s.save())\n    .load(ecml::source!(\"ui/form.ecml\"))?;\n\n// In your existing egui pass, with any Ui and Theme:\nview.show(ui, theme, &mut state);",
         ),
         EcmlTopic::Bindings => ("rs", STATE_SOURCE),
         EcmlTopic::Syntax => (
@@ -34,11 +34,11 @@ pub fn example(topic: EcmlTopic) -> Option<(&'static str, &'static str)> {
         ),
         EcmlTopic::Loops => (
             "rs",
-            "// Rust decides which rows to show and in what order; rows are found by key.\n.list(\n    \"todos\",\n    |s| Box::new(s.todos.iter().filter(move |t| !(s.hide_done && t.done))),\n    |s, id| s.todos.iter_mut().find(|t| t.id == *id),\n    |t| t.id,\n    |row| {\n        row.model(\"done\", |t| &t.done, |t, value| t.done = value)\n            .model(\"title\", |t| &t.title, |t, value| t.title = value)\n            .on(\"remove\", |s, id| s.todos.retain(|t| t.id != *id))\n    },\n)",
+            "// Rust decides which rows to show and in what order; rows are found by key.\n.list(\n    \"todos\",\n    |s| Box::new(s.todos.iter().filter(move |t| !(s.hide_done && t.done))),\n    |s, id| s.todos.iter_mut().find(|t| t.id == *id),\n    |t| t.id,\n    |row| {\n        row.model(\"done\", |t| t.done, |t, value| t.done = value)\n            .model(\"title\", |t| t.title.clone(), |t, value| t.title = value)\n            .on(\"remove\", |s, id| s.todos.retain(|t| t.id != *id))\n    },\n)",
         ),
         EcmlTopic::NestedLoops => (
             "rs",
-            "// A row registers a child list: read gets the parent row, find searches it.\n.list(\"projects\", |s| Box::new(s.projects.iter()),\n      |s, name| s.projects.iter_mut().find(|p| p.name == *name), |p| p.name.clone(),\n      |project| project\n          .bind(\"name\", |_, p| p.name.clone())\n          .list(\"tasks\",\n                |_, p| Box::new(p.tasks.iter()),\n                |p, id| p.tasks.iter_mut().find(|t| t.id == *id),\n                |t| t.id,\n                |task| task\n                    .model(\"done\", |t| &t.done, |t, value| t.done = value)\n                    // Handlers receive the key path (project name, task id).\n                    .on(\"remove\", |s, (name, id)| { /* ... */ })))",
+            "// A row registers a child list: read gets the parent row, find searches it.\n.list(\"projects\", |s| Box::new(s.projects.iter()),\n      |s, name| s.projects.iter_mut().find(|p| p.name == *name), |p| p.name.clone(),\n      |project| project\n          .bind(\"name\", |_, p| p.name.clone())\n          .list(\"tasks\",\n                |_, p| Box::new(p.tasks.iter()),\n                |p, id| p.tasks.iter_mut().find(|t| t.id == *id),\n                |t| t.id,\n                |task| task\n                    .model(\"done\", |t| t.done, |t, value| t.done = value)\n                    // Handlers receive the key path (project name, task id).\n                    .on(\"remove\", |s, (name, id)| { /* ... */ })))",
         ),
         EcmlTopic::Text
         | EcmlTopic::Button

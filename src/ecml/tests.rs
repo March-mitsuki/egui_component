@@ -16,7 +16,7 @@ fn builder() -> Builder<State> {
     View::<State>::builder()
         .model(
             "name",
-            |s| &s.name,
+            |s| s.name.clone(),
             |s, v| {
                 s.name = v;
                 s.writes += 1;
@@ -24,7 +24,7 @@ fn builder() -> Builder<State> {
         )
         .model(
             "enabled",
-            |s| &s.enabled,
+            |s| s.enabled,
             |s, v| {
                 s.enabled = v;
                 s.writes += 1;
@@ -559,7 +559,7 @@ fn todo(id: u32, title: &str) -> Todo {
 }
 fn todos() -> Builder<Todos> {
     View::<Todos>::builder()
-        .model("draft", |s| &s.draft, |s, v| s.draft = v)
+        .model("draft", |s| s.draft.clone(), |s, v| s.draft = v)
         .bind("count", |s| s.todos.len() as i64)
         .list(
             "todos",
@@ -567,8 +567,8 @@ fn todos() -> Builder<Todos> {
             |s, id| s.todos.iter_mut().find(|t| t.id == *id),
             |t| t.id,
             |row| {
-                row.model("done", |t| &t.done, |t, v| t.done = v)
-                    .model("title", |t| &t.title, |t, v| t.title = v)
+                row.model("done", |t| t.done, |t, v| t.done = v)
+                    .model("title", |t| t.title.clone(), |t, v| t.title = v)
                     .bind("label", |_, t| format!("#{} {}", t.id, t.title))
                     .bind("selected", |s, t| s.selected == Some(t.id))
                     .bind("probe", |s, t| {
@@ -767,6 +767,37 @@ fn checkbox_edits_a_root_bool_model() {
 }
 
 #[test]
+fn a_computed_model_reads_a_calculation_and_writes_through_its_setter() {
+    // "All done": read as a calculation, written by applying it to every todo.
+    let builder = todos().model(
+        "all_done",
+        |s| s.todos.iter().all(|t| t.done),
+        |s, v| s.todos.iter_mut().for_each(|t| t.done = v),
+    );
+    let mut v = builder
+        .load(Source::inline(
+            "test.ecml",
+            r#"<checkbox id="all" e-model="all_done" />"#,
+        ))
+        .unwrap();
+    let ctx = egui::Context::default();
+    let mut state = Todos {
+        todos: vec![todo(1, "a"), todo(2, "b")],
+        ..Default::default()
+    };
+    state.todos[0].done = true;
+    let all = |v: &mut View<Todos>, state: &mut Todos| {
+        let pos = v.response("all").unwrap().rect.center();
+        click_at(&ctx, v, state, pos);
+    };
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    all(&mut v, &mut state);
+    assert!(state.todos.iter().all(|t| t.done));
+    all(&mut v, &mut state);
+    assert!(state.todos.iter().all(|t| !t.done));
+}
+
+#[test]
 fn loop_errors_have_source_locations() {
     for (source, message) in [
         (r#"<text e-for="t in todos" />"#, "root element"),
@@ -902,7 +933,7 @@ fn groups() -> Builder<Groups> {
                     |g, id| g.1.iter_mut().find(|i| i.id == *id),
                     |i| i.id,
                     |item| {
-                        item.model("done", |i| &i.done, |i, v| i.done = v)
+                        item.model("done", |i| i.done, |i, v| i.done = v)
                             .bind("label", |_, i| i.label.clone())
                             .bind("probe", |s, i| {
                                 let group = s

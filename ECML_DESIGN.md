@@ -109,7 +109,9 @@ own contracts rather than implicit behavior in `layout`.
 
 State belongs to the caller. View stores accessors and handlers, not long-lived
 mutable field references or a JSON copy of application state. `.model()` registers
-a borrowed getter and owned-value setter; `.bind()` registers a read-only getter;
+a getter returning a value and an owned-value setter; the getter either clones a
+field or computes a value (such as "all done", whose setter applies to every row),
+so reads cost one clone at most, as before, since a `Value` owns its data; `.bind()` registers a read-only getter;
 `.on()` registers an explicit handler. Validate types without evaluating getters.
 Current values are String, bool, i32 and i64; editable controls accept String for
 text_edit and bool for switch and checkbox. Getters are evaluated on demand without dependency
@@ -205,7 +207,7 @@ this document first.
     |s, id| s.todos.iter_mut().find(|t| t.id == *id),             // write: locate by key
     |t| t.id,                                                     // key: Clone + Eq + Hash + Debug + 'static
     |row| row
-        .model("done", |t| &t.done, |t, v| t.done = v)
+        .model("done", |t| t.done, |t, v| t.done = v)
         .bind("title", |_s, t| t.title.clone())
         .bind("selected", |s, t| s.selected == Some(t.id))
         .on("remove", |s, id| s.todos.retain(|t| t.id != *id)),

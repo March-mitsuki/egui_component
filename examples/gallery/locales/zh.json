@@ -443,7 +443,7 @@
   "ecml.setup:title": "创建 View",
   "ecml.setup:body": "用于 egui_component 界面的实验性标记语言。模板描述界面，Rust 持有状态和行为。本指南中的每个 demo 都可以直接编辑，输入后立即重新渲染。启用 ecml feature，注册模板可以使用的值和 handler，然后加载模板来源。View 和状态应保存在应用中，不要每帧重新创建；在任意 egui 宿主中每个 pass 调用一次 show。ECML 不创建窗口，也不依赖 eframe。",
   "ecml.bindings:title": "绑定状态与处理事件",
-  "ecml.bindings:body": "model 暴露可读写的值：getter 返回引用，setter 接收拥有所有权的值。bind 暴露只读值或计算结果。on 注册接收状态的同步 handler。支持的值类型为 String、bool、i32 和 i64。模板只能访问已注册的名称，计算应放在 bind 的 getter 中，而不是写在模板表达式里。编辑在绘制时立即写回；点击 handler 在遍历结束后执行，能读到这些编辑。所有 ECML demo 共用下面的状态，所以你输入的名字会出现在每个 demo 中。",
+  "ecml.bindings:body": "model 暴露可读写的值：getter 返回值（clone 字段或返回计算结果），setter 接收拥有所有权的值。像\"全部完成\"这样的计算 model 可以在 setter 里设置每一行。bind 暴露只读值或计算结果。on 注册接收状态的同步 handler。支持的值类型为 String、bool、i32 和 i64。模板只能访问已注册的名称，计算应放在 bind 的 getter 中，而不是写在模板表达式里。编辑在绘制时立即写回；点击 handler 在遍历结束后执行，能读到这些编辑。所有 ECML demo 共用下面的状态，所以你输入的名字会出现在每个 demo 中。",
   "ecml.syntax:title": "语法规则",
   "ecml.syntax:body": "模板必须且只能有一个根元素。属性值必须带引号（不带值的 e-else 除外），元素用闭合标签或 /> 结束。组件标签与 Rust 模块名一致，例如 text_edit；layout 和 fragment 是内置结构。指令使用 e-，动态属性使用冒号，事件使用 @。结构化属性使用点号路径，例如 item_spacing.x。元素内部可以写注释，支持 amp、lt、gt、quot、apos 五种实体。未知标签、属性、名称以及类型不匹配都会报错，不会被静默忽略。模板上限为 256 KiB、64 层。",
   "ecml.loops:title": "用 e-for 渲染列表",
