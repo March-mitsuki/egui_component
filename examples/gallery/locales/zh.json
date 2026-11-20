@@ -259,6 +259,8 @@
   "docs.tokens:body": "主题包含语义化前景色和背景色、色阶、焦点环、字号、圆角和组件尺寸。预设将这些变量转换为组件样式。",
   "docs.compose:title": "与 egui 组合",
   "docs.compose:body": "使用 egui 布局排列组件。卡片、字段和滚动区域接受渲染闭包，让组合方式由你掌控。",
+  "docs.visibility:title": "隐藏但不移动",
+  "docs.visibility:body": "这里组件直接沿用 egui 的做法，而不是各自增加一个 visible 选项。每个 render 函数都返回 Response，所以调用它的闭包就是一个 egui Widget，可以用 ui.add_visible(visible, widget) 隐藏：组件仍占位置，但不绘制也不响应，周围的布局保持不动。要隐藏一组组件，对子 Ui 调用 set_invisible。要连位置一起移除，不渲染它即可。",
   "docs.customize:title": "定制细节",
   "docs.customize:body": "样式值是普通的 Rust 结构体。使用构建方法进行常见修改，或直接编辑公开字段以精确控制。样式局部作用于组件。",
   "docs.presets:title": "从预设开始",

@@ -72,6 +72,15 @@ pub fn sections(doc: Doc) -> &'static [Section] {
                     "use egui_component::components::{card, text};\n\ncard::render(ui, |ui| {\n    text::render(ui, \"Your workspace\",\n        text::Style::new_heading(theme));\n}, card::Style::new_md(theme));",
                 )),
             },
+            Section {
+                id: "visibility",
+                title: "docs.visibility:title",
+                body: "docs.visibility:body",
+                code: Some((
+                    "rs",
+                    "// Every render function fits egui's Widget trait as a closure.\nlet delete = |ui: &mut egui::Ui| {\n    button::render(ui, \"Delete\", button::Style::new_ghost_sm(theme))\n};\n// Hidden: keeps its space, is not drawn and does not respond.\nif ui.add_visible(row_hovered, delete).clicked() {\n    // Remove the row.\n}\n// For several components, hide a child Ui instead.\nui.scope(|ui| {\n    if !show_actions {\n        ui.set_invisible();\n    }\n    // ...\n});",
+                )),
+            },
         ],
         Doc::Theming => &[
             Section {

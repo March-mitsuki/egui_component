@@ -259,6 +259,8 @@
   "docs.tokens:body": "テーマには意味に基づく前景色・背景色、カラースケール、フォーカスリング、文字サイズ、角丸、コンポーネントサイズを定義します。プリセットがこれらをスタイルに変換します。",
   "docs.compose:title": "egui と組み合わせる",
   "docs.compose:body": "egui のレイアウトでコンポーネントを配置します。カード、フィールド、スクロール領域は描画クロージャを受け取り、自由に組み合わせられます。",
+  "docs.visibility:title": "動かさずに隠す",
+  "docs.visibility:body": "ここではコンポーネントごとに visible オプションを追加せず、egui の方法に従います。どの render 関数も Response を返すので、それを呼ぶクロージャは egui の Widget になり、ui.add_visible(visible, widget) で隠せます。コンポーネントは場所を保ったまま描画も反応もしないので、周りのレイアウトは動きません。複数をまとめて隠すには、子 Ui で set_invisible を呼びます。場所ごと取り除くには、描画しなければ十分です。",
   "docs.customize:title": "細部をカスタマイズ",
   "docs.customize:body": "スタイルは通常の Rust 構造体です。一般的な変更にはビルダーメソッド、細かな調整には公開フィールドを使えます。スタイルはコンポーネントに局所的に適用されます。",
   "docs.presets:title": "プリセットから始める",

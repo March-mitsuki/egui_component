@@ -259,6 +259,8 @@
   "docs.tokens:body": "Themes hold semantic foreground and background colors, color scales, the focus ring, typography sizes, corner radii, and component sizing. Presets translate those tokens into component styles.",
   "docs.compose:title": "Compose with egui",
   "docs.compose:body": "Use egui layouts to arrange components. Cards, fields, and scroll areas accept rendering closures, so the composition remains in your hands.",
+  "docs.visibility:title": "Hide without moving",
+  "docs.visibility:body": "Components follow egui here instead of each adding a visible option. Every render function returns a Response, so a closure calling it is an egui Widget and ui.add_visible(visible, widget) can hide it: the component keeps its space, is not drawn and does not respond, so the layout around it stays put. To hide a group, call set_invisible on a child Ui. To remove a component and its space, simply do not render it.",
   "docs.customize:title": "Customize the details",
   "docs.customize:body": "Style values are ordinary Rust structs. Use builder methods for common changes or edit public fields for precise control. Styling stays local to the component.",
   "docs.presets:title": "Start with a preset",
