@@ -1609,3 +1609,77 @@ fn styling_expression_errors_have_source_locations() {
         assert_eq!(error.line, 2, "{source}");
     }
 }
+
+#[test]
+fn text_click_events_fire_like_egui_and_make_the_text_unselectable() {
+    let log = std::rc::Rc::new(std::cell::RefCell::new(vec![]));
+    let (clicks, doubles) = (log.clone(), log.clone());
+    let mut v = builder()
+        .on("clicked", move |_| clicks.borrow_mut().push("click"))
+        .on("double_clicked", move |_| {
+            doubles.borrow_mut().push("double")
+        })
+        .load(Source::inline(
+            "test.ecml",
+            r#"<layout>
+                <text id="both" @click="clicked" @double_click="double_clicked">Both</text>
+                <text id="plain">Plain</text>
+            </layout>"#,
+        ))
+        .unwrap();
+    let ctx = egui::Context::default();
+    let mut state = State::default();
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    // Text with events senses clicks; plain text keeps egui's default.
+    assert!(v.response("both").unwrap().sense.senses_click());
+    let plain = v.response("plain").unwrap();
+    assert!(!plain.sense.senses_click() || plain.sense.senses_drag());
+    let pos = v.response("both").unwrap().rect.center();
+    click_at(&ctx, &mut v, &mut state, pos);
+    assert_eq!(*log.borrow(), ["click"]);
+    // The second release is a click and a double click, in that order, as in browsers.
+    click_at(&ctx, &mut v, &mut state, pos);
+    assert_eq!(*log.borrow(), ["click", "click", "double"]);
+    assert!(v.last_error().is_none());
+}
+
+#[test]
+fn text_double_click_reaches_row_handlers() {
+    let ctx = egui::Context::default();
+    let mut view = todo_view(
+        r#"<layout>
+            <text e-for="todo in todos" id="label" @double_click="todo.select">{{ todo.title }}</text>
+        </layout>"#,
+    );
+    let mut state = Todos {
+        todos: vec![todo(1, "a"), todo(2, "b")],
+        ..Default::default()
+    };
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    // A single click does not select.
+    row_click(&ctx, &mut view, &mut state, "label", 2);
+    assert_eq!(state.selected, None);
+    row_click(&ctx, &mut view, &mut state, "label", 2);
+    assert_eq!(state.selected, Some(2));
+}
+
+#[test]
+fn text_event_errors_have_source_locations() {
+    for (source, message) in [
+        ("<text @double_click=\"missing\" />", "unknown handler"),
+        ("<text @click=\"\" />", "unknown handler"),
+        (
+            "<switch e-model=\"enabled\" @double_click=\"save\" />",
+            "unknown attribute",
+        ),
+        ("<button @double_click=\"save\" />", "unknown attribute"),
+        ("<text @dblclick=\"save\" />", "unknown attribute"),
+    ] {
+        let error = builder()
+            .load(Source::inline("bad.ecml", format!("\n{source}")))
+            .err()
+            .expect(source);
+        assert!(error.message.contains(message), "{source}: {error}");
+        assert_eq!(error.line, 2, "{source}");
+    }
+}

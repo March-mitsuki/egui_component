@@ -8,15 +8,18 @@
     <fragment e-if="has_todos">
         <checkbox id="toggle_all" e-model="all_done">Mark all as complete</checkbox>
         <layout e-for="todo in todos" id="todo" direction="left_to_right" item_spacing.x="8" cross_align="center">
-            <checkbox id="done" e-model="todo.done" />
             <text_edit e-if="todo.editing" id="edit" e-model="todo.draft" width="300" autofocus="true"
                        @submit="todo.save" @blur="todo.save" @cancel="todo.cancel" />
+            <!-- While editing, only the field is shown, as in TodoMVC. -->
             <fragment e-else>
-                <text :color="todo.done ? $theme.colors.gray.l6 : $theme.colors.fg.base"
+                <checkbox id="done" e-model="todo.done" />
+                <text id="title" @double_click="todo.edit"
+                      :color="todo.done ? $theme.colors.gray.l6 : $theme.colors.fg.base"
                       :strikethrough="todo.done">{{ todo.title }}</text>
+                <!-- Double-click cannot be done from the keyboard; the button can. -->
                 <button id="edit_button" size="sm" variant="ghost" @click="todo.edit">Edit</button>
+                <button id="remove" size="sm" variant="ghost" @click="todo.remove">Delete</button>
             </fragment>
-            <button id="remove" size="sm" variant="ghost" @click="todo.remove">Delete</button>
         </layout>
         <text>{{ remaining }}</text>
         <layout direction="left_to_right" item_spacing.x="4">

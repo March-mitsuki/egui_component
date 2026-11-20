@@ -457,6 +457,30 @@ fragment.
   rejected on multiline fields; `@cancel` and `@blur` keep their meaning.
   Single-line-only and multiline-only attributes are validated per mode.
 
+## Text click events
+
+```html
+<text id="title" @double_click="todo.edit">{{ todo.title }}</text>
+```
+
+- `@click` and `@double_click` on text map to egui's `Response::clicked()` and
+  `double_clicked()`; the names follow egui, not HTML's `dblclick`. Handlers take
+  no arguments and run like `@click` on buttons: root or row handlers, after the
+  traversal, on the first pass of a frame.
+- A text with either event is drawn with `text::Style::selectable(false)` and
+  `.sense(Sense::click())`, so a double click does not also select a word. Text
+  without events keeps egui's default (selectable, `Sense::hover()`). ECML exposes
+  no separate `selectable` or `sense` attribute.
+- egui reports the second release of a double click as a click as well, so a double
+  click fires `@click` twice and `@double_click` once, like browsers' click, click,
+  dblclick. In one frame `@click` runs first. Single clicks are not delayed to tell
+  them apart; bind only `@double_click` when a click must do nothing.
+- Clickable text is a Tab stop: Space or Enter fires `@click` (egui's fake click),
+  and egui marks focus with an underline. A double click has no keyboard
+  equivalent, so pair it with another control, as the todo app's Edit button does.
+- Triple and secondary clicks and other events are not supported yet; add them
+  the same way, under egui's names.
+
 ## Extending ECML
 
 For a new component/property, define its name, type, defaults, supported dynamic
@@ -472,9 +496,9 @@ scenarios and are named `ecml_*`.
 
 Current adapters are layout, fragment, text, button, text_edit, switch and
 checkbox, plus the `e-for`, `e-if`, `e-else-if` and `e-else` directives. Events
-are `@click` and the text_edit events above. Other events (such as double-click
-on text), multiline input, Rust-computed style values, other `$theme` fields, nested state paths, custom Rust slots, more
-events/types/components, derive helpers, lazy models and browser hot reload are
+are `@click`, the text_edit events and the text click events above. Other events,
+multiline input, Rust-computed style values, other `$theme` fields, nested state
+paths, custom Rust slots, more types/components, derive helpers, lazy models and browser hot reload are
 future work, not accepted syntax. A derive helper must remain optional and
 generate the same explicit registration model.
 

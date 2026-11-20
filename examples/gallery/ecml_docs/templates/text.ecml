@@ -2,5 +2,7 @@
     <text size="heading">A heading</text>
     <text>Hello, {{ name }}! The count is {{ count }}.</text>
     <text>Escaped: &lt;layout&gt; &amp; &quot;quotes&quot;</text>
+    <!-- Events make text clickable and not selectable. -->
+    <text @double_click="increment">Double-click me: {{ count }}</text>
     <!-- Comments are allowed inside elements. -->
 </layout>

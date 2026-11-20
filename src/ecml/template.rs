@@ -213,6 +213,10 @@ pub(super) enum Kind {
         color: Option<Expr<ThemeColor>>,
         underline: BoolExpr,
         strikethrough: BoolExpr,
+        /// Handlers for egui's `clicked()` and `double_clicked()`; either makes the text
+        /// clickable and not selectable.
+        click: Option<Ref>,
+        double_click: Option<Ref>,
     },
     Button {
         text: Vec<TextPart>,
@@ -822,7 +826,7 @@ impl<'r> Compiler<'r> {
             // Only id and directives, which are handled before reaching here.
             "fragment" => &[],
             "layout" => &["direction", "cross_align", "item_spacing.x", "item_spacing.y"],
-            "text" => &["size", ":size", "color", ":color", "underline", ":underline", "strikethrough", ":strikethrough"],
+            "text" => &["size", ":size", "color", ":color", "underline", ":underline", "strikethrough", ":strikethrough", "@click", "@double_click"],
             "button" => &["size", ":size", "variant", ":variant", "color", ":color", "width", "disabled", ":disabled", "@click"],
             "text_edit" => &["size", ":size", "variant", ":variant", "width", "placeholder", "disabled", ":disabled", "e-model", "autofocus", "@submit", "@cancel", "@blur"],
             "switch" | "checkbox" => &["size", ":size", "disabled", ":disabled", "e-model"],
@@ -894,6 +898,8 @@ impl<'r> Compiler<'r> {
                 color: self.optional(&e, "color", &color)?,
                 underline: self.flag(&e, "underline")?,
                 strikethrough: self.flag(&e, "strikethrough")?,
+                click: self.event(&e, "@click")?,
+                double_click: self.event(&e, "@double_click")?,
             },
             "button" => {
                 let size = self.value(

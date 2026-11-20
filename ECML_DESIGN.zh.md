@@ -242,11 +242,23 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 - `autofocus="true"` 在控件出现时请求焦点：View 首次显示、`e-if` 切换到该分支或循环中新增该行时。View 记录上一帧绘制过的 autofocus 控件；保持身份不变的热更新不会重新聚焦。同一帧有多个控件出现时，最后绘制的获得焦点。禁用的输入框不会被聚焦。焦点请求会在下一帧绘制该输入框之前再执行一次：在 Web 上，首次绘制时未获得焦点的输入框可能丢失迟到的焦点请求，因为文本代理只为绘制时已获得焦点的输入框接收键盘输入。
 - ECML 暂不支持多行输入。以后为 `text_edit` 加入多行模式（映射到 `render_multiline`）时，Enter 用于换行，多行输入框上的 `@submit` 会报错，`@cancel` 和 `@blur` 含义不变。仅单行或仅多行的属性按模式分别校验。
 
+## text 的点击事件
+
+```html
+<text id="title" @double_click="todo.edit">{{ todo.title }}</text>
+```
+
+- text 上的 `@click` 和 `@double_click` 对应 egui 的 `Response::clicked()` 和 `double_clicked()`，名字跟随 egui，而不是 HTML 的 `dblclick`。handler 不带参数，执行方式与 button 的 `@click` 相同：可以是根或行 handler，在遍历结束后、只在每帧的第一个 pass 执行。
+- 带任一事件的 text 用 `text::Style::selectable(false)` 和 `.sense(Sense::click())` 绘制，所以双击不会同时选中单词。没有事件的 text 保持 egui 默认（可选中，`Sense::hover()`）。ECML 不单独提供 `selectable` 或 `sense` 属性。
+- egui 把双击的第二次松开也报告为一次点击，所以双击会触发两次 `@click` 和一次 `@double_click`，与浏览器的 click、click、dblclick 一致。同一帧内 `@click` 先执行。单击不会为了区分双击而延迟；需要单击什么都不做时，只绑定 `@double_click`。
+- 可点击的 text 可以用 Tab 获得焦点：按 Space 或 Enter 触发 `@click`（egui 的模拟点击），egui 用下划线标示焦点。双击没有对应的键盘操作，所以要配合另一个控件，比如 todo app 里的 Edit 按钮。
+- 三击、右键点击和其他事件暂不支持；以后按同样方式、使用 egui 的名字添加。
+
 ## 扩展 ECML
 
 新增组件或属性时，明确名称、类型、默认值、支持的动态绑定/事件、作用域和身份影响。添加 schema 校验及到现有组件或原生布局操作的渲染映射。提供有效用法测试及有意义的失败/行为回归测试。新语法在 Gallery 的 ECML 页面中配可编辑 demo 说明（模板放在 `examples/gallery/ecml_docs/templates/`，并补齐 en/zh/ja 文案）；约定变化时同步更新中英文设计指南。新语法先在本文设计，实现后语法说明迁到 Gallery，运行时约定与不变量保留在本文。只为完整应用场景新增 ECML 示例，命名为 `ecml_*`。
 
-当前适配项为 layout、fragment、text、button、text_edit、switch、checkbox，以及 `e-for`、`e-if`、`e-else-if`、`e-else` 指令。事件有 `@click` 和上述 text_edit 事件。其他事件（如 text 的双击）、多行输入、由 Rust 计算的样式值、其他 `$theme` 字段、嵌套状态路径、自定义 Rust 插槽、更多事件/类型/组件、derive 辅助、延迟 model 和浏览器热更新均属未来工作，不是已接受语法。derive 必须保持可选，并生成与显式注册相同的模型。
+当前适配项为 layout、fragment、text、button、text_edit、switch、checkbox，以及 `e-for`、`e-if`、`e-else-if`、`e-else` 指令。事件有 `@click`、上述 text_edit 事件和 text 的点击事件。其他事件、多行输入、由 Rust 计算的样式值、其他 `$theme` 字段、嵌套状态路径、自定义 Rust 插槽、更多事件/类型/组件、derive 辅助、延迟 model 和浏览器热更新均属未来工作，不是已接受语法。derive 必须保持可选，并生成与显式注册相同的模型。
 
 ## 提交前验证
 

@@ -457,7 +457,7 @@
   "ecml.styling:title": "动态样式",
   "ecml.styling:body": "样式属性可以写常量，也可以加冒号写表达式。常量是一个单词，如 variant=\"ghost\"，或一个主题路径，如 color=\"$theme.colors.gray.l6\"。$theme 是保留关键字，它的路径与 Rust 的 Theme 字段一致（$theme.colors.<色阶>.<foreground|l0..l9>、$theme.colors.<bg|fg>.<base|subtle|accent>，需要整个色阶时用 $theme.colors.<色阶>），在编译模板时检查，不做反射。在 :属性 中，单词要加引号，并可以用 cond ? 值 : 值 选择，其中 cond 是已注册的 bool，可以用 ! 取反。条件可以连写，如 :variant=\"a ? 'solid' : b ? 'surface' : 'ghost'\"，取第一个为真的分支。:strikethrough 这类 bool 属性直接写条件。不支持算术、比较和函数调用，这些计算放在 Rust 的 bind getter 里。同一元素上的常量属性和对应的 :属性 不能同时使用。",
   "ecml.text:title": "文本与插值",
-  "ecml.text:body": "text 支持 size=\"md\"（默认）或 size=\"heading\"。双花括号插值可以显示任意已注册的 model 或 binding。文本首尾的空白会被去除，内部空白保留。color 接受主题颜色，例如 $theme.colors.gray.l6（默认为文本颜色）；underline 和 strikethrough 用文本颜色画一条 1 点宽的线。它们也都可以写成 :size、:color、:underline 和 :strikethrough，见\"动态样式\"。",
+  "ecml.text:body": "text 支持 size=\"md\"（默认）或 size=\"heading\"。双花括号插值可以显示任意已注册的 model 或 binding。文本首尾的空白会被去除，内部空白保留。color 接受主题颜色，例如 $theme.colors.gray.l6（默认为文本颜色）；underline 和 strikethrough 用文本颜色画一条 1 点宽的线。它们也都可以写成 :size、:color、:underline 和 :strikethrough，见\"动态样式\"。@click 和 @double_click 执行 handler，对应 egui 的 clicked() 和 double_clicked()；与浏览器一样，双击的第二次点击也会触发 @click，并且先于 @double_click。带事件的 text 可以点击但不能选中文字，可以用 Tab 获得焦点，按 Space 或 Enter 触发 @click；双击没有对应的键盘操作，请另外提供入口，比如一个按钮。",
   "ecml.button:title": "按钮",
   "ecml.button:body": "button 支持 size（xs、sm、md、lg）、variant（solid、surface、outline、ghost）、width、disabled 和 @click。:disabled 读取已注册的 bool，可以用 ! 取反。字面量 disabled=\"true\" 不能与 :disabled 同时使用。color 接受一个色阶，例如 $theme.colors.red（默认 primary）。size、variant 和 color 也可以写成 :size、:variant 和 :color，见\"动态样式\"。按钮文字支持插值。",
   "ecml.textEdit:title": "文本输入框",

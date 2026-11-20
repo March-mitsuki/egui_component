@@ -24,8 +24,9 @@ reload. [main.rs](main.rs) holds the state and every registration:
 - The entry field has `autofocus="true"` and `@submit="add"`: it is focused on
   start and keeps focus after Enter. Edit swaps the title for a field with
   `autofocus`, `@submit` and `@blur` saving (an empty title deletes the todo) and
-  `@cancel` restoring it on Escape. TodoMVC enters editing on double-click; ECML
-  text has no events yet, so an Edit button starts it.
+  `@cancel` restoring it on Escape. As in TodoMVC, double-clicking a title starts
+  editing (`@double_click="todo.edit"`); an Edit button does the same from the
+  keyboard. While a todo is edited, only its field is shown.
 - `<fragment e-if="has_todos">` hides the list and footer while there are no
   todos, and `e-if="any_done"` shows "Clear completed" only when something is
   done.

@@ -973,6 +973,8 @@ fn render<S: 'static>(
                     color,
                     underline,
                     strikethrough,
+                    click,
+                    double_click,
                 } => {
                     let mut style = if rt.value(access, heading) {
                         text::Style::new_heading(theme)
@@ -990,7 +992,24 @@ fn render<S: 'static>(
                     if rt.boolean(access, strikethrough) {
                         style = style.strikethrough(line);
                     }
-                    Some(text::render(ui, &rt.text(access, parts), style))
+                    if click.is_some() || double_click.is_some() {
+                        // A double click would otherwise also select a word.
+                        style = style.selectable(false).sense(egui::Sense::click());
+                    }
+                    let response = text::render(ui, &rt.text(access, parts), style);
+                    if rt.first {
+                        // egui reports the second release of a double click as a click too,
+                        // as browsers do; the click handler runs first.
+                        if let (true, Some(click)) = (response.clicked(), click) {
+                            rt.handle(access, *click);
+                        }
+                        if let (true, Some(double_click)) =
+                            (response.double_clicked(), double_click)
+                        {
+                            rt.handle(access, *double_click);
+                        }
+                    }
+                    Some(response)
                 }
                 Kind::Button {
                     text,
