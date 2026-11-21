@@ -2302,3 +2302,78 @@ fn true_and_false_cannot_be_registered_or_used_as_aliases() {
             .expect("an alias named true"),
     );
 }
+
+#[derive(Default)]
+struct Liked {
+    liked: bool,
+    count: i32,
+}
+fn liked_view(template: &str) -> Result<View<Liked>, Error> {
+    use crate::icon::ICONS;
+    View::<Liked>::builder()
+        .model("liked", |s| s.liked, |s, v| s.liked = v)
+        .bind("count", |s| s.count)
+        .bind("on", |_| ICONS.eye.clone())
+        .bind("off", |_| ICONS.eye_slash.clone())
+        .on("like", |s| s.liked = !s.liked)
+        .load(Source::inline("liked.ecml", template))
+}
+
+#[test]
+fn button_icons_come_from_icon_bindings_and_follow_conditions() {
+    use crate::icon::ICONS;
+    let ctx = egui::Context::default();
+    let mut v = liked_view(
+        r#"<layout>
+            <button id="plain">Like</button>
+            <button id="like" :icon_left="liked ? on : off" @click="like">Like</button>
+        </layout>"#,
+    )
+    .unwrap();
+    let mut state = Liked::default();
+    // egui registers an icon's bytes when it first draws it.
+    let drawn = |icon: &egui::ImageSource<'static>| ctx.try_load_bytes(icon.uri().unwrap()).is_ok();
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    let (plain, like) = (
+        v.response("plain").unwrap().rect.width(),
+        v.response("like").unwrap().rect.width(),
+    );
+    assert!(like > plain, "the icon takes space beside the label");
+    assert!(drawn(&ICONS.eye_slash), "liked is false, so the off icon");
+    assert!(!drawn(&ICONS.eye), "the on icon is not drawn yet");
+    let pos = v.response("like").unwrap().rect.center();
+    click_at(&ctx, &mut v, &mut state, pos);
+    assert!(state.liked);
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    assert!(drawn(&ICONS.eye), "the condition now picks the on icon");
+    // An icon-only button names itself with aria_label; its label may be bound text.
+    let mut only =
+        liked_view(r#"<button id="only" :icon_right="on" aria_label="Show">{{ count }}</button>"#)
+            .unwrap();
+    frame(&ctx, &mut only, &mut state, vec![], false);
+    assert!(only.last_error().is_none() && v.last_error().is_none());
+}
+
+#[test]
+fn icon_errors_have_source_locations() {
+    for (source, message) in [
+        ("<button icon_left=\"on\">x</button>", "is not an icon"),
+        ("<button :icon_left=\"'on'\">x</button>", "is not an icon"),
+        ("<button :icon_left=\"count\">x</button>", "expected Icon"),
+        (
+            "<button :icon_left=\"nope\">x</button>",
+            "unknown binding 'nope'",
+        ),
+        (
+            "<button :icon_left=\"liked ? on : count\">x</button>",
+            "expected Icon",
+        ),
+        ("<button :icon_left=\"on\" />", "needs aria_label"),
+        ("<text>{{ on }}</text>", "cannot be shown as text"),
+        ("<text :color=\"on\" />", "is a name"),
+    ] {
+        let error = liked_view(&format!("\n{source}")).err().expect(source);
+        assert!(error.message.contains(message), "{source}: {error}");
+        assert_eq!(error.line, 2, "{source}");
+    }
+}

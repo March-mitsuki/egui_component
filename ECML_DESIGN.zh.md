@@ -60,7 +60,7 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 
 状态属于调用方。View 保存访问器和 handler，不持有字段的长期可变引用，也不维护整个应用状态的 JSON 副本。`.model()` 注册返回值的 getter 与接收拥有值的 setter；getter 可以 clone 一个字段，也可以返回计算值（如"全部完成"，其 setter 作用于每一行）。`Value` 拥有自己的数据，所以读取最多一次 clone，与改为返回值之前相同；`.bind()` 注册只读 getter；`.on()` 显式注册 handler。类型校验不得依赖执行 getter。
 
-当前值类型为 String、bool、i32、i64；可编辑控件分别要求 text_edit 的 String，以及 switch 和 checkbox 的 bool。getter 按需执行，没有依赖追踪和缓存，不应产生业务副作用。setter 只应同步更新状态；外部副作用放在显式 handler 中，handler 不应执行阻塞绘制的长任务。
+当前值类型为 String、bool、i32、i64 和图标（`egui::ImageSource<'static>`，例如 `icon::lucide::HEART`，见“图标”）；可编辑控件分别要求 text_edit 的 String，以及 switch 和 checkbox 的 bool。getter 按需执行，没有依赖追踪和缓存，不应产生业务副作用。setter 只应同步更新状态；外部副作用放在显式 handler 中，handler 不应执行阻塞绘制的长任务。
 
 一个 View 表示一个 Context/viewport 中的一个挂载实例，每 pass 调用一次。多个挂载位置使用独立 View。必须保留以下更新约定：
 
@@ -217,9 +217,9 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 ```
 
 - 样式属性可以是常量，也可以加 `:` 前缀写表达式。常量是一个裸单词（`variant="ghost"`）或一个主题路径（`color="$theme.colors.gray.l6"`）。同一元素不能同时写 `name` 和 `:name`。
-- 表达式语法刻意保持很小：`expr := value | cond "?" value ":" expr`。`value` 是带引号的单词（`'ghost'`，因为属性本身用双引号，所以用单引号）或主题路径；`cond` 是与 `e-if` 相同的条件（用 `&&` 和 `||` 连接的 term）。以 `$theme` 之外的 `$` 名字开头的表达式视为以条件开头。条件成立时取的值只能是单个值，连写发生在 else 位置，取第一个为真的条件。bool 属性（`underline`、`strikethrough`、`disabled`）接受 `true`/`false`，写成 `:name` 时直接写条件。不支持算术、比较和函数调用，计算放在 Rust 的 `bind` getter 里。
+- 表达式语法刻意保持很小：`expr := value | cond "?" value ":" expr`。`value` 是带引号的单词（`'ghost'`，因为属性本身用双引号，所以用单引号）、主题路径，或类型与属性相符的已注册 binding（`my_icon`、`todo.icon`）；`cond` 是与 `e-if` 相同的条件（用 `&&` 和 `||` 连接的 term）。不含 `?` 的表达式就是一个值；含 `?` 时条件在前，条件可以以 `$contains_pointer` 这类 `$` 名字开头。条件成立时取的值只能是单个值，连写发生在 else 位置，取第一个为真的条件。bool 属性（`underline`、`strikethrough`、`disabled`）接受 `true`/`false`，写成 `:name` 时直接写条件。不支持算术、比较和函数调用，计算放在 Rust 的 `bind` getter 里。
 - `$theme` 是保留关键字，路径与 Rust 的 `Theme` 字段一致：`$theme.colors.<色阶>.<foreground|l0..l9>` 和 `$theme.colors.<bg|fg>.<base|subtle|accent>` 是颜色，`$theme.colors.<色阶>` 是整个色阶（用于 button 的 `color`）。色阶有 primary、gray、red、green、blue、yellow、orange。路径在编译模板时与一张固定的表匹配（不做反射），绘制时在传给 `View::show` 的 Theme 里取值，所以切换明暗主题不需要重新编译。其他 `Theme` 字段暂未开放。
-- 每个值都在编译期按属性检查类型：单词必须是该属性的可选值之一，颜色必须是颜色路径，色阶必须是色阶路径。Rust 绑定暂时不能返回颜色或 variant。
+- 每个值都在编译期按属性检查类型：单词必须是该属性的可选值之一，颜色必须是颜色路径，色阶必须是色阶路径，binding 的类型必须与属性的值类型一致。目前只有图标可以来自 binding；Rust 绑定暂时不能返回颜色或 variant。
 - 目前支持以下属性，均可写常量或 `:` 表达式：
   - text 的 `size`（主题字号 `xxs`–`xl`，或大号加粗的预设 `heading`）、`font_weight`（`thin` … `black`，会覆盖预设的字重）、`color`、`underline`、`strikethrough`、`truncate`、`selectable`；
   - button 的 `size`、`variant`、`color`、`disabled`、`loading`（两者同时成立时以 disabled 为准）；
@@ -279,6 +279,27 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 - egui 把双击的第二次松开也报告为一次点击，所以双击会触发两次 `@click` 和一次 `@double_click`，与浏览器的 click、click、dblclick 一致。同一帧内 `@click` 先执行。单击不会为了区分双击而延迟；需要单击什么都不做时，只绑定 `@double_click`。
 - 可点击的 text 可以用 Tab 获得焦点：按 Space 或 Enter 触发 `@click`（egui 的模拟点击），egui 用下划线标示焦点。双击没有对应的键盘操作，所以要配合另一个控件，比如 todo app 里的 Edit 按钮。
 - 三击、右键点击和其他事件暂不支持；以后按同样方式、使用 egui 的名字添加。
+
+## 图标
+
+```rust
+View::<State>::builder()
+    .bind("heart", |_| icon::lucide::HEART)
+    .bind("heart_off", |_| icon::lucide::HEART_OFF)
+    .list("todos", read, find, key, |row| row.bind("icon", |_, t| t.icon.clone()))
+```
+
+```html
+<button :icon_left="liked ? heart : heart_off" @click="toggle_like">Like</button>
+<button variant="ghost" :icon_left="settings" aria_label="Settings" />
+```
+
+- 图标和 String、bool 一样是一种值类型：`.bind()`（或行的 `.bind()`）返回 `egui::ImageSource<'static>` 即可注册，所以内置的 `ICONS`、Lucide 常量和应用自己用 `include_image!` 引入的 SVG 都能用。模板只能引用图标的名字，不能构造图标。
+- button 的 `:icon_left` 和 `:icon_right` 接受一个图标 binding，或在两者之间选择的 `cond ? a : b` 表达式，映射到 `button::Style::icon_left`/`icon_right`。静态写法（`icon_left="heart"`）会报错，因为图标只能来自 binding；非图标类型的 binding 和带引号的单词也会报错。
+- 模板不提供类似 `$theme` 的内置 `$icons` 路径：列出全部 Lucide 图标的名字表会把所有图标都链接进二进制，而 binding 只会链接应用实际用到的图标。
+- 图标不能作为文字显示：`{{ heart }}` 会在编译期报错。
+- 标签为空的 button 必须写 `aria_label`，否则读屏器无法为它命名；这在编译模板时检查。只有插值的标签也算有文字。
+- `Value::Icon` 按 URI 比较，与 egui 加载图标的方式一致。由于 `ImageSource` 没有实现 `Eq`，`Value` 也不再实现 `Eq`。
 
 ## 无障碍名称
 

@@ -120,7 +120,8 @@ a getter returning a value and an owned-value setter; the getter either clones a
 field or computes a value (such as "all done", whose setter applies to every row),
 so reads cost one clone at most, as before, since a `Value` owns its data; `.bind()` registers a read-only getter;
 `.on()` registers an explicit handler. Validate types without evaluating getters.
-Current values are String, bool, i32 and i64; editable controls accept String for
+Current values are String, bool, i32, i64 and icons (`egui::ImageSource<'static>`,
+such as `icon::lucide::HEART`; see Icons); editable controls accept String for
 text_edit and bool for switch and checkbox. Getters are evaluated on demand without dependency
 tracking or caching and must not have business side effects. Setters should only
 synchronously update state. External effects belong in explicit handlers, which
@@ -397,9 +398,11 @@ fragment.
   `:name`.
 - The expression grammar is deliberately small:
   `expr := value | cond "?" value ":" expr`, where `value` is a quoted word
-  (`'ghost'`, single quotes because the attribute uses double quotes) or a theme
-  path, and `cond` is a condition as in `e-if` (terms joined with `&&` and `||`).
-  An expression starting with a `$` name other than `$theme` starts a condition. The value chosen when a condition holds is a single value;
+  (`'ghost'`, single quotes because the attribute uses double quotes), a theme
+  path, or a registered binding of the attribute's type (`my_icon`, `todo.icon`), and
+  `cond` is a condition as in `e-if` (terms joined with `&&` and `||`). An
+  expression without `?` is one value; with `?`, the condition goes first and may
+  start with a `$` name such as `$contains_pointer`. The value chosen when a condition holds is a single value;
   chaining happens in the else position and the first true condition wins. Bool
   attributes (`underline`, `strikethrough`, `disabled`) take `true`/`false` or,
   as `:name`, a condition directly. There is no arithmetic, comparison or call;
@@ -414,7 +417,9 @@ fragment.
   Other `Theme` fields are not exposed yet.
 - Every value is type-checked at compile time against its attribute: words must
   be one of the attribute's choices, colors must be color paths and scales must
-  be scale paths. Rust bindings cannot return colors or variants yet.
+  be scale paths, and a binding must have the attribute's value type. Only icons
+  can come from bindings so far; Rust bindings cannot return colors or variants
+  yet.
 - Supported now, each as a constant or a `:` expression:
   - text `size` (the theme text sizes `xxs`–`xl`, or `heading`, the large bold
     preset), `font_weight` (`thin` … `black`, overriding the preset's weight),
@@ -563,6 +568,38 @@ fragment.
   equivalent, so pair it with another control, as the todo app's Edit button does.
 - Triple and secondary clicks and other events are not supported yet; add them
   the same way, under egui's names.
+
+## Icons
+
+```rust
+View::<State>::builder()
+    .bind("heart", |_| icon::lucide::HEART)
+    .bind("heart_off", |_| icon::lucide::HEART_OFF)
+    .list("todos", read, find, key, |row| row.bind("icon", |_, t| t.icon.clone()))
+```
+
+```html
+<button :icon_left="liked ? heart : heart_off" @click="toggle_like">Like</button>
+<button variant="ghost" :icon_left="settings" aria_label="Settings" />
+```
+
+- An icon is a value type like String or bool: `.bind()` (or a row's `.bind()`)
+  returning `egui::ImageSource<'static>` registers one, so the built-in `ICONS`,
+  Lucide constants, and an app's own `include_image!` SVGs all work. Templates
+  name icons; they cannot construct them.
+- button's `:icon_left` and `:icon_right` take an icon binding or a `cond ? a : b`
+  expression choosing between them, mapping to `button::Style::icon_left`/
+  `icon_right`. The static form (`icon_left="heart"`) is rejected, since icons come
+  only from bindings, as are non-icon bindings and quoted words.
+- Templates do not get a built-in `$icons` path like `$theme`: a table naming every
+  Lucide icon would link all of them into the binary, while bindings link only the
+  icons an app uses.
+- Icons are never shown as text: `{{ heart }}` is a compile-time error.
+- A button whose label is empty needs `aria_label`, or screen readers could not
+  name it; this is checked when the template compiles. A label that is only
+  interpolation counts as text.
+- `Value::Icon` compares icons by URI, as egui loads them. `Value` no longer
+  implements `Eq`, since `ImageSource` does not.
 
 ## Accessible names
 

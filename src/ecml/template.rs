@@ -156,12 +156,17 @@ fn theme_scale(path: &str) -> Result<ThemeScale, String> {
         )
     })
 }
-/// One value in an attribute: a word (`ghost` statically, `'ghost'` in a `:` attribute)
-/// or a `$theme` path.
+/// One value in an attribute: a word (`ghost` statically, `'ghost'` in a `:` attribute),
+/// a `$theme` path, or in a `:` attribute a registered name such as `my_icon`.
 #[derive(Clone, Copy)]
 enum Leaf<'a> {
     Word(&'a str),
     Theme(&'a str),
+    Name(&'a str),
+}
+/// The error for a registered name where only constants are allowed.
+fn not_a_name(name: &str) -> String {
+    format!("'{name}' is a name; expected a quoted value like '{name}' or a $theme path")
 }
 type LeafFn<'f, T> = &'f dyn Fn(Leaf) -> Result<T, String>;
 fn words<T: Copy>(name: &str, options: &[(&str, T)]) -> impl Fn(Leaf) -> Result<T, String> {
@@ -181,6 +186,7 @@ fn words<T: Copy>(name: &str, options: &[(&str, T)]) -> impl Fn(Leaf) -> Result<
             .map(|(_, v)| *v)
             .ok_or_else(|| message.clone()),
         Leaf::Theme(_) => Err(message.clone()),
+        Leaf::Name(n) => Err(not_a_name(n)),
     }
 }
 fn color(leaf: Leaf) -> Result<ThemeColor, String> {
@@ -189,6 +195,7 @@ fn color(leaf: Leaf) -> Result<ThemeColor, String> {
         Leaf::Word(w) => Err(format!(
             "'{w}' is not a color; use a theme path such as $theme.colors.gray.l6"
         )),
+        Leaf::Name(n) => Err(not_a_name(n)),
     }
 }
 fn color_scale(leaf: Leaf) -> Result<ThemeScale, String> {
@@ -197,9 +204,11 @@ fn color_scale(leaf: Leaf) -> Result<ThemeScale, String> {
         Leaf::Word(w) => Err(format!(
             "'{w}' is not a color scale; use a theme path such as $theme.colors.red"
         )),
+        Leaf::Name(n) => Err(not_a_name(n)),
     }
 }
-/// Splits the leading value off `s`: `'word'` or a `$theme` path.
+/// Splits the leading value off `s`: `'word'`, a `$theme` path, or a name (`a` or
+/// `alias.a`).
 fn leaf(s: &str) -> Option<(Leaf<'_>, &str)> {
     if let Some(rest) = s.strip_prefix('\'') {
         let end = rest.find('\'')?;
@@ -209,6 +218,11 @@ fn leaf(s: &str) -> Option<(Leaf<'_>, &str)> {
             .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == '.'))
             .map_or(s.len(), |i| i + 1);
         Some((Leaf::Theme(&s[..end]), &s[end..]))
+    } else if s.starts_with(|c: char| c.is_ascii_alphabetic() || c == '_') {
+        let end = s
+            .find(|c: char| !(c.is_ascii_alphanumeric() || c == '_' || c == '.'))
+            .unwrap_or(s.len());
+        Some((Leaf::Name(&s[..end]), &s[end..]))
     } else {
         None
     }
@@ -267,6 +281,9 @@ pub(super) enum Kind {
         size: Expr<ButtonSize>,
         variant: Expr<ButtonVariant>,
         color: Option<Expr<ThemeScale>>,
+        /// Registered icon bindings, picked per pass like any `:` value.
+        icon_left: Option<Expr<Ref>>,
+        icon_right: Option<Expr<Ref>>,
         width: Option<f32>,
         disabled: BoolExpr,
         loading: BoolExpr,
@@ -579,6 +596,13 @@ impl<'r> Compiler<'r> {
             };
             (Ref::Root(index), kind, can_write)
         };
+        if kind.is_none() && actual == ValueKind::Icon {
+            return Err(self.error(
+                e,
+                attr,
+                format!("binding '{name}' is an icon and cannot be shown as text"),
+            ));
+        }
         if kind.is_some_and(|k| k != actual) {
             return Err(self.error(
                 e,
@@ -976,12 +1000,12 @@ impl<'r> Compiler<'r> {
         src: &str,
         leaf: LeafFn<T>,
     ) -> Result<Expr<T>, Error> {
-        const SHAPE: &str =
-            "expected a quoted value like 'ghost', a $theme path, or cond ? value : value";
+        const SHAPE: &str = "expected a quoted value like 'ghost', a $theme path, a registered name, or cond ? value : value";
         let src = src.trim();
         let value = |s| self.leaf_value(e, attr, s, leaf, SHAPE);
-        // Other `$` names, such as $contains_pointer, start a condition.
-        if src.starts_with('\'') || src.starts_with("$theme") {
+        // Without `?` the whole expression is one value. With it, a condition goes first,
+        // which may start with a `$` name such as $contains_pointer.
+        if src.starts_with('\'') || src.starts_with("$theme") || !src.contains('?') {
             let (v, rest) = value(src)?;
             if !rest.is_empty() {
                 return Err(self.error(
@@ -1009,6 +1033,19 @@ impl<'r> Compiler<'r> {
             then,
             Box::new(self.expr(e, attr, otherwise, leaf)?),
         ))
+    }
+    /// `:icon_left="my_icon"`: an icon binding, or `cond ? a : b` choosing between them.
+    /// Icons come only from bindings, so the static form is rejected.
+    fn icon(&self, e: &Element, name: &str) -> Result<Option<Expr<Ref>>, Error> {
+        let dynamic = format!(":{name}");
+        self.optional(e, name, &|leaf| match leaf {
+            Leaf::Name(n) => self
+                .binding(e, &dynamic, n, Some(ValueKind::Icon), false)
+                .map_err(|error| error.message),
+            Leaf::Word(w) | Leaf::Theme(w) => Err(format!(
+                "'{w}' is not an icon; write {dynamic}=\"my_icon\" with an icon registered by .bind"
+            )),
+        })
     }
     /// `aria_label="Delete {{ todo.title }}"`: the screen-reader name, with interpolation.
     fn aria_label(&self, e: &Element) -> Result<Option<Vec<TextPart>>, Error> {
@@ -1042,7 +1079,7 @@ impl<'r> Compiler<'r> {
             "fragment" => &[],
             "layout" => &["direction", "cross_align", "item_spacing.x", "item_spacing.y"],
             "text" => &["size", ":size", "font_weight", ":font_weight", "color", ":color", "underline", ":underline", "strikethrough", ":strikethrough", "truncate", ":truncate", "selectable", ":selectable", "@click", "@double_click"],
-            "button" => &["size", ":size", "variant", ":variant", "color", ":color", "width", "disabled", ":disabled", "loading", ":loading", "aria_label", "@click"],
+            "button" => &["size", ":size", "variant", ":variant", "color", ":color", "icon_left", ":icon_left", "icon_right", ":icon_right", "width", "disabled", ":disabled", "loading", ":loading", "aria_label", "@click"],
             "text_edit" => &["size", ":size", "variant", ":variant", "color", ":color", "width", "placeholder", "disabled", ":disabled", "read_only", ":read_only", "input_type", ":input_type", "password_toggle_aria_label", "e-model", "autofocus", "@submit", "@cancel", "@blur"],
             "switch" => &["size", ":size", "color", ":color", "disabled", ":disabled", "aria_label", "e-model"],
             "checkbox" => &["size", ":size", "color", ":color", "disabled", ":disabled", "indeterminate", ":indeterminate", "aria_label", "e-model"],
@@ -1196,16 +1233,31 @@ impl<'r> Compiler<'r> {
                     ),
                 )?;
                 let click = self.event(&e, "@click")?;
+                let icon_left = self.icon(&e, "icon_left")?;
+                let icon_right = self.icon(&e, "icon_right")?;
+                let aria_label = self.aria_label(&e)?;
+                if (icon_left.is_some() || icon_right.is_some())
+                    && e.text.trim().is_empty()
+                    && aria_label.is_none()
+                {
+                    return Err(self.error(
+                        &e,
+                        "",
+                        "a button with only an icon needs aria_label, so screen readers can name it",
+                    ));
+                }
                 Kind::Button {
                     text: self.text(&e, "", e.text.trim())?,
                     size,
                     variant,
                     color: self.optional(&e, "color", &color_scale)?,
+                    icon_left,
+                    icon_right,
                     click,
                     width: self.number(&e, "width")?,
                     disabled: self.flag(&e, "disabled")?,
                     loading: self.flag(&e, "loading")?,
-                    aria_label: self.aria_label(&e)?,
+                    aria_label,
                 }
             }
             "text_edit" => {

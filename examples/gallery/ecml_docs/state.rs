@@ -42,6 +42,10 @@ pub fn builder() -> ecml::Builder<State> {
         )
         // Read-only values and calculations.
         .bind("count", |s| s.count)
+        // Icons are values too; templates choose among them by name.
+        .bind("heart", |_| egui_component::icon::lucide::HEART)
+        .bind("heart_off", |_| egui_component::icon::lucide::HEART_OFF)
+        .bind("settings", |_| egui_component::icon::lucide::SETTINGS)
         .bind("can_increment", |s| s.enabled && s.count < 10)
         .bind("has_count", |s| s.count > 0)
         .bind("at_limit", |s| s.count >= 10)

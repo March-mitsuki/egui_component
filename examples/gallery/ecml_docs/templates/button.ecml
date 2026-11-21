@@ -19,4 +19,9 @@
         <!-- Loading ignores clicks but keeps keyboard focus. -->
         <button variant="surface" :loading="enabled">Loading while enabled</button>
     </layout>
+    <!-- Icons come from .bind(); an icon-only button needs aria_label. -->
+    <layout direction="left_to_right" item_spacing.x="8" cross_align="center">
+        <button variant="outline" :icon_left="enabled ? heart : heart_off">Liked: {{ enabled }}</button>
+        <button variant="ghost" :icon_left="settings" aria_label="Settings" />
+    </layout>
 </layout>

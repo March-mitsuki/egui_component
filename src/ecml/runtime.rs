@@ -56,12 +56,27 @@ pub enum ValueKind {
     String,
     Bool,
     Integer,
+    /// An image for icon attributes such as button's `:icon_left`; never shown as text.
+    Icon,
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub enum Value {
     String(String),
     Bool(bool),
     Integer(i64),
+    Icon(egui::ImageSource<'static>),
+}
+/// Icons compare by URI, as egui loads them; textures without one are never equal.
+impl PartialEq for Value {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::String(a), Self::String(b)) => a == b,
+            (Self::Bool(a), Self::Bool(b)) => a == b,
+            (Self::Integer(a), Self::Integer(b)) => a == b,
+            (Self::Icon(a), Self::Icon(b)) => a.uri().is_some() && a.uri() == b.uri(),
+            _ => false,
+        }
+    }
 }
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -69,13 +84,15 @@ impl fmt::Display for Value {
             Self::String(v) => v.fmt(f),
             Self::Bool(v) => v.fmt(f),
             Self::Integer(v) => v.fmt(f),
+            Self::Icon(v) => write!(f, "<icon {}>", v.uri().unwrap_or("texture")),
         }
     }
 }
 mod sealed {
     pub trait Sealed {}
 }
-/// The prototype accepts String, bool, i32 and i64, without lossy coercions.
+/// The prototype accepts String, bool, i32, i64 and `egui::ImageSource<'static>` (icons,
+/// such as `icon::lucide::HEART`), without lossy coercions.
 pub trait BindingValue: sealed::Sealed + Sized + 'static {
     const KIND: ValueKind;
     fn into_value(self) -> Value;
@@ -101,6 +118,7 @@ macro_rules! value_type {
 value_type!(String, String);
 value_type!(bool, Bool);
 value_type!(i64, Integer);
+value_type!(egui::ImageSource<'static>, Icon);
 impl sealed::Sealed for i32 {}
 impl BindingValue for i32 {
     const KIND: ValueKind = ValueKind::Integer;
@@ -1101,19 +1119,28 @@ fn render<S: 'static>(
                     size,
                     variant,
                     color,
+                    icon_left,
+                    icon_right,
                     width,
                     disabled,
                     loading,
                     aria_label,
                     click,
                 } => {
+                    let icon = |expr: &Option<Expr<Ref>>| match expr {
+                        Some(expr) => match rt.get(access, rt.value(access, expr)) {
+                            Value::Icon(source) => button::ButtonIcon::Some(source),
+                            _ => unreachable!("validated icon binding"),
+                        },
+                        None => button::ButtonIcon::None,
+                    };
                     let style = button::Style::new(
                         theme,
                         color.as_ref().map(|c| *(rt.value(access, c).0)(theme)),
                         rt.value(access, size),
                         rt.value(access, variant),
-                        button::ButtonIcon::None,
-                        button::ButtonIcon::None,
+                        icon(icon_left),
+                        icon(icon_right),
                     )
                     .width(*width);
                     let aria_label = aria_label.as_ref().map(|label| rt.text(access, label));
