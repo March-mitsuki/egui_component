@@ -31,6 +31,7 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 
 - 组件标签必须与公开组件模块名一致，例如 `text_edit`，不添加 `input` 等别名。模块存在不代表自动支持 ECML，必须有显式适配。
 - `layout` 和 `fragment` 是内置保留结构：`layout` 直接映射 egui，`fragment` 只分组、不创建布局。不得仅为标记语言添加公开 Row/Column 组件，也不接受 `row`/`column` 别名。
+- 适配器把样式属性（`size`、`variant`、`color` 等）映射到组件的 `Style`，其余属性（`disabled`、`placeholder`、`aria_label`、事件）映射到 `Options`，遵循 [CONTRIBUTE.zh.md](CONTRIBUTE.zh.md#组件-api-约定) 中的组件 API 约定。
 - 保留 egui 字段名和 snake_case。结构化属性使用 `item_spacing.x` 这样的点号路径，不使用 `gap_x`、`item_spacing_x`。
 - 解析器保留完整属性名；schema 显式定义每个支持路径的类型、默认值及映射。UI 点号属性不等于嵌套状态绑定或任意 Rust 反射。
 - 指令使用 `e-`，动态属性使用 `:`，事件使用 `@`。当前表达式仅包含已注册名称、文本插值、条件（`!`、`&&`、`||`、`$contains_pointer.<id>`、`$contains_focus.<id>`），以及样式属性中的 `cond ? value : value`（见“动态样式”）；计算放在 Rust getter 中。
@@ -268,7 +269,7 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 ```
 
 - text 上的 `@click` 和 `@double_click` 对应 egui 的 `Response::clicked()` 和 `double_clicked()`，名字跟随 egui，而不是 HTML 的 `dblclick`。handler 不带参数，执行方式与 button 的 `@click` 相同：可以是根或行 handler，在遍历结束后、只在每帧的第一个 pass 执行。
-- 带任一事件的 text 用 `text::Style::selectable(false)` 和 `.sense(Sense::click())` 绘制，所以双击不会同时选中单词。没有事件的 text 保持 egui 默认（可选中，`Sense::hover()`）。ECML 不单独提供 `selectable` 或 `sense` 属性。
+- 带任一事件的 text 用 `text::Options::selectable(false)` 和 `.sense(Sense::click())` 绘制，所以双击不会同时选中单词。没有事件的 text 保持 egui 默认（可选中，`Sense::hover()`）。ECML 不单独提供 `selectable` 或 `sense` 属性。
 - egui 把双击的第二次松开也报告为一次点击，所以双击会触发两次 `@click` 和一次 `@double_click`，与浏览器的 click、click、dblclick 一致。同一帧内 `@click` 先执行。单击不会为了区分双击而延迟；需要单击什么都不做时，只绑定 `@double_click`。
 - 可点击的 text 可以用 Tab 获得焦点：按 Space 或 Enter 触发 `@click`（egui 的模拟点击），egui 用下划线标示焦点。双击没有对应的键盘操作，所以要配合另一个控件，比如 todo app 里的 Edit 按钮。
 - 三击、右键点击和其他事件暂不支持；以后按同样方式、使用 egui 的名字添加。
@@ -281,7 +282,7 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 <switch e-model="dark" aria_label="Dark mode" />
 ```
 
-- button、checkbox 和 switch 上的 `aria_label` 映射到组件的 `Style::aria_label`：读屏器读出的名称，替代可见文字，与 HTML 的 `aria-label` 相同，不会被绘制。可见文字不够明确（很多行都是“Delete”）或没有可见文字（没有内容的 checkbox、switch）时使用。
+- button、checkbox 和 switch 上的 `aria_label` 映射到组件的 `Options::aria_label`：读屏器读出的名称，替代可见文字，与 HTML 的 `aria-label` 相同，不会被绘制。可见文字不够明确（很多行都是“Delete”）或没有可见文字（没有内容的 checkbox、switch）时使用。
 - 它与 `placeholder` 一样支持插值，所以没有 `:aria_label`；名称是文字，不是样式表达式。
 - 其他元素不接受它：text 本身就会被读出，layout 和 fragment 不绘制控件，text_edit 在 Rust 中还没有覆盖名称的选项。为 text_edit 命名（Rust 的 `field` 已经能关联可见标签）以及其他 ARIA 属性留作未来工作。
 

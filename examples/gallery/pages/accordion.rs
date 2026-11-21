@@ -16,12 +16,14 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         id,
         locale.text("accordion:basic"),
-        Some(locale.text("accordion:description")),
         None,
         |ui| {
             ui.label(locale.text("accordion:body"));
         },
-        accordion::Style::new(theme).default_open(true),
+        accordion::Style::new(theme),
+        accordion::Options::default()
+            .default_open(true)
+            .description(locale.text("accordion:description")),
     );
     separator::render(ui, 1.0);
 
@@ -31,12 +33,12 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         id,
         locale.text("accordion:advanced"),
         None,
-        None,
         |ui| {
             ui.label(locale.text("accordion:independent"));
             let _ = ui.button(locale.text("accordion:action"));
         },
         accordion::Style::new(theme).show_body_guide(true),
+        Default::default(),
     );
     separator::render(ui, 1.0);
 
@@ -46,11 +48,11 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         id,
         locale.text("common:disabledHeading"),
         None,
-        None,
         |ui| {
             ui.label("Disabled");
         },
-        accordion::Style::new(theme).disabled(true),
+        accordion::Style::new(theme),
+        accordion::Options::default().disabled(true),
     );
 
     ui.add_space(20.0);
@@ -58,6 +60,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         locale.text("accordion:exclusive"),
         text::Style::new(theme),
+        Default::default(),
     );
     ui.add_space(10.0);
 
@@ -78,12 +81,12 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             ui,
             group.with(index),
             title,
-            None,
             Some(&mut open),
             |ui| {
                 ui.label(locale.text("accordion:body"));
             },
             accordion::Style::new(theme),
+            Default::default(),
         );
 
         if open {

@@ -24,9 +24,10 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             tooltip::render(
                 &response,
                 |ui| {
-                    text::render(ui, label, text::Style::new(theme));
+                    text::render(ui, label, text::Style::new(theme), Default::default());
                 },
                 &tooltip::Style::new(theme),
+                Default::default(),
             );
         }
     });

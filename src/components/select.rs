@@ -21,9 +21,6 @@ pub struct Style {
     pub icon_size: f32,
     pub gap: f32,
     pub width: Option<f32>,
-    pub disabled: bool,
-    pub is_invalid: bool,
-    pub placeholder: String,
 
     // Palette / Colors
     pub normal_bg: Color32,
@@ -52,7 +49,6 @@ pub struct Style {
     // Popup Settings
     pub popup_align: egui::RectAlign,
     pub popup_gap: f32,
-    pub popup_close_behavior: egui::PopupCloseBehavior,
     pub popup_frame: egui::Frame,
     pub popup_max_height: f32,
 }
@@ -82,9 +78,6 @@ impl Style {
             icon_size,
             gap: 6.0,
             width: None,
-            disabled: false,
-            is_invalid: false,
-            placeholder: "Select...".to_string(),
 
             // Palette
             normal_bg: theme.colors.fg.base.gamma_multiply(0.06),
@@ -113,7 +106,6 @@ impl Style {
             // Popup
             popup_align: egui::RectAlign::BOTTOM_START,
             popup_gap: 4.0,
-            popup_close_behavior: egui::PopupCloseBehavior::CloseOnClick,
             popup_frame: egui::Frame::default()
                 .fill(theme.colors.bg.accent)
                 .stroke(egui::Stroke {
@@ -137,6 +129,39 @@ impl Style {
         self
     }
 
+    pub fn popup_max_height(mut self, max_height: f32) -> Self {
+        self.popup_max_height = max_height;
+        self
+    }
+}
+
+/// Behavior and content of [`render`], separate from visual styling.
+#[derive(Clone, Copy, Debug)]
+pub struct Options<'a> {
+    /// Shown while nothing is selected. Defaults to "Select...".
+    pub placeholder: &'a str,
+    pub disabled: bool,
+    /// Draws the invalid border, e.g. after failed validation.
+    pub is_invalid: bool,
+    /// When the popup closes. Defaults to `CloseOnClick`.
+    pub popup_close_behavior: egui::PopupCloseBehavior,
+}
+impl Default for Options<'_> {
+    fn default() -> Self {
+        Self {
+            placeholder: "Select...",
+            disabled: false,
+            is_invalid: false,
+            popup_close_behavior: egui::PopupCloseBehavior::CloseOnClick,
+        }
+    }
+}
+impl<'a> Options<'a> {
+    pub fn placeholder(mut self, placeholder: &'a str) -> Self {
+        self.placeholder = placeholder;
+        self
+    }
+
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
@@ -147,13 +172,8 @@ impl Style {
         self
     }
 
-    pub fn placeholder(mut self, placeholder: &str) -> Self {
-        self.placeholder = placeholder.to_string();
-        self
-    }
-
-    pub fn popup_max_height(mut self, max_height: f32) -> Self {
-        self.popup_max_height = max_height;
+    pub fn popup_close_behavior(mut self, behavior: egui::PopupCloseBehavior) -> Self {
+        self.popup_close_behavior = behavior;
         self
     }
 }
@@ -163,9 +183,16 @@ pub fn render(
     id: egui::Id,
     selected_text: &str,
     style: Style,
+    options: Options<'_>,
     menu_render: impl FnOnce(&mut Ui),
 ) -> Response {
-    let response = render_trigger(ui, selected_text, &style, Popup::is_id_open(ui.ctx(), id));
+    let response = render_trigger(
+        ui,
+        selected_text,
+        &style,
+        &options,
+        Popup::is_id_open(ui.ctx(), id),
+    );
     let rect = response.rect;
     super::menu_nav::trigger(ui, &response, id);
     // 8. Popup Menu logic
@@ -173,7 +200,7 @@ pub fn render(
         .id(id)
         .frame(style.popup_frame)
         .align(style.popup_align)
-        .close_behavior(style.popup_close_behavior)
+        .close_behavior(options.popup_close_behavior)
         .gap(style.popup_gap)
         .show(|ui| {
             // Match select box width exactly (accounting for frame border/margin)
@@ -200,12 +227,13 @@ pub(crate) fn render_trigger(
     ui: &mut Ui,
     selected_text: &str,
     style: &Style,
+    options: &Options<'_>,
     is_open: bool,
 ) -> Response {
     // 1. Allocate exact size
     let width = style.width.unwrap_or(ui.available_width());
     let size = egui::vec2(width, style.height);
-    let sense = if style.disabled {
+    let sense = if options.disabled {
         Sense::hover()
     } else {
         Sense::click()
@@ -213,7 +241,7 @@ pub(crate) fn render_trigger(
     let (rect, response) = ui.allocate_exact_size(size, sense);
     response.widget_info(|| {
         let mut info = egui::WidgetInfo::new(egui::Role::ComboBox);
-        info.enabled = !style.disabled && ui.is_enabled();
+        info.enabled = !options.disabled && ui.is_enabled();
         info.current_text_value = Some(selected_text.to_owned());
         info
     });
@@ -223,7 +251,7 @@ pub(crate) fn render_trigger(
     // 2. Query popup open state
 
     // 4. Animation factors
-    let is_hovered = response.hovered() && !style.disabled;
+    let is_hovered = response.hovered() && !options.disabled;
     let hover_factor = ui
         .ctx()
         .animate_bool_with_time(response.id.with("hover"), is_hovered, 0.15);
@@ -232,7 +260,7 @@ pub(crate) fn render_trigger(
         .animate_bool_with_time(response.id.with("open"), is_open, 0.15);
 
     // 5. Draw background
-    let bg_color = if style.disabled {
+    let bg_color = if options.disabled {
         style.disabled_bg
     } else if is_open {
         style.active_bg
@@ -244,9 +272,9 @@ pub(crate) fn render_trigger(
     };
 
     // 6. Draw border
-    let stroke = if style.disabled {
+    let stroke = if options.disabled {
         style.disabled_border_stroke
-    } else if style.is_invalid {
+    } else if options.is_invalid {
         if is_open {
             style.invalid_active_border_stroke
         } else {
@@ -285,7 +313,7 @@ pub(crate) fn render_trigger(
     );
 
     // 7. Draw content (Selected text + arrow_down icon)
-    let text_color = if style.disabled {
+    let text_color = if options.disabled {
         style.disabled_text_color
     } else if selected_text.is_empty() {
         style.placeholder_color
@@ -294,7 +322,7 @@ pub(crate) fn render_trigger(
     };
 
     let display_text = if selected_text.is_empty() {
-        &style.placeholder
+        options.placeholder
     } else {
         selected_text
     };
@@ -318,7 +346,7 @@ pub(crate) fn render_trigger(
     ui.painter().galley(text_pos, galley, text_color);
 
     // Draw Arrow Icon (aligned to right, with rotation animation when open)
-    let arrow_color = if style.disabled {
+    let arrow_color = if options.disabled {
         style.disabled_text_color
     } else {
         style.arrow_icon_color
@@ -346,7 +374,7 @@ pub(crate) fn render_trigger(
 
     focus::ring(ui, &response, rect, style.corner_radius, style.focus_ring);
 
-    if style.disabled {
+    if options.disabled {
         response.on_hover_cursor(egui::CursorIcon::NotAllowed)
     } else {
         response.on_hover_cursor(egui::CursorIcon::PointingHand)

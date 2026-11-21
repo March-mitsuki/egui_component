@@ -8,7 +8,6 @@ pub struct Style {
     pub box_size: f32,
     pub icon_size: f32,
     pub color: egui::Color32,
-    pub sense: egui::Sense,
 }
 impl Style {
     pub fn new(theme: &Theme) -> Self {
@@ -18,7 +17,6 @@ impl Style {
             icon_size: theme.text_size.md,
             color: theme.colors.fg.base,
             // Icons are decorative by default and must not be Tab stops.
-            sense: egui::Sense::hover(),
         }
     }
 
@@ -36,6 +34,32 @@ impl Style {
         self.color = color;
         self
     }
+}
+
+/// Behavior of [`render`], separate from visual styling.
+#[derive(Clone, Copy, Debug)]
+pub struct Options<'a> {
+    /// Screen-reader name, like `aria-label`; never drawn. With it an
+    /// interactive icon is exposed as a button and a hover-only icon as a
+    /// named image. Without it a hover-only icon is decorative and hidden from
+    /// screen readers.
+    pub aria_label: Option<&'a str>,
+    /// `Sense::hover()` (default) keeps the icon decorative and out of the Tab order.
+    pub sense: egui::Sense,
+}
+impl Default for Options<'_> {
+    fn default() -> Self {
+        Self {
+            aria_label: None,
+            sense: egui::Sense::hover(),
+        }
+    }
+}
+impl<'a> Options<'a> {
+    pub fn aria_label(mut self, label: &'a str) -> Self {
+        self.aria_label = Some(label);
+        self
+    }
 
     /// Pass `Sense::click()` or `Sense::drag()` to make the icon interactive,
     /// for example a drag handle. Give an interactive icon an
@@ -47,16 +71,6 @@ impl Style {
     }
 }
 
-/// Optional behavior configuration, separate from visual styling.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct Options<'a> {
-    /// Screen-reader name, like `aria-label`; never drawn. With it an
-    /// interactive icon is exposed as a button and a hover-only icon as a
-    /// named image. Without it a hover-only icon is decorative and hidden from
-    /// screen readers.
-    pub aria_label: Option<&'a str>,
-}
-
 /// Debug builds warn once per icon that is interactive but has no `aria_label`.
 pub fn render(
     ui: &mut Ui,
@@ -65,8 +79,8 @@ pub fn render(
     options: Options<'_>,
 ) -> Response {
     let box_size = egui::vec2(style.box_size, style.box_size);
-    let (rect, response) = ui.allocate_at_least(box_size, style.sense);
-    let interactive = style.sense.interactive();
+    let (rect, response) = ui.allocate_at_least(box_size, options.sense);
+    let interactive = options.sense.interactive();
     match options.aria_label {
         Some(label) => {
             let role = if interactive {

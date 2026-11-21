@@ -40,8 +40,6 @@ pub struct Style {
     pub selected_background: Color32,
     pub hover_background: Color32,
     pub selected_color: Color32,
-    /// How a current item is announced.
-    pub current_kind: Current,
 }
 impl Style {
     pub fn new(theme: &Theme) -> Self {
@@ -50,17 +48,11 @@ impl Style {
             height: 34.0,
             padding: 12.0,
             radius: 6,
-            text: text::Style::new(theme).size(14.0).selectable(false),
+            text: text::Style::new(theme).size(14.0),
             selected_background: theme.colors.primary.l0,
             hover_background: theme.colors.fg.base.gamma_multiply(0.07),
             selected_color: theme.colors.primary.l6,
-            current_kind: Current::Page,
         }
-    }
-
-    pub fn current_kind(mut self, kind: Current) -> Self {
-        self.current_kind = kind;
-        self
     }
 }
 
@@ -77,14 +69,27 @@ pub fn group<R>(ui: &mut Ui, label: &str, add_contents: impl FnOnce(&mut Ui) -> 
 }
 /// Renders one item; `current` marks it as the current page or location.
 /// Returns the standard clickable response, including keyboard focus semantics.
-pub fn render(ui: &mut Ui, label: &str, current: bool, style: Style) -> Response {
+/// Behavior of [`render`], separate from visual styling.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Options {
+    /// How a current item is announced. Defaults to `Current::Page`.
+    pub current_kind: Current,
+}
+impl Options {
+    pub fn current_kind(mut self, kind: Current) -> Self {
+        self.current_kind = kind;
+        self
+    }
+}
+
+pub fn render(ui: &mut Ui, label: &str, current: bool, style: Style, options: Options) -> Response {
     let (rect, response) = ui.allocate_exact_size(
         Vec2::new(ui.available_width(), style.height),
         Sense::click(),
     );
     response.widget_info(|| WidgetInfo::labeled(Role::Link, ui.is_enabled(), label));
     if current {
-        let kind = style.current_kind.accesskit();
+        let kind = options.current_kind.accesskit();
         ui.ctx()
             .accesskit_node_builder(response.id, |node| node.set_aria_current(kind));
     }
@@ -116,7 +121,12 @@ pub fn render(ui: &mut Ui, label: &str, current: bool, style: Style) -> Response
             .max_rect(rect.shrink2(Vec2::new(style.padding, 0.0)))
             .layout(egui::Layout::left_to_right(egui::Align::Center)),
         |ui| {
-            text::render(ui, label, text_style.truncate(true));
+            text::render(
+                ui,
+                label,
+                text_style.truncate(true),
+                text::Options::default().selectable(false),
+            );
         },
     );
     focus::ring(

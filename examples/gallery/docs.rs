@@ -29,7 +29,7 @@ static GETTING_STARTED: std::sync::LazyLock<[Section; 4]> = std::sync::LazyLock:
             body: "docs.firstcomponent:body",
             code: Some((
                 "rs",
-                "use egui_component::components::button;\n\nif button::render(\n    ui, \"Create project\",\n    button::Style::new_solid_md(theme),\n).clicked() {\n    // Handle the action.\n}",
+                "use egui_component::components::button;\n\nif button::render(\n    ui, \"Create project\",\n    button::Style::new_solid_md(theme),\n    Default::default(),\n).clicked() {\n    // Handle the action.\n}",
             )),
         },
         Section {
@@ -60,7 +60,16 @@ pub fn sections(doc: Doc) -> &'static [Section] {
                 body: "docs.customize:body",
                 code: Some((
                     "rs",
-                    "let mut style = button::Style::new_solid_md(theme)\n    .height(40.0)\n    .width(Some(180.0));\nstyle.corner_radius = egui::CornerRadius::same(12);\nbutton::render(ui, \"Make it yours\", style);",
+                    "let mut style = button::Style::new_solid_md(theme)\n    .height(40.0)\n    .width(Some(180.0));\nstyle.corner_radius = egui::CornerRadius::same(12);\nbutton::render(ui, \"Make it yours\", style, Default::default());",
+                )),
+            },
+            Section {
+                id: "options",
+                title: "docs.options:title",
+                body: "docs.options:body",
+                code: Some((
+                    "rs",
+                    "// Style: how it looks. Options: how it behaves and what it says.\nlet style = button::Style::new_ghost_sm(theme);\nlet options = button::Options::default()\n    .state(button::ButtonState::Disable)\n    .aria_label(\"Delete Buy milk\");\nbutton::render(ui, \"Delete\", style, options);\n\n// Most calls keep the default behavior.\nbutton::render(ui, \"Save\", button::Style::new_solid_md(theme), Default::default());",
                 )),
             },
             Section {
@@ -69,7 +78,7 @@ pub fn sections(doc: Doc) -> &'static [Section] {
                 body: "docs.compose:body",
                 code: Some((
                     "rs",
-                    "use egui_component::components::{card, text};\n\ncard::render(ui, |ui| {\n    text::render(ui, \"Your workspace\",\n        text::Style::new_heading(theme));\n}, card::Style::new_md(theme));",
+                    "use egui_component::components::{card, text};\n\ncard::render(ui, |ui| {\n    text::render(ui, \"Your workspace\",\n        text::Style::new_heading(theme), Default::default());\n}, card::Style::new_md(theme));",
                 )),
             },
             Section {
@@ -78,7 +87,7 @@ pub fn sections(doc: Doc) -> &'static [Section] {
                 body: "docs.visibility:body",
                 code: Some((
                     "rs",
-                    "// Every render function fits egui's Widget trait as a closure.\nlet delete = |ui: &mut egui::Ui| {\n    button::render(ui, \"Delete\", button::Style::new_ghost_sm(theme))\n};\n// Hidden: keeps its space, is not drawn and does not respond.\nif ui.add_visible(row_hovered, delete).clicked() {\n    // Remove the row.\n}\n// For several components, hide a child Ui instead.\nui.scope(|ui| {\n    if !show_actions {\n        ui.set_invisible();\n    }\n    // ...\n});",
+                    "// Every render function fits egui's Widget trait as a closure.\nlet delete = |ui: &mut egui::Ui| {\n    button::render(ui, \"Delete\", button::Style::new_ghost_sm(theme), Default::default())\n};\n// Hidden: keeps its space, is not drawn and does not respond.\nif ui.add_visible(row_hovered, delete).clicked() {\n    // Remove the row.\n}\n// For several components, hide a child Ui instead.\nui.scope(|ui| {\n    if !show_actions {\n        ui.set_invisible();\n    }\n    // ...\n});",
                 )),
             },
         ],
@@ -107,7 +116,7 @@ pub fn sections(doc: Doc) -> &'static [Section] {
                 body: "docs.colormode:body",
                 code: Some((
                     "rs",
-                    "let theme = if dark_mode {\n    &ui_theme.dark\n} else {\n    &ui_theme.light\n};\ntext::render(ui, \"Hello, theme\", text::Style::new(theme));",
+                    "let theme = if dark_mode {\n    &ui_theme.dark\n} else {\n    &ui_theme.light\n};\ntext::render(ui, \"Hello, theme\", text::Style::new(theme), Default::default());",
                 )),
             },
             Section {

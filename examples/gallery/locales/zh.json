@@ -257,6 +257,8 @@
   "docs.brandcolors:body": "Gallery 浅色模式使用白底、#6B65F5 强调色和 #202124 文字；深色模式使用 #101318 背景、#8B85FF 强调色和 #F6F7FB 文字。在 examples/theme.json 中配置。每个色阶必填的 foreground 指定其实心色上的文字和图标颜色，例如实心按钮和开关圆钮。focus_ring 指定所有组件键盘焦点指示器的颜色和宽度。",
   "docs.tokens:title": "共享设计变量",
   "docs.tokens:body": "主题包含语义化前景色和背景色、色阶、焦点环、字号、圆角和组件尺寸。预设将这些变量转换为组件样式。",
+  "docs.options:title": "样式与选项",
+  "docs.options:body": "Style 决定组件的外观：颜色、尺寸、间距和字体。其余都放在 render 的最后一个参数 Options 中：disabled、sense 等行为，placeholder 等内容，以及 aria_label 等读屏器名称（它会替代可见文字供读屏器读出）。Options::default() 保持常规行为，所以大多数调用直接传 Default::default()。",
   "docs.compose:title": "与 egui 组合",
   "docs.compose:body": "使用 egui 布局排列组件。卡片、字段和滚动区域接受渲染闭包，让组合方式由你掌控。",
   "docs.visibility:title": "隐藏但不移动",

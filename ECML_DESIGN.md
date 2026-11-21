@@ -58,6 +58,10 @@ Keep the public `egui_component::ecml::*` paths stable when reorganizing interna
   to egui, and `fragment` groups elements without a layout. Do not add
   public Row/Column components solely to support markup, or accept `row`/`column`
   as aliases.
+- An adapter maps styling attributes (`size`, `variant`, `color`, ...) to the
+  component's `Style` and every other attribute (`disabled`, `placeholder`,
+  `aria_label`, events) to its `Options`, following the component API conventions
+  in [CONTRIBUTE.md](CONTRIBUTE.md#component-api-conventions).
 - Preserve egui field names and snake_case. Structured properties use dotted
   paths such as `item_spacing.x`, not `gap_x` or `item_spacing_x`.
 - The parser retains the complete attribute name. The schema explicitly defines
@@ -527,7 +531,7 @@ fragment.
   `double_clicked()`; the names follow egui, not HTML's `dblclick`. Handlers take
   no arguments and run like `@click` on buttons: root or row handlers, after the
   traversal, on the first pass of a frame.
-- A text with either event is drawn with `text::Style::selectable(false)` and
+- A text with either event is drawn with `text::Options::selectable(false)` and
   `.sense(Sense::click())`, so a double click does not also select a word. Text
   without events keeps egui's default (selectable, `Sense::hover()`). ECML exposes
   no separate `selectable` or `sense` attribute.
@@ -550,7 +554,7 @@ fragment.
 ```
 
 - `aria_label` on button, checkbox and switch maps to the components'
-  `Style::aria_label`: the name screen readers announce, replacing the visible
+  `Options::aria_label`: the name screen readers announce, replacing the visible
   text, like HTML `aria-label`. It is never drawn. Use it when the visible text
   alone is unclear (many rows' "Delete") or missing (a checkbox without content, a
   switch).

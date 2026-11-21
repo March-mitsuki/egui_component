@@ -14,6 +14,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 ui,
                 locale.text("demo.menuButton:actions"),
                 button::Style::new_outline_md(theme),
+                Default::default(),
             )
         },
         |ui| {
@@ -27,6 +28,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                     ui,
                     action,
                     button::Style::new_ghost_md(theme).width(Some(ui.available_width())),
+                    Default::default(),
                 )
                 .clicked()
                 {
@@ -39,6 +41,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             }
         },
         menu_button::Style::new(theme),
+        Default::default(),
     );
 
     divider::render(
@@ -48,6 +51,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 ui,
                 locale.text("demo.menuButton:orUseIconButton"),
                 text::Style::new(theme),
+                Default::default(),
             )
         },
         divider::Style::new(),
@@ -75,6 +79,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                     ui,
                     action,
                     button::Style::new_ghost_md(theme).width(Some(ui.available_width())),
+                    Default::default(),
                 )
                 .clicked()
                 {
@@ -87,5 +92,6 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             }
         },
         menu_button::Style::new(theme),
+        Default::default(),
     );
 }

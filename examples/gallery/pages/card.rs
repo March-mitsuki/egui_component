@@ -12,13 +12,20 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 ui,
                 locale.text("demo.card:title"),
                 text::Style::new_heading(theme),
+                Default::default(),
             );
-            text::render(ui, locale.text("demo.card:body"), text::Style::new(theme));
+            text::render(
+                ui,
+                locale.text("demo.card:body"),
+                text::Style::new(theme),
+                Default::default(),
+            );
             ui.add_space(12.0);
             if button::render(
                 ui,
                 locale.text("common:createProject"),
                 button::Style::new_solid_md(theme),
+                Default::default(),
             )
             .clicked()
             {

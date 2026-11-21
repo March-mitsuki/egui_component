@@ -72,6 +72,7 @@ impl eframe::App for MyApp {
                     ui,
                     "Toggle Theme",
                     button::Style::new_solid_md(theme).width(Some(button_width)),
+                    Default::default(),
                 )
                 .clicked()
                 {
@@ -97,21 +98,25 @@ impl eframe::App for MyApp {
                         ui,
                         "Solid",
                         button::Style::new_solid_md(theme).width(Some(button_width)),
+                        Default::default(),
                     );
                     button::render(
                         ui,
                         "Surface",
                         button::Style::new_surface_md(theme).width(Some(button_width)),
+                        Default::default(),
                     );
                     button::render(
                         ui,
                         "Outline",
                         button::Style::new_outline_md(theme).width(Some(button_width)),
+                        Default::default(),
                     );
                     button::render(
                         ui,
                         "Ghost",
                         button::Style::new_ghost_md(theme).width(Some(button_width)),
+                        Default::default(),
                     );
                 });
             });

@@ -7,7 +7,6 @@ pub struct Style {
     pub size: f32,
     pub bg_color: Color32,
     pub text_color: Color32,
-    pub sense: Sense,
 }
 
 impl Style {
@@ -23,7 +22,6 @@ impl Style {
             bg_color: theme.colors.primary.l6,
             text_color: theme.colors.fg.base,
             // Avatars are not Tab stops unless made clickable with `.sense(...)`.
-            sense: Sense::hover(),
         }
     }
 
@@ -53,7 +51,23 @@ impl Style {
         self.text_color = color;
         self
     }
+}
 
+/// Behavior of [`render`], separate from visual styling.
+#[derive(Clone, Copy, Debug)]
+pub struct Options {
+    /// `Sense::hover()` (default) keeps the avatar inert; pass `Sense::click()` to make it a
+    /// button named after `name`.
+    pub sense: Sense,
+}
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            sense: Sense::hover(),
+        }
+    }
+}
+impl Options {
     pub fn sense(mut self, sense: Sense) -> Self {
         self.sense = sense;
         self
@@ -72,13 +86,14 @@ pub fn render(
     url: impl Into<String>,
     name: impl Into<String>,
     style: Style,
+    options: Options,
 ) -> Response {
     let url = url.into();
     let name = name.into();
     let size = egui::vec2(style.size, style.size);
-    let (rect, response) = ui.allocate_at_least(size, style.sense);
+    let (rect, response) = ui.allocate_at_least(size, options.sense);
     // Screen readers announce the name, like an <img alt>, or a button when clickable.
-    let role = if style.sense.is_focusable() {
+    let role = if options.sense.is_focusable() {
         egui::Role::Button
     } else {
         egui::Role::Image

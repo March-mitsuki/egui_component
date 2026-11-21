@@ -77,7 +77,7 @@ impl GalleryApp {
             |ui| {
                 let style = button::Style::new_ghost_sm(theme)
                     .icon_left(button::ButtonIcon::Some(lucide::LANGUAGES));
-                button::render(ui, current.name(), style)
+                button::render(ui, current.name(), style, Default::default())
             },
             |ui| {
                 for locale in Locale::ALL {
@@ -85,12 +85,13 @@ impl GalleryApp {
                     if locale == current {
                         style.palette.normal_bg = theme.colors.primary.l0;
                     }
-                    if button::render(ui, locale.name(), style).clicked() {
+                    if button::render(ui, locale.name(), style, Default::default()).clicked() {
                         chosen = locale;
                     }
                 }
             },
             menu_button::Style::new(theme).align(egui::RectAlign::BOTTOM_END),
+            Default::default(),
         );
         if chosen != current {
             let mut route = self.router.current();
@@ -128,6 +129,7 @@ impl GalleryApp {
             ui,
             title,
             text::Style::new_heading(theme).size(if id == "overview" { 38.0 } else { 23.0 }),
+            Default::default(),
         );
         if response.rect.top() <= ui.clip_rect().top() + 96.0 {
             self.active_section = id.into();
@@ -167,6 +169,7 @@ impl GalleryApp {
                         ui,
                         "egui_component",
                         text::Style::new_heading(theme).size(17.0),
+                        Default::default(),
                     );
                     if !narrow {
                         ui.add_space(28.0);
@@ -190,14 +193,28 @@ impl GalleryApp {
                         tooltip::render(
                             &toggle,
                             |ui| {
-                                text::render(ui, mode_label, text::Style::new(theme).size(13.0));
+                                text::render(
+                                    ui,
+                                    mode_label,
+                                    text::Style::new(theme).size(13.0),
+                                    Default::default(),
+                                );
                             },
                             &tooltip::Style::new(theme),
+                            Default::default(),
                         );
                         if toggle.clicked() {
                             self.dark = !self.dark;
                         }
-                        if !narrow && button::render(ui, "GitHub", external_link(theme)).clicked() {
+                        if !narrow
+                            && button::render(
+                                ui,
+                                "GitHub",
+                                external_link(theme),
+                                Default::default(),
+                            )
+                            .clicked()
+                        {
                             ui.ctx().open_url(egui::OpenUrl::new_tab(
                                 "https://github.com/March-mitsuki/egui_component",
                             ));
@@ -224,13 +241,12 @@ impl GalleryApp {
             icon::Style::new(theme)
                 .box_size(size)
                 .icon_size(size)
-                .color(egui::Color32::WHITE)
-                .sense(if clickable {
-                    egui::Sense::click()
-                } else {
-                    egui::Sense::hover()
-                }),
-            Default::default(),
+                .color(egui::Color32::WHITE),
+            icon::Options::default().sense(if clickable {
+                egui::Sense::click()
+            } else {
+                egui::Sense::hover()
+            }),
         )
         .on_hover_text("egui_component")
     }
@@ -271,7 +287,7 @@ impl GalleryApp {
                 style.palette.normal_bg = theme.colors.primary.l0;
                 style.palette.text_color = theme.colors.primary.l6;
             }
-            if button::render(ui, name, style).clicked() {
+            if button::render(ui, name, style, Default::default()).clicked() {
                 self.go(page);
             }
         }
@@ -293,8 +309,8 @@ impl GalleryApp {
             text_edit::render(
                 ui,
                 &mut self.filter,
-                text_edit::Style::new_outline_sm(theme)
-                    .placeholder(locale.text("common:findComponent")),
+                text_edit::Style::new_outline_sm(theme),
+                text_edit::Options::default().placeholder(locale.text("common:findComponent")),
             );
             ui.add_space(16.0);
             let filter = self.filter.to_lowercase();
@@ -324,6 +340,7 @@ impl GalleryApp {
                         item.name(locale),
                         *page == Page::Component(item),
                         navigation::Style::new(theme),
+                        Default::default(),
                     )
                     .clicked()
                     {
@@ -345,6 +362,7 @@ impl GalleryApp {
                         topic.title(locale),
                         *page == Page::Ecml(*topic),
                         navigation::Style::new(theme),
+                        Default::default(),
                     )
                     .clicked()
                     {
@@ -359,6 +377,7 @@ impl GalleryApp {
                     doc.title(locale),
                     *page == Page::Docs(*doc),
                     navigation::Style::new(theme),
+                    Default::default(),
                 )
                 .clicked()
                 {
@@ -373,6 +392,7 @@ impl GalleryApp {
                 locale.text("common:libraryLink"),
                 false,
                 navigation::Style::new(theme),
+                Default::default(),
             )
             .clicked()
             {
@@ -386,6 +406,7 @@ impl GalleryApp {
             locale.text("nav:themeGenerator"),
             *page == Page::ThemeGenerator,
             navigation::Style::new(theme),
+            Default::default(),
         )
         .clicked()
         {
@@ -414,6 +435,7 @@ impl GalleryApp {
                     previous.title(locale),
                     button::Style::new_ghost_md(theme)
                         .icon_left(button::ButtonIcon::Some(lucide::ARROW_LEFT)),
+                    Default::default(),
                 )
                 .clicked()
             {
@@ -424,6 +446,7 @@ impl GalleryApp {
                     ui,
                     next.title(locale),
                     button::Style::new_ghost_md(theme).icon_right(arrow_right()),
+                    Default::default(),
                 )
                 .clicked()
             {
@@ -468,10 +491,17 @@ impl GalleryApp {
         ui.add_space(12.0);
         navigation::group(ui, locale.text("common:onThisPage"), |ui| {
             for (id, title) in Self::outline(page, locale) {
-                let mut style =
-                    navigation::Style::new(theme).current_kind(navigation::Current::Location);
+                let mut style = navigation::Style::new(theme);
                 style.text.size = 13.0;
-                if navigation::render(ui, title, self.active_section == id, style).clicked() {
+                if navigation::render(
+                    ui,
+                    title,
+                    self.active_section == id,
+                    style,
+                    navigation::Options::default().current_kind(navigation::Current::Location),
+                )
+                .clicked()
+                {
                     self.jump(id);
                 }
             }
@@ -480,7 +510,14 @@ impl GalleryApp {
         ui.add_space(18.0);
         muted(ui, locale.text("common:immediateMode"), theme);
         ui.add_space(10.0);
-        if button::render(ui, locale.text("common:github"), external_link(theme)).clicked() {
+        if button::render(
+            ui,
+            locale.text("common:github"),
+            external_link(theme),
+            Default::default(),
+        )
+        .clicked()
+        {
             ui.ctx().open_url(egui::OpenUrl::new_tab(
                 "https://github.com/March-mitsuki/egui_component",
             ));
@@ -510,6 +547,7 @@ impl GalleryApp {
                         scroll_area::Style::new_no_frame()
                             .auto_shrink([false, false])
                             .padding(Margin::same(16)),
+                        Default::default(),
                     )
                 });
         }
@@ -529,6 +567,7 @@ impl GalleryApp {
                                         locale.text("common:browsePages")
                                     },
                                     button::Style::new_outline_sm(theme),
+                                    Default::default(),
                                 )
                                 .clicked()
                                 {
@@ -547,6 +586,7 @@ impl GalleryApp {
                                         })
                                     },
                                     scroll_area::Style::new_no_frame().max_height(260.0),
+                                    Default::default(),
                                 );
                             }
                         });
@@ -596,6 +636,7 @@ impl GalleryApp {
                                                 ui,
                                                 title,
                                                 button::Style::new_ghost_sm(theme),
+                                                Default::default(),
                                             )
                                             .clicked()
                                             {
@@ -628,6 +669,7 @@ impl GalleryApp {
                                             locale.text("common:exploreComponents"),
                                             button::Style::new_solid_md(theme)
                                                 .icon_right(arrow_right()),
+                                            Default::default(),
                                         )
                                         .clicked()
                                         {
@@ -658,6 +700,7 @@ impl GalleryApp {
                                                         scroll_area::Style::new_no_frame()
                                                             .min_height(240.0)
                                                             .max_height(360.0),
+                                                        Default::default(),
                                                     );
                                                 });
                                             },
@@ -708,6 +751,7 @@ impl GalleryApp {
                                             locale.text("common:stylingGuide"),
                                             button::Style::new_outline_md(theme)
                                                 .icon_right(arrow_right()),
+                                            Default::default(),
                                         )
                                         .clicked()
                                         {
@@ -728,6 +772,7 @@ impl GalleryApp {
                                                             lucide::ARROW_LEFT,
                                                         ),
                                                     ),
+                                                    Default::default(),
                                                 )
                                                 .clicked()
                                             {
@@ -739,6 +784,7 @@ impl GalleryApp {
                                                     Component::ALL[index + 1].name(locale),
                                                     button::Style::new_ghost_md(theme)
                                                         .icon_right(arrow_right()),
+                                                    Default::default(),
                                                 )
                                                 .clicked()
                                             {
@@ -857,6 +903,7 @@ impl GalleryApp {
                                     ui,
                                     locale.text("home:fitTitle"),
                                     text::Style::new_heading(theme).size(30.0),
+                                    Default::default(),
                                 );
                                 ui.add_space(10.0);
                                 paragraph(ui, locale.text("home:fitBody"), theme);
@@ -922,12 +969,14 @@ impl GalleryApp {
                                         ui,
                                         locale.text("home:blocks"),
                                         text::Style::new_heading(theme).size(26.0),
+                                        Default::default(),
                                     );
                                     if button::render(
                                         ui,
                                         locale.text("home:exploreLibrary"),
                                         button::Style::new_ghost_md(theme)
                                             .icon_right(arrow_right()),
+                                        Default::default(),
                                     )
                                     .clicked()
                                     {
@@ -947,6 +996,7 @@ impl GalleryApp {
                                             ui,
                                             c.name(locale),
                                             button::Style::new_outline_md(theme),
+                                            Default::default(),
                                         )
                                         .clicked()
                                         {
@@ -974,6 +1024,7 @@ impl GalleryApp {
             ui,
             locale.text("home:heroFirst"),
             text::Style::new_heading(theme).size(size),
+            Default::default(),
         );
         text::render(
             ui,
@@ -981,6 +1032,7 @@ impl GalleryApp {
             text::Style::new_heading(theme)
                 .size(size)
                 .color(theme.colors.primary.l6),
+            Default::default(),
         );
         ui.add_space(20.0);
         paragraph(ui, locale.text("home:heroBody"), theme);
@@ -991,6 +1043,7 @@ impl GalleryApp {
                 locale.text("home:getStarted"),
                 button::Style::new_solid_lg_color(theme, theme.colors.primary)
                     .icon_right(arrow_right()),
+                Default::default(),
             )
             .clicked()
             {
@@ -1000,6 +1053,7 @@ impl GalleryApp {
                 ui,
                 locale.text("home:browseComponents"),
                 button::Style::new_outline_lg(theme),
+                Default::default(),
             )
             .clicked()
             {
@@ -1029,6 +1083,7 @@ impl GalleryApp {
                             ui,
                             locale.text("home:workspace"),
                             text::Style::new_heading(theme).size(16.0),
+                            Default::default(),
                         );
                         muted(ui, locale.text("home:composition"), theme);
                     });
@@ -1038,6 +1093,7 @@ impl GalleryApp {
                     ui,
                     locale.text("home:ideaTitle"),
                     text::Style::new_heading(theme).size(23.0),
+                    Default::default(),
                 );
                 ui.add_space(8.0);
                 muted(ui, locale.text("home:tryControls"), theme);
@@ -1046,11 +1102,13 @@ impl GalleryApp {
                     ui,
                     locale.text("common:projectName"),
                     text::Style::new(theme).size(13.0),
+                    Default::default(),
                 );
                 text_edit::render(
                     ui,
                     &mut self.demo_name,
                     text_edit::Style::new_outline_lg(theme),
+                    Default::default(),
                 );
                 ui.add_space(18.0);
                 ui.horizontal(|ui| {
@@ -1058,9 +1116,15 @@ impl GalleryApp {
                         ui,
                         locale.text("home:notifications"),
                         text::Style::new(theme).size(14.0),
+                        Default::default(),
                     );
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        switch::render(ui, &mut self.notifications, switch::Style::new(theme));
+                        switch::render(
+                            ui,
+                            &mut self.notifications,
+                            switch::Style::new(theme),
+                            Default::default(),
+                        );
                     });
                 });
                 ui.add_space(20.0);
@@ -1080,6 +1144,7 @@ impl GalleryApp {
                                 button::ButtonIcon::None
                             },
                         ),
+                        Default::default(),
                     )
                     .clicked()
                     {
@@ -1179,6 +1244,7 @@ impl GalleryApp {
                             ui,
                             locale.text("error:title"),
                             text::Style::new_heading(&theme).size(38.0),
+                            Default::default(),
                         );
                         paragraph(
                             ui,
@@ -1191,6 +1257,7 @@ impl GalleryApp {
                             locale.text("error:backHome"),
                             button::Style::new_solid_md(&theme)
                                 .icon_left(button::ButtonIcon::Some(lucide::ARROW_LEFT)),
+                            Default::default(),
                         )
                         .clicked()
                         {
@@ -1203,7 +1270,7 @@ impl GalleryApp {
             egui::Window::new(locale.text("error:navigation"))
                 .id(egui::Id::unique("navigation-error"))
                 .show(ui.ctx(), |ui| {
-                    text::render(ui, error, text::Style::new(&theme));
+                    text::render(ui, error, text::Style::new(&theme), Default::default());
                 });
         }
         if self.active_section != previous_section {
@@ -1367,10 +1434,11 @@ fn main_scroll(
     ui: &mut egui::Ui,
     reset: bool,
     render: impl FnOnce(&mut egui::Ui),
-    mut style: scroll_area::Style,
+    style: scroll_area::Style,
 ) {
+    let mut options = scroll_area::Options::default();
     if reset {
-        style = style.scroll_offset(egui::Vec2::ZERO);
+        options = options.scroll_offset(egui::Vec2::ZERO);
     }
     ui.scope_builder(
         egui::UiBuilder::new().scope_id(egui::Id::unique("site-main-viewport")),
@@ -1381,6 +1449,7 @@ fn main_scroll(
                 scroll_area::ScrollAxes::Vertical,
                 render,
                 style,
+                options,
             );
         },
     );
@@ -1393,6 +1462,7 @@ fn eyebrow(ui: &mut egui::Ui, label: &str, theme: &Theme) {
         text::Style::new_heading(theme)
             .size(11.0)
             .color(theme.colors.primary.l6),
+        Default::default(),
     );
 }
 fn muted(ui: &mut egui::Ui, label: &str, theme: &Theme) {
@@ -1402,10 +1472,16 @@ fn muted(ui: &mut egui::Ui, label: &str, theme: &Theme) {
         text::Style::new(theme)
             .size(13.0)
             .color(theme.colors.gray.l6),
+        Default::default(),
     );
 }
 fn paragraph(ui: &mut egui::Ui, label: &str, theme: &Theme) {
-    text::render(ui, label, text::Style::new(theme).size(15.0));
+    text::render(
+        ui,
+        label,
+        text::Style::new(theme).size(15.0),
+        Default::default(),
+    );
 }
 pub(crate) fn surface(theme: &Theme) -> card::Style {
     card::Style::new_md(theme)
@@ -1427,7 +1503,14 @@ fn code_block(
             ui.horizontal(|ui| {
                 eyebrow(ui, language, theme);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if button::render(ui, "Copy", button::Style::new_ghost_sm(theme)).clicked() {
+                    if button::render(
+                        ui,
+                        "Copy",
+                        button::Style::new_ghost_sm(theme),
+                        Default::default(),
+                    )
+                    .clicked()
+                    {
                         ui.ctx().copy_text(source.to_owned());
                     }
                 });
@@ -1438,12 +1521,19 @@ fn code_block(
                 ("source", id),
                 scroll_area::ScrollAxes::Both,
                 |ui| {
-                    code::render(ui, source, language, code::Style::new(theme).size(13.0));
+                    code::render(
+                        ui,
+                        source,
+                        language,
+                        code::Style::new(theme).size(13.0),
+                        Default::default(),
+                    );
                 },
                 scroll_area::Style::new_no_frame()
                     .max_height(height)
                     .min_height((source.lines().count() as f32 * 18.0 + 20.0).min(height))
                     .auto_shrink([false, true]),
+                Default::default(),
             );
         },
         surface(theme).fill(theme.colors.bg.subtle),
@@ -1468,7 +1558,12 @@ fn feature(
                 eyebrow(ui, number, theme);
             });
             ui.add_space(14.0);
-            text::render(ui, title, text::Style::new_heading(theme).size(20.0));
+            text::render(
+                ui,
+                title,
+                text::Style::new_heading(theme).size(20.0),
+                Default::default(),
+            );
             ui.add_space(8.0);
             paragraph(ui, body, theme);
         },

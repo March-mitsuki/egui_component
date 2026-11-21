@@ -7,7 +7,6 @@ use crate::theme::Theme;
 pub struct Style {
     align: egui::RectAlign,
     gap: f32,
-    close_behavior: egui::PopupCloseBehavior,
     frame: egui::Frame,
 }
 
@@ -16,7 +15,6 @@ impl Style {
         Self {
             align: egui::RectAlign::BOTTOM_START,
             gap: 1.0,
-            close_behavior: egui::PopupCloseBehavior::CloseOnClick,
             frame: egui::Frame::default()
                 .fill(theme.colors.bg.accent)
                 .stroke(egui::Stroke {
@@ -43,7 +41,22 @@ impl Style {
         self.gap = gap;
         self
     }
+}
 
+/// Behavior of [`render`], separate from visual styling.
+#[derive(Clone, Copy, Debug)]
+pub struct Options {
+    /// When the menu closes. Defaults to `CloseOnClick`.
+    pub close_behavior: egui::PopupCloseBehavior,
+}
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            close_behavior: egui::PopupCloseBehavior::CloseOnClick,
+        }
+    }
+}
+impl Options {
     pub fn close_behavior(mut self, close_behavior: egui::PopupCloseBehavior) -> Self {
         self.close_behavior = close_behavior;
         self
@@ -56,6 +69,7 @@ pub fn render(
     button_render: impl FnOnce(&mut Ui) -> Response,
     menu_render: impl FnOnce(&mut Ui),
     style: Style,
+    options: Options,
 ) {
     let resp = button_render(ui);
     let expanded = Popup::is_id_open(ui.ctx(), id);
@@ -67,7 +81,7 @@ pub fn render(
         .id(id)
         .frame(style.frame)
         .align(style.align)
-        .close_behavior(style.close_behavior)
+        .close_behavior(options.close_behavior)
         .gap(style.gap)
         .show(|ui| super::menu_nav::content(ui, &resp, id, menu_render));
     super::menu_nav::after(ui.ctx(), &resp, id);

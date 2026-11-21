@@ -38,18 +38,26 @@ impl FormPage {
                     ui,
                     locale.text("demo.form:title"),
                     text::Style::new_heading(theme),
+                    Default::default(),
                 );
                 text::render(
                     ui,
                     locale.text("demo.form:managed"),
                     text::Style::new(theme),
+                    Default::default(),
                 );
                 text::render(
                     ui,
                     locale.text("demo.form:validation"),
                     text::Style::new(theme),
+                    Default::default(),
                 );
-                text::render(ui, locale.text("demo.form:enter"), text::Style::new(theme));
+                text::render(
+                    ui,
+                    locale.text("demo.form:enter"),
+                    text::Style::new(theme),
+                    Default::default(),
+                );
                 ui.add_space(12.0);
                 for index in 0..3 {
                     card::render(
@@ -63,6 +71,7 @@ impl FormPage {
                                     _ => locale.text("demo.form:userC"),
                                 },
                                 text::Style::new_heading(theme),
+                                Default::default(),
                             );
                             let form = Form::new(("gallery_user", index));
                             let (submitted, reset, valid, changed, snapshot) = if index < 2 {
@@ -111,6 +120,7 @@ impl FormPage {
                                     ],
                                 ),
                                 text::Style::new(theme),
+                                Default::default(),
                             );
                             if let Some((name, age)) = &self.saved[index] {
                                 text::render(
@@ -120,6 +130,7 @@ impl FormPage {
                                         &[("name", name), ("age", &age.to_string())],
                                     ),
                                     text::Style::new(theme),
+                                    Default::default(),
                                 );
                             }
                         },
@@ -134,6 +145,7 @@ impl FormPage {
                             ui,
                             locale.text("demo.form:api"),
                             text::Style::new_heading(theme),
+                            Default::default(),
                         );
                         text::render(
                             ui,
@@ -158,13 +170,15 @@ Form::new("explicit").show_with_state(ui, &mut self.draft,
 
 // 结束托管编辑会话时，清除缓存
 Form::new(("edit_user", user_id)).remove::<UserDraft>(ui);"#,
-                            text::Style::new(theme).selectable(true),
+                            text::Style::new(theme),
+                            text::Options::default().selectable(true),
                         );
                     },
                     card::Style::new_md(theme),
                 );
             },
             scroll_area::Style::new_no_frame(),
+            Default::default(),
         );
     }
 }
@@ -189,7 +203,8 @@ fn fields(
                     text_edit::render(
                         ui,
                         name,
-                        text_edit::Style::new_outline_md(theme)
+                        text_edit::Style::new_outline_md(theme),
+                        text_edit::Options::default()
                             .placeholder(locale.text("demo.form:enterName")),
                     )
                 },
@@ -205,6 +220,7 @@ fn fields(
                         ui,
                         locale.text(error),
                         text::Style::new(theme).color(theme.colors.red.normal()),
+                        Default::default(),
                     );
                 },
             )
@@ -221,7 +237,12 @@ fn fields(
                 "age",
                 &mut draft.age,
                 |ui, age| {
-                    text_edit::render(ui, age.raw_mut(), text_edit::Style::new_outline_md(theme))
+                    text_edit::render(
+                        ui,
+                        age.raw_mut(),
+                        text_edit::Style::new_outline_md(theme),
+                        Default::default(),
+                    )
                 },
                 |age| match age.value() {
                     Ok(18..=120) => Ok(()),
@@ -232,6 +253,7 @@ fn fields(
                         ui,
                         locale.text(error),
                         text::Style::new(theme).color(theme.colors.red.normal()),
+                        Default::default(),
                     );
                 },
             )
@@ -244,6 +266,7 @@ fn fields(
             ui,
             locale.text("common:save"),
             button::Style::new_solid_md(theme),
+            Default::default(),
         )
         .clicked()
         {
@@ -253,6 +276,7 @@ fn fields(
             ui,
             locale.text("common:reset"),
             button::Style::new_outline_md(theme),
+            Default::default(),
         )
         .clicked()
         {

@@ -14,6 +14,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         locale.text("demo.iconMenuButton:usage"),
         text::Style::new(theme),
+        Default::default(),
     );
     icon_menu_button::render(
         ui,
@@ -44,5 +45,6 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         },
         theme,
         icon_menu_button::Style::new(theme),
+        Default::default(),
     );
 }

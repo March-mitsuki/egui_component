@@ -11,7 +11,12 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
     let title_style = text::Style::new_heading(theme).size(16.0);
 
     ui.vertical(|ui| {
-        text::render(ui, locale.text("demo.icon:all"), title_style.clone());
+        text::render(
+            ui,
+            locale.text("demo.icon:all"),
+            title_style.clone(),
+            Default::default(),
+        );
         ui.add_space(8.0);
 
         let icons = [
@@ -54,14 +59,21 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                             tooltip::render(
                                 &response.response,
                                 |ui| {
-                                    text::render(ui, name, text::Style::new(theme));
+                                    text::render(
+                                        ui,
+                                        name,
+                                        text::Style::new(theme),
+                                        Default::default(),
+                                    );
                                 },
                                 &tooltip::Style::new(theme),
+                                Default::default(),
                             );
                         }
                     });
                 },
                 scroll_area::Style::new_no_frame(),
+                Default::default(),
             );
         });
     });
@@ -73,6 +85,7 @@ pub fn show_lucide(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             ui,
             locale.text("demo.icon:lucideSupport"),
             text::Style::new(theme),
+            Default::default(),
         );
         // ui.hyperlink_to(
         //     locale.text("demo.icon:lucideBrowse"),
@@ -83,6 +96,7 @@ pub fn show_lucide(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             locale.text("demo.icon:lucideBrowse"),
             button::Style::new_ghost_md(theme)
                 .icon_right(button::ButtonIcon::Some(lucide::EXTERNAL_LINK)),
+            Default::default(),
         )
         .clicked()
         {
@@ -96,6 +110,7 @@ pub fn show_lucide(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             crate::versions::VERSIONS.lucide_installation.as_str(),
             "toml",
             code::Style::new(theme),
+            Default::default(),
         );
         // ui.code("egui_component::icon::lucide::HEART");
         code::render(
@@ -103,6 +118,7 @@ pub fn show_lucide(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             "egui_component::icon::lucide::HEART",
             "rust",
             code::Style::new(theme),
+            Default::default(),
         );
         // ui.code("egui_component::icon::lucide::get(\"heart\")");
         code::render(
@@ -110,6 +126,7 @@ pub fn show_lucide(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             "egui_component::icon::lucide::get(\"heart\")",
             "toml",
             code::Style::new(theme),
+            Default::default(),
         );
         ui.add_space(8.0);
 
@@ -139,9 +156,15 @@ pub fn show_lucide(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                                 tooltip::render(
                                     &response,
                                     |ui| {
-                                        text::render(ui, name, text::Style::new(theme));
+                                        text::render(
+                                            ui,
+                                            name,
+                                            text::Style::new(theme),
+                                            Default::default(),
+                                        );
                                     },
                                     &tooltip::Style::new(theme),
+                                    Default::default(),
                                 );
                             }
                         });

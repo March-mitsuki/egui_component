@@ -9,6 +9,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         locale.text("segmentedControl:help"),
         text::Style::new(theme),
+        Default::default(),
     );
     let id = ui.make_persistent_id("segments-demo");
     let mut selected = ui.data_mut(|data| data.get_temp::<usize>(id).unwrap_or(0));
@@ -22,12 +23,14 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         &mut selected,
         &choices,
         segmented_control::Style::new(theme),
+        Default::default(),
     );
     ui.data_mut(|data| data.insert_temp(id, selected));
     segmented_control::render(
         ui,
         &mut selected,
         &choices,
-        segmented_control::Style::new(theme).disabled(true),
+        segmented_control::Style::new(theme),
+        segmented_control::Options::default().disabled(true),
     );
 }

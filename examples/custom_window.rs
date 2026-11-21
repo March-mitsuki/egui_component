@@ -53,8 +53,7 @@ impl eframe::App for MyApp {
                 if button::render(
                     ui,
                     "Re-open Window",
-                    button::Style::new_solid_md(theme),
-                ).clicked() {
+                    button::Style::new_solid_md(theme), Default::default()).clicked() {
                     self.is_open = true;
                 }
             } else {
@@ -102,13 +101,11 @@ impl eframe::App for MyApp {
                         button::render(
                             ui,
                             "Click Me",
-                            button::Style::new_solid_md(theme),
-                        );
+                            button::Style::new_solid_md(theme), Default::default());
                     });
                 },
-                window::Style::new(theme)
-                    .init_pos(egui::pos2(150.0, 150.0)),
-                window::Options::default(),
+                window::Style::new(theme),
+                window::Options::default().init_pos(egui::pos2(150.0, 150.0)),
             );
         });
     }

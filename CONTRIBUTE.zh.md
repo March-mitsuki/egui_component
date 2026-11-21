@@ -119,6 +119,25 @@ uv run python -m unittest discover -s tests -p 'test_*.py'
 更新 Lucide 图标时，将生成的图标资源与 Rust 索引一起提交；
 详见下方的 [Lucide 图标维护](#lucide-图标维护)。
 
+## 组件 API 约定
+
+每个组件模块提供 `render(ui, ..., style: Style, options: Options)`。只有外观可配置的组件（如 `card`、`progress`）在有行为设置之前不接收 `Options`：
+
+- `Style` 只包含外观：颜色、尺寸、间距、字体、frame、对齐、动画时长，以及内容的排版方式（如
+  `truncate`、`max_rows`）。用基于主题的构造函数（`new_*`）和构建方法设置。
+- 其余都放在 `Options` 中：交互（`disabled`、`read_only`、`sense`、`selectable`、`step`、
+  关闭方式）、状态（`indeterminate`、`is_invalid`、按钮的 loading、初始展开状态、位置或滚动偏移）、
+  内容文字（`placeholder`、`title`、`description`），以及语义和无障碍名称（`aria_label`、
+  `current_kind`）。
+- `Options` 实现 `Default`，默认值保持原有行为，并提供构建方法，因此大多数调用直接传
+  `Default::default()`。字符串使用借用的 `&'a str`；字段允许时派生 `Clone, Copy, Debug`。
+- 主 `render` 接收 `Options`；其他公开函数使用自己的 `<函数名>Options`，例如 `render_header` 的
+  `HeaderOptions`。`Options` 放在 `style` 之后、末尾的内容闭包之前。
+- 控件没有可见文字、因而必须提供的名称，改用位置参数，例如
+  `icon_button::render(ui, icon, aria_label, style)`。
+- egui 已有的名称沿用 egui（`sense`、`selectable`）。在 ECML 中，样式属性对应 `Style`，其余对应
+  `Options`。
+
 ## 升级 egui 和 eframe
 
 切换支持的 egui 版本系列时，一起更新下表中的 9 处依赖声明。

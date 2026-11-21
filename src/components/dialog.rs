@@ -6,7 +6,6 @@ use crate::{icon::ICONS, theme::Theme};
 #[derive(FrameModifier, Clone)]
 pub struct Style {
     pub frame: egui::Frame,
-    pub title: String,
     pub size: (f32, f32),
     pub backdrop_color: egui::Color32,
 }
@@ -14,16 +13,10 @@ impl Style {
     pub fn new(theme: &Theme) -> Self {
         let card_frame = super::utils::CardFrame::new(theme, crate::theme::CardSize::Lg);
         Self {
-            title: "Dialog".to_string(),
             size: (400.0, 0.0),
             frame: card_frame.frame,
             backdrop_color: egui::Color32::from_black_alpha(100),
         }
-    }
-
-    pub fn title(mut self, title: &str) -> Self {
-        self.title = title.to_string();
-        self
     }
 
     pub fn size(mut self, size: (f32, f32)) -> Self {
@@ -37,9 +30,28 @@ impl Style {
     }
 }
 
+/// Behavior of [`render`], separate from visual styling.
+#[derive(Clone, Copy, Debug)]
+pub struct Options<'a> {
+    /// Identifies the modal; keep it unique among dialogs. Defaults to "Dialog".
+    /// The visible title and screen-reader name come from [`render_header`].
+    pub title: &'a str,
+}
+impl Default for Options<'_> {
+    fn default() -> Self {
+        Self { title: "Dialog" }
+    }
+}
+impl<'a> Options<'a> {
+    pub fn title(mut self, title: &'a str) -> Self {
+        self.title = title;
+        self
+    }
+}
+
 /// Shows a centered modal that blocks interaction with the background.
 ///
-/// `style.title` identifies the modal and should be unique among dialogs.
+/// `options.title` identifies the modal and should be unique among dialogs.
 /// The caller owns the open state and may use the returned response's
 /// `should_close()` to handle backdrop clicks and Escape.
 ///
@@ -49,8 +61,9 @@ pub fn render(
     ctx: &Context,
     renderer: impl FnOnce(&mut Ui),
     style: Style,
+    options: Options<'_>,
 ) -> egui::ModalResponse<()> {
-    let id = egui::Id::unique(&style.title);
+    let id = egui::Id::unique(options.title);
     super::modal_focus::begin(ctx, id);
     let response = egui::Modal::new(id)
         .frame(style.frame)
@@ -98,7 +111,12 @@ pub fn render_header(
     options: HeaderOptions<'_>,
 ) {
     ui.horizontal(|ui| {
-        let title = super::text::render(ui, title, super::text::Style::new_heading(theme));
+        let title = super::text::render(
+            ui,
+            title,
+            super::text::Style::new_heading(theme),
+            Default::default(),
+        );
         super::modal_focus::label_dialog(ui.ctx(), title.id);
         ui.allocate_ui_with_layout(
             ui.available_size(),
@@ -156,23 +174,28 @@ mod tests {
                 },
                 |ui| {
                     let style = button::Style::new_solid_md(&theme);
-                    let opener = button::render(ui, "Open", style.clone());
+                    let opener = button::render(ui, "Open", style.clone(), Default::default());
                     if focus_opener {
                         opener.request_focus();
                     }
                     *open |= opener.clicked();
                     names.insert(opener.id, "opener");
-                    let behind = button::render(ui, "Behind", style.clone());
+                    let behind = button::render(ui, "Behind", style.clone(), Default::default());
                     names.insert(behind.id, "behind");
                     if *open {
                         let r = render(
                             ui.ctx(),
                             |ui| {
                                 for name in ["first", "last"] {
-                                    names.insert(button::render(ui, name, style.clone()).id, name);
+                                    names.insert(
+                                        button::render(ui, name, style.clone(), Default::default())
+                                            .id,
+                                        name,
+                                    );
                                 }
                             },
                             Style::new(&theme),
+                            Default::default(),
                         );
                         *open &= !r.should_close();
                     }

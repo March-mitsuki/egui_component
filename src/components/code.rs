@@ -9,7 +9,6 @@ use crate::theme::Theme;
 #[derive(Clone)]
 pub struct Style {
     pub size: f32,
-    pub selectable: bool,
     /// Override the syntax palette. By default it follows the UI's color mode.
     pub syntax_theme: Option<CodeTheme>,
 }
@@ -18,18 +17,12 @@ impl Style {
     pub fn new(theme: &Theme) -> Self {
         Self {
             size: theme.text_size.md,
-            selectable: true,
             syntax_theme: None,
         }
     }
 
     pub fn size(mut self, size: f32) -> Self {
         self.size = size;
-        self
-    }
-
-    pub fn selectable(mut self, selectable: bool) -> Self {
-        self.selectable = selectable;
         self
     }
 
@@ -41,11 +34,29 @@ impl Style {
 
 /// Render code without wrapping. Place inside a horizontal scroll area when
 /// long lines should scroll. Highlighting results are cached by `egui_extras`.
-pub fn render(ui: &mut Ui, code: &str, language: &str, style: Style) -> Response {
+/// Behavior of [`render`], separate from visual styling.
+#[derive(Clone, Copy, Debug)]
+pub struct Options {
+    /// Whether the code can be selected and copied. Defaults to `true`.
+    pub selectable: bool,
+}
+impl Default for Options {
+    fn default() -> Self {
+        Self { selectable: true }
+    }
+}
+impl Options {
+    pub fn selectable(mut self, selectable: bool) -> Self {
+        self.selectable = selectable;
+        self
+    }
+}
+
+pub fn render(ui: &mut Ui, code: &str, language: &str, style: Style, options: Options) -> Response {
     let syntax_theme = style
         .syntax_theme
         .unwrap_or_else(|| CodeTheme::from_style(ui.style()))
         .with_font_size(style.size);
     let job = syntax_highlighting::highlight(ui.ctx(), ui.style(), &syntax_theme, code, language);
-    ui.add(Label::new(job).selectable(style.selectable).extend())
+    ui.add(Label::new(job).selectable(options.selectable).extend())
 }

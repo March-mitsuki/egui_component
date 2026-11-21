@@ -15,8 +15,8 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             text_edit::render(
                 ui,
                 &mut value,
-                text_edit::Style::new_outline_md(theme)
-                    .placeholder(locale.text("demo.field:placeholder")),
+                text_edit::Style::new_outline_md(theme),
+                text_edit::Options::default().placeholder(locale.text("demo.field:placeholder")),
             )
         },
         field::Style::new(theme).direction(field::FieldDirection::Vertical),
@@ -30,7 +30,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
     field::render(
         ui,
         locale.text("demo.field:notifications"),
-        |ui| switch::render(ui, &mut on, switch::Style::new(theme)),
+        |ui| switch::render(ui, &mut on, switch::Style::new(theme), Default::default()),
         field::Style::new(theme),
     );
     ui.data_mut(|data| data.insert_temp(id, on));

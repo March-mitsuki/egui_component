@@ -13,9 +13,6 @@ pub struct Style {
     pub fill_color: Color32,
     pub thumb_color: Color32,
     pub focus_ring: crate::theme::FocusRing,
-    pub disabled: bool,
-    /// Keyboard increment. None uses one hundredth of the range.
-    pub step: Option<f32>,
 }
 impl Style {
     pub fn new(theme: &Theme) -> Self {
@@ -28,26 +25,41 @@ impl Style {
             fill_color: theme.colors.primary.l6,
             thumb_color: theme.colors.primary.l6,
             focus_ring: theme.focus_ring,
-            disabled: false,
-            step: None,
         }
     }
     pub fn width(mut self, width: f32) -> Self {
         self.width = width;
         self
     }
+}
+/// Supports dragging, track clicks, arrow keys, Home, End.
+/// Behavior of [`render`], separate from visual styling.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Options {
+    pub disabled: bool,
+    /// Keyboard increment. None uses one hundredth of the range.
+    pub step: Option<f32>,
+}
+impl Options {
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
     }
+
     pub fn step(mut self, step: f32) -> Self {
         self.step = Some(step);
         self
     }
 }
-/// Supports dragging, track clicks, arrow keys, Home, End.
-pub fn render(ui: &mut Ui, value: &mut f32, range: RangeInclusive<f32>, style: Style) -> Response {
-    let enabled = ui.is_enabled() && !style.disabled;
+
+pub fn render(
+    ui: &mut Ui,
+    value: &mut f32,
+    range: RangeInclusive<f32>,
+    style: Style,
+    options: Options,
+) -> Response {
+    let enabled = ui.is_enabled() && !options.disabled;
     let (rect, mut response) = ui.allocate_exact_size(
         egui::vec2(
             style.width.min(ui.available_width()).max(20.0),
@@ -79,7 +91,7 @@ pub fn render(ui: &mut Ui, value: &mut f32, range: RangeInclusive<f32>, style: S
         }
         super::focus::lock_arrows(ui, &response);
         if response.has_focus() {
-            let step = style
+            let step = options
                 .step
                 .filter(|s| s.is_finite() && *s > 0.0)
                 .unwrap_or((hi - lo) / 100.0);
@@ -108,7 +120,7 @@ pub fn render(ui: &mut Ui, value: &mut f32, range: RangeInclusive<f32>, style: S
         response.mark_changed();
     }
     response.widget_info(|| WidgetInfo::slider(enabled, *value as f64, ""));
-    let step = style.step.filter(|s| s.is_finite() && *s > 0.0);
+    let step = options.step.filter(|s| s.is_finite() && *s > 0.0);
     ui.ctx().accesskit_node_builder(response.id, |node| {
         node.set_min_numeric_value(lo as f64);
         node.set_max_numeric_value(hi as f64);
@@ -163,7 +175,8 @@ mod tests {
                         ui,
                         &mut value,
                         -10.0..=10.0,
-                        Style::new(&theme).width(200.0).step(1.0).disabled(disabled),
+                        Style::new(&theme).width(200.0),
+                        Options::default().step(1.0).disabled(disabled),
                     );
                     rect = r.rect;
                     if focus {

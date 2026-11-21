@@ -34,7 +34,12 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             false,
         ),
     ] {
-        text::render(ui, locale.text(key), text::Style::new(theme));
+        text::render(
+            ui,
+            locale.text(key),
+            text::Style::new(theme),
+            Default::default(),
+        );
         let id = ui.make_persistent_id(("calendar-demo", key));
         let (mut selection, mut state) = ui
             .data_mut(|data| data.get_temp::<(Selection, State)>(id))

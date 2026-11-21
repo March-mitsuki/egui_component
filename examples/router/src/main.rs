@@ -82,8 +82,7 @@ impl eframe::App for App {
                 text::render(
                     ui,
                     "egui_component / router",
-                    text::Style::new_heading(theme),
-                );
+                    text::Style::new_heading(theme), Default::default());
                 ui.add_space(24.0);
                 for (page, label) in [
                     (Page::Home, "Home"),
@@ -97,7 +96,7 @@ impl eframe::App for App {
                     } else {
                         button::Style::new_ghost_md(theme)
                     };
-                    if button::render(ui, label, style).clicked() {
+                    if button::render(ui, label, style, Default::default()).clicked() {
                         self.error = self.router.navigate(page).err().map(|e| e.to_string());
                     }
                 }
@@ -126,20 +125,19 @@ impl eframe::App for App {
                     "Choose a page from the header to continue.",
                 ),
             };
-            text::render(ui, title, text::Style::new_heading(theme).size(32.0));
+            text::render(ui, title, text::Style::new_heading(theme).size(32.0), Default::default());
             ui.add_space(12.0);
-            text::render(ui, body, text::Style::new(theme));
+            text::render(ui, body, text::Style::new(theme), Default::default());
             ui.add_space(24.0);
             text::render(
                 ui,
                 &format!("URL: {}", self.router.location().to_url()),
-                text::Style::new(theme),
-            );
+                text::Style::new(theme), Default::default());
             if matches!(self.router.current(), Page::Component | Page::ComponentDetail { .. }) {
                 ui.add_space(16.0);
                 ui.horizontal_wrapped(|ui| {
                     for name in ["button", "text edit", "a/b"] {
-                        if button::render(ui, name, button::Style::new_outline_md(theme)).clicked() {
+                        if button::render(ui, name, button::Style::new_outline_md(theme), Default::default()).clicked() {
                             self.error = self.router.navigate_with_search(
                                 Page::ComponentDetail { name: name.into() },
                                 SearchParams::parse("tab=preview"),
@@ -148,25 +146,25 @@ impl eframe::App for App {
                     }
                 });
                 if let Page::ComponentDetail { name } = self.router.current() {
-                    text::render(ui, &format!("Path param — name: {name}"), text::Style::new(theme));
+                    text::render(ui, &format!("Path param — name: {name}"), text::Style::new(theme), Default::default());
                     let params = self.router.search_params();
                     let tab = params.get("tab").unwrap_or("preview");
-                    text::render(ui, &format!("Search param — tab: {tab}"), text::Style::new(theme));
-                    text::render(ui, if tab == "code" { "Code tab content" } else { "Preview tab content" }, text::Style::new(theme));
+                    text::render(ui, &format!("Search param — tab: {tab}"), text::Style::new(theme), Default::default());
+                    text::render(ui, if tab == "code" { "Code tab content" } else { "Preview tab content" }, text::Style::new(theme), Default::default());
                     ui.horizontal_wrapped(|ui| {
                         for tab in ["preview", "code"] {
-                            if button::render(ui, tab, button::Style::new_outline_md(theme)).clicked() {
+                            if button::render(ui, tab, button::Style::new_outline_md(theme), Default::default()).clicked() {
                                 let mut params = self.router.search_params();
                                 params.set("tab", tab);
                                 self.error = self.router.set_search_params(params, HistoryMode::Push).err().map(|e| e.to_string());
                             }
                         }
-                        if button::render(ui, "Replace with code", button::Style::new_outline_md(theme)).clicked() {
+                        if button::render(ui, "Replace with code", button::Style::new_outline_md(theme), Default::default()).clicked() {
                             let mut params = self.router.search_params();
                             params.set("tab", "code");
                             self.error = self.router.set_search_params(params, HistoryMode::Replace).err().map(|e| e.to_string());
                         }
-                        if button::render(ui, "Clear tab", button::Style::new_outline_md(theme)).clicked() {
+                        if button::render(ui, "Clear tab", button::Style::new_outline_md(theme), Default::default()).clicked() {
                             let mut params = self.router.search_params();
                             params.remove("tab");
                             self.error = self.router.set_search_params(params, HistoryMode::Push).err().map(|e| e.to_string());
@@ -176,15 +174,15 @@ impl eframe::App for App {
                 ui.add_space(16.0);
             }
             ui.horizontal(|ui| {
-                if button::render(ui, "Back", button::Style::new_outline_md(theme)).clicked() {
+                if button::render(ui, "Back", button::Style::new_outline_md(theme), Default::default()).clicked() {
                     self.error = self.router.back().err().map(|e| e.to_string());
                 }
-                if button::render(ui, "Forward", button::Style::new_outline_md(theme)).clicked() {
+                if button::render(ui, "Forward", button::Style::new_outline_md(theme), Default::default()).clicked() {
                     self.error = self.router.forward().err().map(|e| e.to_string());
                 }
             });
             if let Some(error) = &self.error {
-                text::render(ui, error, text::Style::new(theme));
+                text::render(ui, error, text::Style::new(theme), Default::default());
             }
         });
     }

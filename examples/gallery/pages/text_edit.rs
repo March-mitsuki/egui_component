@@ -11,23 +11,26 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         locale.text("common:projectName"),
         text::Style::new(theme),
+        Default::default(),
     );
     text_edit::render(
         ui,
         &mut value,
-        text_edit::Style::new_outline_md(theme)
-            .placeholder(locale.text("demo.textEdit:placeholder")),
+        text_edit::Style::new_outline_md(theme),
+        text_edit::Options::default().placeholder(locale.text("demo.textEdit:placeholder")),
     );
     ui.add_space(12.0);
     text::render(
         ui,
         locale.text("demo.textEdit:quiet"),
         text::Style::new(theme),
+        Default::default(),
     );
     text_edit::render(
         ui,
         &mut value,
-        text_edit::Style::new_subtle_md(theme).placeholder(locale.text("demo.textEdit:sameValue")),
+        text_edit::Style::new_subtle_md(theme),
+        text_edit::Options::default().placeholder(locale.text("demo.textEdit:sameValue")),
     );
     ui.data_mut(|data| data.insert_temp(id, value));
     ui.add_space(12.0);
@@ -37,37 +40,50 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         locale.text("demo.textEdit:password"),
         text::Style::new(theme),
+        Default::default(),
     );
     text_edit::render(
         ui,
         &mut value,
-        text_edit::Style::new_outline_md(theme)
+        text_edit::Style::new_outline_md(theme),
+        text_edit::Options::default()
             .input_type(text_edit::InputType::Password)
             .placeholder(locale.text("demo.textEdit:passwordPlaceholder")),
     );
     ui.data_mut(|data| data.insert_temp(id, value));
-    for (label, sample, style) in [
+    for (label, sample, options) in [
         (
             "demo.textEdit:readOnly",
             "demo.textEdit:readOnlyValue",
-            text_edit::Style::new_outline_md(theme).read_only(true),
+            text_edit::Options::default().read_only(true),
         ),
         (
             "common:disabled",
             "demo.textEdit:disabledValue",
-            text_edit::Style::new_outline_md(theme).disabled(true),
+            text_edit::Options::default().disabled(true),
         ),
     ] {
         ui.add_space(12.0);
-        text::render(ui, locale.text(label), text::Style::new(theme));
+        text::render(
+            ui,
+            locale.text(label),
+            text::Style::new(theme),
+            Default::default(),
+        );
         let mut value = locale.text(sample).to_string();
-        text_edit::render(ui, &mut value, style);
+        text_edit::render(
+            ui,
+            &mut value,
+            text_edit::Style::new_outline_md(theme),
+            options,
+        );
     }
     ui.add_space(16.0);
     text::render(
         ui,
         locale.text("textEdit:multiline"),
         text::Style::new_heading(theme).size(16.0),
+        Default::default(),
     );
     let id = ui.make_persistent_id("multiline-demo");
     let mut value = ui.data_mut(|data| data.get_temp::<String>(id).unwrap_or_default());
@@ -77,14 +93,15 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         text::Style::new(theme)
             .size(13.0)
             .color(theme.colors.fg.subtle),
+        Default::default(),
     );
     ui.add_space(4.0);
     text_edit::render_multiline(
         ui,
         &mut value,
         3,
-        text_edit::Style::new_outline_md(theme)
-            .placeholder(locale.text("demo.textEdit:placeholder")),
+        text_edit::Style::new_outline_md(theme),
+        text_edit::Options::default().placeholder(locale.text("demo.textEdit:placeholder")),
     );
     ui.data_mut(|data| data.insert_temp(id, value));
 }

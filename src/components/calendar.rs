@@ -151,6 +151,8 @@ pub struct Options<'a> {
     pub is_date_disabled: Option<&'a dyn Fn(Date) -> bool>,
     pub today: Option<Date>,
     pub labels: Option<&'a dyn Fn(Label) -> String>,
+    /// Ignore pointer and keyboard input and draw dimmed.
+    pub disabled: bool,
 }
 impl Default for Options<'_> {
     fn default() -> Self {
@@ -167,9 +169,78 @@ impl Default for Options<'_> {
             is_date_disabled: None,
             today: None,
             labels: None,
+            disabled: false,
         }
     }
 }
+impl<'a> Options<'a> {
+    pub fn first_weekday(mut self, first_weekday: Weekday) -> Self {
+        self.first_weekday = first_weekday;
+        self
+    }
+
+    pub fn number_of_months(mut self, number_of_months: usize) -> Self {
+        self.number_of_months = number_of_months;
+        self
+    }
+
+    pub fn fixed_weeks(mut self, fixed_weeks: bool) -> Self {
+        self.fixed_weeks = fixed_weeks;
+        self
+    }
+
+    pub fn show_outside_days(mut self, show_outside_days: bool) -> Self {
+        self.show_outside_days = show_outside_days;
+        self
+    }
+
+    pub fn caption_layout(mut self, caption_layout: CaptionLayout) -> Self {
+        self.caption_layout = caption_layout;
+        self
+    }
+
+    pub fn caption_order(mut self, caption_order: CaptionOrder) -> Self {
+        self.caption_order = caption_order;
+        self
+    }
+
+    pub fn year_range(mut self, year_range: std::ops::RangeInclusive<i32>) -> Self {
+        self.year_range = Some(year_range);
+        self
+    }
+
+    pub fn min_date(mut self, min_date: Date) -> Self {
+        self.min_date = Some(min_date);
+        self
+    }
+
+    pub fn max_date(mut self, max_date: Date) -> Self {
+        self.max_date = Some(max_date);
+        self
+    }
+
+    pub fn is_date_disabled(mut self, is_date_disabled: &'a dyn Fn(Date) -> bool) -> Self {
+        self.is_date_disabled = Some(is_date_disabled);
+        self
+    }
+
+    pub fn today(mut self, today: Date) -> Self {
+        self.today = Some(today);
+        self
+    }
+
+    /// Localize the calendar's text; fall back to [`default_label`] for labels you keep.
+    pub fn labels(mut self, labels: &'a dyn Fn(Label) -> String) -> Self {
+        self.labels = Some(labels);
+        self
+    }
+
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+}
+
 impl Options<'_> {
     fn label(&self, label: Label) -> String {
         self.labels
@@ -226,7 +297,6 @@ pub struct Style {
     pub today_stroke: Stroke,
     pub border_stroke: Stroke,
     pub focus_ring: crate::theme::FocusRing,
-    pub disabled: bool,
 }
 impl Style {
     pub fn new(theme: &Theme) -> Self {
@@ -257,12 +327,7 @@ impl Style {
             today_stroke: Stroke::new(1.0, theme.colors.gray.l6),
             border_stroke: Stroke::new(1.0, theme.colors.gray.l3),
             focus_ring: theme.focus_ring,
-            disabled: false,
         }
-    }
-    pub fn disabled(mut self, disabled: bool) -> Self {
-        self.disabled = disabled;
-        self
     }
 }
 pub struct CalendarResponse {
@@ -322,7 +387,7 @@ pub fn render(
     let mut all_cells = Vec::new();
     let mut response = ui
         .push_id(id, |ui| {
-            ui.add_enabled_ui(!style.disabled, |ui| {
+            ui.add_enabled_ui(!options.disabled, |ui| {
                 egui::Frame::new()
                     .fill(style.background)
                     .stroke(style.border_stroke)
@@ -716,8 +781,8 @@ fn caption(
             &options.label(Label::MonthTitle(month)),
             text::Style::new(&style.theme)
                 .size(style.text_size + 2.0)
-                .color(style.text_color)
-                .selectable(false),
+                .color(style.text_color),
+            text::Options::default().selectable(false),
         );
         return;
     }
@@ -748,42 +813,49 @@ fn caption(
             Label::MonthName(m)
         });
         let popup_id = ui.make_persistent_id(if year_first { "year" } else { "month" });
-        let response = select::render(ui, popup_id, &label, select_style.clone(), |ui| {
-            if year_first {
-                let start = (*range.start()).max(Date::MIN.year());
-                let end = (*range.end()).min(Date::MAX.year());
-                for value in start..=end {
-                    if select::render_item(
-                        ui,
-                        &options.label(Label::Year(value)),
-                        year == value,
-                        &select_style,
-                        &style.theme,
-                    )
-                    .clicked()
-                    {
-                        year = value;
-                        ui.close();
+        let response = select::render(
+            ui,
+            popup_id,
+            &label,
+            select_style.clone(),
+            Default::default(),
+            |ui| {
+                if year_first {
+                    let start = (*range.start()).max(Date::MIN.year());
+                    let end = (*range.end()).min(Date::MAX.year());
+                    for value in start..=end {
+                        if select::render_item(
+                            ui,
+                            &options.label(Label::Year(value)),
+                            year == value,
+                            &select_style,
+                            &style.theme,
+                        )
+                        .clicked()
+                        {
+                            year = value;
+                            ui.close();
+                        }
+                    }
+                } else {
+                    for n in 1..=12 {
+                        let value = Month::try_from(n).unwrap();
+                        if select::render_item(
+                            ui,
+                            &options.label(Label::MonthName(value)),
+                            m == value,
+                            &select_style,
+                            &style.theme,
+                        )
+                        .clicked()
+                        {
+                            m = value;
+                            ui.close();
+                        }
                     }
                 }
-            } else {
-                for n in 1..=12 {
-                    let value = Month::try_from(n).unwrap();
-                    if select::render_item(
-                        ui,
-                        &options.label(Label::MonthName(value)),
-                        m == value,
-                        &select_style,
-                        &style.theme,
-                    )
-                    .clicked()
-                    {
-                        m = value;
-                        ui.close();
-                    }
-                }
-            }
-        });
+            },
+        );
         state.caption_popup_open |= egui::Popup::is_id_open(ui.ctx(), popup_id);
         response.on_hover_text(options.label(if year_first {
             Label::ChooseYear
@@ -861,6 +933,34 @@ mod tests {
     use super::*;
     fn date(y: i32, m: u8, d: u8) -> Date {
         Date::from_calendar_date(y, Month::try_from(m).unwrap(), d).unwrap()
+    }
+    #[test]
+    fn option_builders_set_the_same_fields_as_literals() {
+        let weekend = |d: Date| d == date(2026, 11, 21);
+        let options = Options::default()
+            .first_weekday(Weekday::Monday)
+            .number_of_months(2)
+            .fixed_weeks(true)
+            .show_outside_days(false)
+            .caption_layout(CaptionLayout::Dropdowns)
+            .year_range(2020..=2030)
+            .min_date(date(2026, 1, 1))
+            .max_date(date(2026, 12, 31))
+            .is_date_disabled(&weekend)
+            .today(date(2026, 11, 20))
+            .disabled(true);
+        assert_eq!(options.first_weekday, Weekday::Monday);
+        assert_eq!(options.number_of_months, 2);
+        assert!(options.fixed_weeks && !options.show_outside_days && options.disabled);
+        assert_eq!(options.caption_layout, CaptionLayout::Dropdowns);
+        assert_eq!(options.year_range, Some(2020..=2030));
+        assert_eq!(options.today, Some(date(2026, 11, 20)));
+        assert!(options.enabled(date(2026, 11, 20)));
+        assert!(
+            !options.enabled(date(2026, 11, 21)),
+            "is_date_disabled applies"
+        );
+        assert!(!options.enabled(date(2025, 12, 31)), "min_date applies");
     }
     #[test]
     fn month_arithmetic_handles_leap_year_and_limits() {
@@ -953,9 +1053,10 @@ mod tests {
                         Id::unique("test-calendar"),
                         selection,
                         state,
-                        Style::new(&theme.light).disabled(disabled),
+                        Style::new(&theme.light),
                         Options {
                             number_of_months: 2,
+                            disabled,
                             ..Default::default()
                         },
                     ));

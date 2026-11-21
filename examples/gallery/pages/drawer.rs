@@ -12,6 +12,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         locale.text("demo.drawer:open"),
         button::Style::new_outline_md(theme),
+        Default::default(),
     )
     .clicked()
     {
@@ -42,6 +43,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                         ui,
                         locale.text("demo.drawer:save"),
                         button::Style::new_solid_md(theme),
+                        Default::default(),
                     )
                     .clicked()
                     {
@@ -51,6 +53,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                         ui,
                         locale.text("demo.drawer:cancel"),
                         button::Style::new_outline_md(theme),
+                        Default::default(),
                     )
                     .clicked()
                     {
@@ -60,6 +63,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             });
         },
         drawer::Style::new(theme),
+        Default::default(),
     );
     if response.should_close() {
         open = false;

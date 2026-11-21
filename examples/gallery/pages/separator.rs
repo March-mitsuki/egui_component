@@ -9,6 +9,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         locale.text("demo.separator:first"),
         text::Style::new(theme),
+        Default::default(),
     );
 
     ui.add_space(12.0);
@@ -19,6 +20,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         locale.text("demo.separator:second"),
         text::Style::new(theme),
+        Default::default(),
     );
 
     ui.add_space(12.0);
@@ -29,6 +31,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         locale.text("demo.separator:third"),
         text::Style::new(theme),
+        Default::default(),
     );
 
     ui.add_space(12.0);

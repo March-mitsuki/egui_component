@@ -257,6 +257,8 @@
   "docs.brandcolors:body": "Gallery のライトモードは白地に #6B65F5 と文字色 #202124、ダークモードは背景 #101318 に #8B85FF と文字色 #F6F7FB を使います。examples/theme.json で設定できます。各カラースケールの必須の foreground は、ソリッドボタンやスイッチのつまみなど、その色の上の文字とアイコン色を指定します。focus_ring は全コンポーネント共通のキーボードフォーカス表示の色と太さを指定します。",
   "docs.tokens:title": "共通のデザイントークン",
   "docs.tokens:body": "テーマには意味に基づく前景色・背景色、カラースケール、フォーカスリング、文字サイズ、角丸、コンポーネントサイズを定義します。プリセットがこれらをスタイルに変換します。",
+  "docs.options:title": "スタイルとオプション",
+  "docs.options:body": "Style はコンポーネントの見た目、つまり色、サイズ、間隔、フォントを決めます。それ以外は render の最後の引数 Options に入れます。disabled や sense などの動作、placeholder などの内容、そして aria_label などのスクリーンリーダー向けの名前です（aria_label は表示テキストの代わりに読み上げられます）。Options::default() は通常の動作のままなので、多くの呼び出しでは Default::default() を渡します。",
   "docs.compose:title": "egui と組み合わせる",
   "docs.compose:body": "egui のレイアウトでコンポーネントを配置します。カード、フィールド、スクロール領域は描画クロージャを受け取り、自由に組み合わせられます。",
   "docs.visibility:title": "動かさずに隠す",

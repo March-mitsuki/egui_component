@@ -10,12 +10,14 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         locale.text("component.progress:name"),
         text::Style::new_heading(theme),
+        Default::default(),
     );
     for value in [0.0, 0.35, 0.75, 1.0] {
         text::render(
             ui,
             &format!("{:.0}%", value * 100.0),
             text::Style::new(theme),
+            Default::default(),
         );
         progress::render(ui, Some(value), progress::Style::new(theme));
         ui.add_space(12.0);
@@ -24,6 +26,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         locale.text("demo.progress:indeterminate"),
         text::Style::new(theme),
+        Default::default(),
     );
     progress::render(ui, None, progress::Style::new(theme));
 }

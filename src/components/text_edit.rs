@@ -7,7 +7,7 @@ use crate::{
     theme::{Color, TextEditPalette, TextEditSize, TextEditVariant, Theme},
 };
 
-#[derive(Clone, PartialEq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum InputType {
     #[default]
     Text,
@@ -21,23 +21,15 @@ pub struct Style {
     pub corner_radius: CornerRadius,
     pub text_size: f32,
     pub palette: TextEditPalette,
-    /// placeholder 文字
-    pub placeholder: String,
     /// 是否强制固定宽度（None = 占满可用宽度）
     pub width: Option<f32>,
 
     pub variant: TextEditVariant,
-    pub input_type: InputType,
-    pub disabled: bool,
-    pub read_only: bool,
     pub icon_button_style: icon_button::Style,
     /// Multiline only: the editor grows with its text up to this many rows,
     /// then scrolls inside its frame. `None` grows without limit. Defaults
     /// to 5; set it equal to `rows` for a fixed height like an HTML textarea.
     pub max_rows: Option<usize>,
-    /// Accessible name of the password visibility toggle. Defaults to
-    /// "Show password"; the pressed state tells whether it is visible.
-    pub password_toggle_aria_label: String,
 }
 
 pub const TEXT_EDIT_HEIGHT_XS: f32 = 18.0;
@@ -106,15 +98,10 @@ impl Style {
             text_size,
             corner_radius,
             palette,
-            placeholder: String::new(),
             width: None,
             variant,
-            input_type: InputType::Text,
-            disabled: false,
-            read_only: false,
             icon_button_style,
             max_rows: Some(5),
-            password_toggle_aria_label: "Show password".to_owned(),
         }
     }
 
@@ -307,11 +294,6 @@ impl Style {
         self
     }
 
-    pub fn placeholder(mut self, placeholder: impl Into<String>) -> Self {
-        self.placeholder = placeholder.into();
-        self
-    }
-
     /// See [`Style::max_rows`].
     pub fn max_rows(mut self, max_rows: Option<usize>) -> Self {
         self.max_rows = max_rows;
@@ -322,10 +304,38 @@ impl Style {
         self.width = width;
         self
     }
+}
 
-    /// Localize the password toggle's accessible name.
-    pub fn password_toggle_aria_label(mut self, label: impl Into<String>) -> Self {
-        self.password_toggle_aria_label = label.into();
+/// Behavior and content of [`render`] and [`render_multiline`], separate from visual
+/// styling.
+#[derive(Clone, Copy, Debug)]
+pub struct Options<'a> {
+    /// Shown while the input is empty. Defaults to none.
+    pub placeholder: &'a str,
+    /// Single-line only: `InputType::Password` hides the text and adds a visibility toggle.
+    pub input_type: InputType,
+    /// Disable focus and interaction for the entire input.
+    pub disabled: bool,
+    /// Allow selection and copying while preventing edits.
+    pub read_only: bool,
+    /// Accessible name of the password visibility toggle. Defaults to
+    /// "Show password"; the pressed state tells whether it is visible.
+    pub password_toggle_aria_label: &'a str,
+}
+impl Default for Options<'_> {
+    fn default() -> Self {
+        Self {
+            placeholder: "",
+            input_type: InputType::Text,
+            disabled: false,
+            read_only: false,
+            password_toggle_aria_label: "Show password",
+        }
+    }
+}
+impl<'a> Options<'a> {
+    pub fn placeholder(mut self, placeholder: &'a str) -> Self {
+        self.placeholder = placeholder;
         self
     }
 
@@ -334,25 +344,41 @@ impl Style {
         self
     }
 
-    /// Disable focus and interaction for the entire input.
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
     }
 
-    /// Allow selection and copying while preventing edits.
     pub fn read_only(mut self, read_only: bool) -> Self {
         self.read_only = read_only;
         self
     }
+
+    /// Localize the password toggle's accessible name.
+    pub fn password_toggle_aria_label(mut self, label: &'a str) -> Self {
+        self.password_toggle_aria_label = label;
+        self
+    }
 }
 
-pub fn render(ui: &mut Ui, text: &mut String, style: Style) -> egui::Response {
-    ui.add_enabled_ui(!style.disabled, |ui| render_singleline(ui, text, style))
-        .inner
+pub fn render(
+    ui: &mut Ui,
+    text: &mut String,
+    style: Style,
+    options: Options<'_>,
+) -> egui::Response {
+    ui.add_enabled_ui(!options.disabled, |ui| {
+        render_singleline(ui, text, style, options)
+    })
+    .inner
 }
 
-fn render_singleline(ui: &mut Ui, text: &mut String, style: Style) -> egui::Response {
+fn render_singleline(
+    ui: &mut Ui,
+    text: &mut String,
+    style: Style,
+    options: Options<'_>,
+) -> egui::Response {
     let font_id = egui::FontId::new(
         style.text_size,
         FONT_MANAGER.default_egui_font_family(ui.ctx()),
@@ -362,7 +388,7 @@ fn render_singleline(ui: &mut Ui, text: &mut String, style: Style) -> egui::Resp
     let background = ui.painter().add(egui::Shape::Noop);
 
     let mut editor_rect = rect;
-    let password = style.input_type == InputType::Password;
+    let password = options.input_type == InputType::Password;
     let visibility_id = id.with("password_visible");
     let mut password_visible = false;
     let mut icon_rect = egui::Rect::NOTHING;
@@ -389,11 +415,11 @@ fn render_singleline(ui: &mut Ui, text: &mut String, style: Style) -> egui::Resp
     visuals.text_cursor.stroke = style.palette.focus_stroke;
     visuals.selection.bg_fill = style.palette.focus_stroke.color.gamma_multiply(0.25);
 
-    let hint = egui::RichText::new(&style.placeholder)
+    let hint = egui::RichText::new(options.placeholder)
         .font(font_id.clone())
         .color(style.palette.placeholder_color);
     let mut read_only_text;
-    let buffer: &mut dyn egui::TextBuffer = if style.read_only {
+    let buffer: &mut dyn egui::TextBuffer = if options.read_only {
         read_only_text = text.as_str();
         &mut read_only_text
     } else {
@@ -440,7 +466,7 @@ fn render_singleline(ui: &mut Ui, text: &mut String, style: Style) -> egui::Resp
         let toggle = icon_button::render(
             &mut button_ui,
             icon,
-            &style.password_toggle_aria_label,
+            options.password_toggle_aria_label,
             style.icon_button_style.clone(),
         )
         .on_hover_cursor(egui::CursorIcon::PointingHand);
@@ -450,7 +476,7 @@ fn render_singleline(ui: &mut Ui, text: &mut String, style: Style) -> egui::Resp
                 egui::Role::Button,
                 toggle.enabled(),
                 password_visible,
-                &style.password_toggle_aria_label,
+                options.password_toggle_aria_label,
             )
         });
         toggle_hovered = toggle.hovered();
@@ -586,14 +612,15 @@ pub fn render_multiline(
     text: &mut String,
     rows: usize,
     style: Style,
+    options: Options<'_>,
 ) -> egui::Response {
-    ui.add_enabled_ui(!style.disabled, |ui| {
+    ui.add_enabled_ui(!options.disabled, |ui| {
         let font_id = egui::FontId::new(
             style.text_size,
             FONT_MANAGER.default_egui_font_family(ui.ctx()),
         );
         // egui lays out the hint separately from the editable text.
-        let hint = egui::RichText::new(&style.placeholder).font(font_id.clone());
+        let hint = egui::RichText::new(options.placeholder).font(font_id.clone());
         let visuals = ui.visuals_mut();
         visuals.override_text_color = Some(style.palette.text_color);
         visuals.weak_text_color = Some(style.palette.placeholder_color);
@@ -612,7 +639,7 @@ pub fn render_multiline(
                 style.palette.border_stroke
             });
         let mut read_only_text;
-        let buffer: &mut dyn egui::TextBuffer = if style.read_only {
+        let buffer: &mut dyn egui::TextBuffer = if options.read_only {
             read_only_text = text.as_str();
             &mut read_only_text
         } else {
@@ -690,9 +717,8 @@ mod tests {
                 (false, false, "", "a"),
                 (false, false, "d", "ad"),
             ] {
-                let style = Style::new_outline_md(&theme.light)
-                    .read_only(read_only)
-                    .disabled(disabled);
+                let style = Style::new_outline_md(&theme.light);
+                let options = Options::default().read_only(read_only).disabled(disabled);
                 let events = if input.is_empty() {
                     vec![]
                 } else {
@@ -705,9 +731,9 @@ mod tests {
                     },
                     |ui| {
                         let response = if multiline {
-                            render_multiline(ui, &mut text, 4, style.clone())
+                            render_multiline(ui, &mut text, 4, style.clone(), options)
                         } else {
-                            render(ui, &mut text, style.clone())
+                            render(ui, &mut text, style.clone(), options)
                         };
                         assert_eq!(response.enabled(), !disabled);
                         assert_eq!(response.sense.is_focusable(), !disabled);
@@ -747,7 +773,7 @@ mod tests {
                     ..Default::default()
                 },
                 |ui| {
-                    let response = render(ui, &mut text, style.clone());
+                    let response = render(ui, &mut text, style.clone(), Options::default());
                     response.request_focus();
                     assert_eq!(response.rect.size(), egui::vec2(200.0, style.height));
                 },
@@ -777,12 +803,13 @@ mod tests {
         let theme =
             crate::theme::UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json"))
                 .unwrap();
-        let style = Style::new_outline_md(&theme.light).placeholder("中");
+        let style = Style::new_outline_md(&theme.light);
+        let options = Options::default().placeholder("中");
         let expected = egui::FontId::proportional(style.text_size);
         let mut output = ctx.run_ui(Default::default(), |ui| {
             ui.style_mut().override_font_id = Some(egui::FontId::monospace(20.0));
             assert!(ui.fonts_mut(|fonts| fonts.has_glyph(&expected, '中')));
-            render_multiline(ui, &mut String::new(), 4, style.clone());
+            render_multiline(ui, &mut String::new(), 4, style.clone(), options);
         });
         output.textures_delta.clear();
 
@@ -800,10 +827,8 @@ mod tests {
         let theme =
             crate::theme::UiTheme::from_json_bytes(include_bytes!("../../examples/theme.json"))
                 .unwrap();
-        let password = Style::new_outline_md(&theme.light)
-            .width(Some(200.0))
-            .input_type(InputType::Password);
-        let plain = Style::new_outline_md(&theme.light).width(Some(200.0));
+        let style = Style::new_outline_md(&theme.light).width(Some(200.0));
+        let password = Options::default().input_type(InputType::Password);
         let (mut secret, mut next) = (String::new(), String::new());
         let tab = || Event::Key {
             key: Key::Tab,
@@ -821,8 +846,8 @@ mod tests {
                     ..Default::default()
                 },
                 |ui| {
-                    let a = render(ui, &mut secret, password.clone());
-                    let b = render(ui, &mut next, plain.clone());
+                    let a = render(ui, &mut secret, style.clone(), password);
+                    let b = render(ui, &mut next, style.clone(), Options::default());
                     if focus_password {
                         a.request_focus();
                     }
@@ -888,7 +913,8 @@ mod tests {
                 ..Default::default()
             };
             ctx.run_ui(input, |ui| {
-                let scope = ui.scope(|ui| render_multiline(ui, text, 2, style.clone()));
+                let scope =
+                    ui.scope(|ui| render_multiline(ui, text, 2, style.clone(), Options::default()));
                 if focus {
                     scope.inner.request_focus();
                 }
@@ -970,13 +996,22 @@ mod tests {
                     ui.columns(2, |columns| {
                         // Measure the visible frame, not the scrolled text inside it.
                         height = columns[0]
-                            .scope(|ui| render_multiline(ui, &mut text, 10, style.clone()))
+                            .scope(|ui| {
+                                render_multiline(
+                                    ui,
+                                    &mut text,
+                                    10,
+                                    style.clone(),
+                                    Options::default(),
+                                )
+                            })
                             .response
                             .rect
                             .height();
                     });
                 },
                 crate::components::scroll_area::Style::new_no_frame(),
+                Default::default(),
             );
         })
         .textures_delta

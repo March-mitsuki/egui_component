@@ -14,6 +14,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             ui,
             locale.text("demo.select:interactive"),
             title_style.clone(),
+            Default::default(),
         );
         ui.add_space(8.0);
 
@@ -32,12 +33,14 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 ui,
                 locale.text("demo.select:choose"),
                 text::Style::new(theme),
+                Default::default(),
             );
             select::render(
                 ui,
                 select_id,
                 option_label(locale, &current_selected),
                 default_style.clone().width(Some(200.0)),
+                Default::default(),
                 |ui| {
                     let opts = vec!["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"];
                     for opt in opts {
@@ -67,13 +70,19 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                     &[("selected", option_label(locale, &selected))],
                 ),
                 text::Style::new(theme),
+                Default::default(),
             );
         });
 
         ui.add_space(24.0);
 
         // 2. Sizes
-        text::render(ui, locale.text("common:sizes"), title_style.clone());
+        text::render(
+            ui,
+            locale.text("common:sizes"),
+            title_style.clone(),
+            Default::default(),
+        );
         ui.add_space(8.0);
         ui.horizontal(|ui| {
             // XS Select
@@ -86,10 +95,8 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 ui,
                 xs_id,
                 option_label(locale, &current_xs),
-                xs_style
-                    .clone()
-                    .placeholder(locale.text("demo.select:xs"))
-                    .width(Some(120.0)),
+                xs_style.clone().width(Some(120.0)),
+                select::Options::default().placeholder(locale.text("demo.select:xs")),
                 |ui| {
                     let opts = vec!["Apple", "Banana", "Orange"];
                     for opt in opts {
@@ -124,10 +131,8 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 ui,
                 sm_id,
                 option_label(locale, &current_sm),
-                sm_style
-                    .clone()
-                    .placeholder(locale.text("demo.select:sm"))
-                    .width(Some(140.0)),
+                sm_style.clone().width(Some(140.0)),
+                select::Options::default().placeholder(locale.text("demo.select:sm")),
                 |ui| {
                     let opts = vec!["Rust", "Python", "TypeScript"];
                     for opt in opts {
@@ -162,10 +167,8 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 ui,
                 md_id,
                 option_label(locale, &current_md),
-                md_style
-                    .clone()
-                    .placeholder(locale.text("demo.select:md"))
-                    .width(Some(160.0)),
+                md_style.clone().width(Some(160.0)),
+                select::Options::default().placeholder(locale.text("demo.select:md")),
                 |ui| {
                     let opts = vec!["VS Code", "Neovim", "Emacs"];
                     for opt in opts {
@@ -200,10 +203,8 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 ui,
                 lg_id,
                 option_label(locale, &current_lg),
-                lg_style
-                    .clone()
-                    .placeholder(locale.text("demo.select:lg"))
-                    .width(Some(180.0)),
+                lg_style.clone().width(Some(180.0)),
+                select::Options::default().placeholder(locale.text("demo.select:lg")),
                 |ui| {
                     let opts = vec!["Linux", "macOS", "Windows"];
                     for opt in opts {
@@ -230,7 +231,12 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui.add_space(24.0);
 
         // 3. Colors
-        text::render(ui, locale.text("common:colors"), title_style.clone());
+        text::render(
+            ui,
+            locale.text("common:colors"),
+            title_style.clone(),
+            Default::default(),
+        );
         ui.add_space(8.0);
         ui.horizontal(|ui| {
             // Green
@@ -244,10 +250,8 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 ui,
                 green_id,
                 option_label(locale, &current_green),
-                green_style
-                    .clone()
-                    .placeholder(locale.text("demo.select:green"))
-                    .width(Some(150.0)),
+                green_style.clone().width(Some(150.0)),
+                select::Options::default().placeholder(locale.text("demo.select:green")),
                 |ui| {
                     let opts = vec!["Low", "Medium", "High"];
                     for opt in opts {
@@ -283,10 +287,8 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 ui,
                 blue_id,
                 option_label(locale, &current_blue),
-                blue_style
-                    .clone()
-                    .placeholder(locale.text("demo.select:blue"))
-                    .width(Some(150.0)),
+                blue_style.clone().width(Some(150.0)),
+                select::Options::default().placeholder(locale.text("demo.select:blue")),
                 |ui| {
                     let opts = vec!["Primary", "Secondary", "Success"];
                     for opt in opts {
@@ -322,10 +324,8 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 ui,
                 red_id,
                 option_label(locale, &current_red),
-                red_style
-                    .clone()
-                    .placeholder(locale.text("demo.select:red"))
-                    .width(Some(150.0)),
+                red_style.clone().width(Some(150.0)),
+                select::Options::default().placeholder(locale.text("demo.select:red")),
                 |ui| {
                     let opts = vec!["Fatal", "Error", "Warning"];
                     for opt in opts {
@@ -356,6 +356,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             ui,
             locale.text("common:disabledHeading"),
             title_style.clone(),
+            Default::default(),
         );
         ui.add_space(8.0);
         ui.horizontal(|ui| {
@@ -366,11 +367,10 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 ui,
                 d_id1,
                 "",
-                md_style
-                    .clone()
+                md_style.clone().width(Some(160.0)),
+                select::Options::default()
                     .placeholder(locale.text("demo.select:disabled"))
-                    .disabled(true)
-                    .width(Some(160.0)),
+                    .disabled(true),
                 |_| {},
             );
 
@@ -382,7 +382,8 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 ui,
                 d_id2,
                 locale.text("demo.select:preselected"),
-                md_style.clone().disabled(true).width(Some(160.0)),
+                md_style.clone().width(Some(160.0)),
+                select::Options::default().disabled(true),
                 |_| {},
             );
         });
@@ -390,7 +391,12 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui.add_space(24.0);
 
         // 5. Invalid
-        text::render(ui, locale.text("demo.select:invalidHeading"), title_style);
+        text::render(
+            ui,
+            locale.text("demo.select:invalidHeading"),
+            title_style,
+            Default::default(),
+        );
         ui.add_space(8.0);
         ui.horizontal(|ui| {
             // Invalid empty (placeholder)
@@ -400,11 +406,10 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 ui,
                 inv_id1,
                 "",
-                inv_style
-                    .clone()
+                inv_style.clone().width(Some(160.0)),
+                select::Options::default()
                     .placeholder(locale.text("demo.select:required"))
-                    .is_invalid(true)
-                    .width(Some(160.0)),
+                    .is_invalid(true),
                 |_| {},
             );
 
@@ -422,7 +427,8 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 ui,
                 inv_id2,
                 option_label(locale, &current_inv2),
-                inv_style.clone().is_invalid(true).width(Some(160.0)),
+                inv_style.clone().width(Some(160.0)),
+                select::Options::default().is_invalid(true),
                 |ui| {
                     let opts = vec!["Valid Option 1", "Valid Option 2", "Invalid Input"];
                     for opt in opts {

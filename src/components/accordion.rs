@@ -22,8 +22,6 @@ pub struct Style {
     pub body_indent: i8,
     /// Draws a vertical guide beside the expanded body.
     pub show_body_guide: bool,
-    pub default_open: bool,
-    pub disabled: bool,
 }
 impl Style {
     pub fn new(theme: &Theme) -> Self {
@@ -37,24 +35,39 @@ impl Style {
             header_padding_y: 12,
             body_indent: 12,
             show_body_guide: false,
-            default_open: false,
-            disabled: false,
         }
     }
     pub fn show_body_guide(mut self, value: bool) -> Self {
         self.show_body_guide = value;
         self
     }
-
-    pub fn default_open(mut self, value: bool) -> Self {
-        self.default_open = value;
+}
+/// Behavior of [`render`], separate from visual styling.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Options<'a> {
+    /// Secondary text under the title.
+    pub description: Option<&'a str>,
+    /// Whether an item without `open` starts expanded. Defaults to `false`.
+    pub default_open: bool,
+    pub disabled: bool,
+}
+impl<'a> Options<'a> {
+    pub fn description(mut self, description: &'a str) -> Self {
+        self.description = Some(description);
         self
     }
-    pub fn disabled(mut self, value: bool) -> Self {
-        self.disabled = value;
+
+    pub fn default_open(mut self, default_open: bool) -> Self {
+        self.default_open = default_open;
+        self
+    }
+
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
         self
     }
 }
+
 /// Use a unique ID per item. `open` enables externally controlled, exclusive groups.
 /// Without it, egui stores each item's independent state. Returns the header and optional body.
 /// Plain titles use the component's semibold font. Pass [`RichText`] to customize the title.
@@ -62,10 +75,10 @@ pub fn render<R>(
     ui: &mut Ui,
     id: Id,
     title: impl Into<WidgetText>,
-    description: Option<&str>,
     open: Option<&mut bool>,
     body: impl FnOnce(&mut Ui) -> R,
     style: Style,
+    options: Options<'_>,
 ) -> egui::CollapsingResponse<R> {
     let title = title.into();
     ui.scope(|ui| {
@@ -75,7 +88,7 @@ pub fn render<R>(
                 font.family = family.clone();
             }
         }
-        if style.disabled {
+        if options.disabled {
             ui.disable();
         }
         let visuals = &mut ui.style_mut().visuals;
@@ -127,7 +140,7 @@ pub fn render<R>(
         );
         let mut header = egui::CollapsingHeader::new(title.clone())
             .id_salt(id)
-            .default_open(style.default_open)
+            .default_open(options.default_open)
             .show_background(true)
             .icon(move |ui, openness, response| {
                 // With zero header indent, egui centers the icon slot at the title's left edge.
@@ -177,7 +190,7 @@ pub fn render<R>(
                     ..egui::Margin::ZERO
                 })
                 .show(ui, |ui| {
-                    if let Some(description) = description {
+                    if let Some(description) = options.description {
                         ui.label(description);
                         ui.add_space(8.0);
                     }
@@ -236,12 +249,12 @@ mod tests {
                         ui,
                         Id::unique("test"),
                         "Details",
-                        None,
                         Some(&mut open),
                         |ui| {
                             ui.label("Body");
                         },
-                        Style::new(&theme).disabled(disabled),
+                        Style::new(&theme),
+                        Options::default().disabled(disabled),
                     );
                     header = r.header_response.rect;
                     if focus {

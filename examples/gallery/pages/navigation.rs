@@ -14,8 +14,14 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
     ];
     navigation::group(ui, locale.text("component.navigation:name"), |ui| {
         for (index, label) in labels.into_iter().enumerate() {
-            if navigation::render(ui, label, selected == index, navigation::Style::new(theme))
-                .clicked()
+            if navigation::render(
+                ui,
+                label,
+                selected == index,
+                navigation::Style::new(theme),
+                Default::default(),
+            )
+            .clicked()
             {
                 selected = index;
             }
@@ -26,6 +32,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         &locale.format("demo.navigation:current", &[("selected", labels[selected])]),
         text::Style::new(theme),
+        Default::default(),
     );
     ui.data_mut(|data| data.insert_temp(id, selected));
 }

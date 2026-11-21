@@ -54,10 +54,15 @@ pub fn render(
     input_content: impl FnOnce(&mut Ui) -> Response,
     style: Style,
 ) -> InnerResponse<Response> {
-    // Selectable text would compete with the label's click sense.
-    let label_style = style.label_style.selectable(false);
+    let label_style = style.label_style;
     let render_label = |ui: &mut Ui| {
-        let text = text::render(ui, label, label_style.clone());
+        let text = text::render(
+            ui,
+            label,
+            label_style.clone(),
+            // Selectable text would compete with the label's click sense.
+            text::Options::default().selectable(false),
+        );
         // `Sense::CLICK` without `FOCUSABLE`: like an HTML <label>, the label
         // reacts to clicks but is not a Tab stop.
         (
@@ -157,7 +162,14 @@ mod tests {
                     let r = render(
                         ui,
                         "Name",
-                        |ui| text_edit::render(ui, text, text_edit::Style::new_outline_md(&theme)),
+                        |ui| {
+                            text_edit::render(
+                                ui,
+                                text,
+                                text_edit::Style::new_outline_md(&theme),
+                                Default::default(),
+                            )
+                        },
                         Style::new(&theme),
                     );
                     *focused = r.inner.has_focus();
@@ -165,7 +177,7 @@ mod tests {
                     let r = render(
                         ui,
                         "Notify",
-                        |ui| switch::render(ui, on, switch::Style::new(&theme)),
+                        |ui| switch::render(ui, on, switch::Style::new(&theme), Default::default()),
                         Style::new(&theme),
                     );
                     rects.1 = r.response.rect.with_max_x(r.response.rect.left() + 20.0);
@@ -248,6 +260,7 @@ mod tests {
                                 ui,
                                 &mut first,
                                 text_edit::Style::new_outline_md(&theme),
+                                Default::default(),
                             )
                         },
                         Style::new(&theme),
@@ -260,6 +273,7 @@ mod tests {
                                 ui,
                                 &mut second,
                                 text_edit::Style::new_outline_md(&theme),
+                                Default::default(),
                             )
                         },
                         Style::new(&theme),
@@ -287,7 +301,7 @@ mod tests {
             let r = render(
                 ui,
                 "Notify",
-                |ui| switch::render(ui, &mut on, switch::Style::new(&theme)),
+                |ui| switch::render(ui, &mut on, switch::Style::new(&theme), Default::default()),
                 Style::new(&theme),
             );
             // The row is no taller than its tallest child, so neither is offset.

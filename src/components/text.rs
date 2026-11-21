@@ -10,7 +10,6 @@ use crate::{
 
 #[derive(Clone)]
 pub struct Style {
-    pub selectable: bool,
     pub truncate: bool,
     pub color: Color32,
     pub size: f32,
@@ -20,14 +19,10 @@ pub struct Style {
     pub underline: Stroke,
     /// A line through the text, as in egui's `TextFormat`. `Stroke::NONE` (default) draws none.
     pub strikethrough: Stroke,
-    /// What the text responds to, as in egui's `Label::sense`. `Sense::hover()` (default)
-    /// keeps it inert; selection, when `selectable`, adds its own clicks and drags.
-    pub sense: Sense,
 }
 impl Style {
     pub fn new(theme: &Theme) -> Self {
         Self {
-            selectable: true,
             truncate: false,
             color: theme.colors.fg.base,
             size: theme.text_size.md,
@@ -35,13 +30,11 @@ impl Style {
             font_weight: FontWeight::Regular,
             underline: Stroke::NONE,
             strikethrough: Stroke::NONE,
-            sense: Sense::hover(),
         }
     }
 
     pub fn new_heading(theme: &Theme) -> Self {
         Self {
-            selectable: true,
             truncate: false,
             color: theme.colors.fg.base,
             size: theme.text_size.lg,
@@ -49,13 +42,7 @@ impl Style {
             font_weight: FontWeight::Bold,
             underline: Stroke::NONE,
             strikethrough: Stroke::NONE,
-            sense: Sense::hover(),
         }
-    }
-
-    pub fn selectable(mut self, selectable: bool) -> Self {
-        self.selectable = selectable;
-        self
     }
 
     pub fn truncate(mut self, truncate: bool) -> Self {
@@ -92,6 +79,31 @@ impl Style {
     /// Draw a line through the text, e.g. `Stroke::new(1.0, color)`.
     pub fn strikethrough(mut self, strikethrough: impl Into<Stroke>) -> Self {
         self.strikethrough = strikethrough.into();
+        self
+    }
+}
+
+/// Behavior of [`render`], separate from visual styling.
+#[derive(Clone, Copy, Debug)]
+pub struct Options {
+    /// Whether the text can be selected and copied, as in egui's `Label::selectable`.
+    /// Defaults to `true`.
+    pub selectable: bool,
+    /// What the text responds to, as in egui's `Label::sense`. `Sense::hover()` (default)
+    /// keeps it inert; selection, when `selectable`, adds its own clicks and drags.
+    pub sense: Sense,
+}
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            selectable: true,
+            sense: Sense::hover(),
+        }
+    }
+}
+impl Options {
+    pub fn selectable(mut self, selectable: bool) -> Self {
+        self.selectable = selectable;
         self
     }
 
@@ -134,11 +146,11 @@ pub(crate) fn rich_text(ui: &Ui, text: &str, style: &Style) -> WidgetText {
     WidgetText::LayoutJob(Arc::new(job))
 }
 
-pub fn render(ui: &mut Ui, text: &str, style: Style) -> Response {
-    let mut label = Label::new(rich_text(ui, text, &style)).selectable(style.selectable);
+pub fn render(ui: &mut Ui, text: &str, style: Style, options: Options) -> Response {
+    let mut label = Label::new(rich_text(ui, text, &style)).selectable(options.selectable);
     // Hover is egui's own default; leaving it unset keeps egui's screen reader focus.
-    if style.sense != Sense::hover() {
-        label = label.sense(style.sense);
+    if options.sense != Sense::hover() {
+        label = label.sense(options.sense);
     }
 
     if style.truncate {
@@ -159,8 +171,9 @@ mod tests {
             .light
     }
 
-    /// Double-clicks the text drawn with `style`; returns whether it reported a double click.
-    fn double_clicked(style: Style) -> bool {
+    /// Double-clicks the text drawn with `options`; returns whether it reported a double click.
+    fn double_clicked(options: Options) -> bool {
+        let style = Style::new(&theme());
         let ctx = egui::Context::default();
         let (mut found, mut center) = (false, egui::Pos2::ZERO);
         let presses = [true, false, true, false];
@@ -183,7 +196,7 @@ mod tests {
                 ..Default::default()
             };
             let mut output = ctx.run_ui(input, |ui| {
-                let response = render(ui, "Double-click me", style.clone());
+                let response = render(ui, "Double-click me", style.clone(), options);
                 center = response.rect.center();
                 found |= response.double_clicked();
             });
@@ -194,13 +207,12 @@ mod tests {
 
     #[test]
     fn sense_follows_egui_label_and_defaults_to_hover() {
-        let theme = theme();
-        assert_eq!(Style::new(&theme).sense, Sense::hover());
-        assert_eq!(Style::new_heading(&theme).sense, Sense::hover());
+        assert_eq!(Options::default().sense, Sense::hover());
+        assert!(Options::default().selectable);
         // Inert text reports no clicks.
-        assert!(!double_clicked(Style::new(&theme).selectable(false)));
+        assert!(!double_clicked(Options::default().selectable(false)));
         assert!(double_clicked(
-            Style::new(&theme).selectable(false).sense(Sense::click())
+            Options::default().selectable(false).sense(Sense::click())
         ));
     }
 
@@ -242,8 +254,8 @@ mod tests {
                 vertices(&decorated_galley) > vertices(&plain_galley),
                 "lines are drawn"
             );
-            let plain_rect = render(ui, "Done", plain.clone()).rect;
-            let decorated_rect = render(ui, "Done", decorated.clone()).rect;
+            let plain_rect = render(ui, "Done", plain.clone(), Options::default()).rect;
+            let decorated_rect = render(ui, "Done", decorated.clone(), Options::default()).rect;
             checks = Some((plain_rect.size(), decorated_rect.size()));
         })
         .drop_without_applying_deltas();

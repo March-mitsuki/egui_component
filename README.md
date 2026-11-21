@@ -139,13 +139,13 @@ fn my_page(ui: &mut egui::Ui) {
 
     ui.horizontal(|ui| {
         // Use built-in presets for quick rendering and interaction handling
-        if button::render(ui, "Solid", button::Style::new_solid_md(theme)).clicked() {
+        if button::render(ui, "Solid", button::Style::new_solid_md(theme), Default::default()).clicked() {
             println!("Solid button clicked!");
         }
 
-        button::render(ui, "Surface", button::Style::new_surface_md(theme));
-        button::render(ui, "Outline", button::Style::new_outline_md(theme));
-        button::render(ui, "Ghost", button::Style::new_ghost_md(theme));
+        button::render(ui, "Surface", button::Style::new_surface_md(theme), Default::default());
+        button::render(ui, "Outline", button::Style::new_outline_md(theme), Default::default());
+        button::render(ui, "Ghost", button::Style::new_ghost_md(theme), Default::default());
     });
 }
 ```

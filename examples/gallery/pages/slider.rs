@@ -7,13 +7,19 @@ use egui_component::{
 pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
     let id = ui.make_persistent_id("slider-demo");
     let mut value = ui.data_mut(|data| data.get_temp::<f32>(id).unwrap_or(40.0));
-    text::render(ui, locale.text("slider:help"), text::Style::new(theme));
+    text::render(
+        ui,
+        locale.text("slider:help"),
+        text::Style::new(theme),
+        Default::default(),
+    );
     ui.horizontal(|ui| {
         slider::render(
             ui,
             &mut value,
             0.0..=100.0,
-            slider::Style::new(theme).width(220.0).step(1.0),
+            slider::Style::new(theme).width(220.0),
+            slider::Options::default().step(1.0),
         );
         let key = id.with("input");
         let mut draft = ui
@@ -25,6 +31,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             ui,
             &mut draft,
             text_edit::Style::new_outline_sm(theme).width(Some(90.0)),
+            Default::default(),
         )
         .changed()
             && let Ok(v) = draft.parse::<f32>()
@@ -41,11 +48,13 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         locale.text("common:disabledHeading"),
         text::Style::new(theme),
+        Default::default(),
     );
     slider::render(
         ui,
         &mut value,
         0.0..=100.0,
-        slider::Style::new(theme).disabled(true),
+        slider::Style::new(theme),
+        slider::Options::default().disabled(true),
     );
 }

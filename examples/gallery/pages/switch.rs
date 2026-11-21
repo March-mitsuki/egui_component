@@ -6,19 +6,47 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
     let title_style = text::Style::new_heading(theme).size(16.0);
 
     ui.vertical(|ui| {
-        text::render(ui, locale.text("common:sizes"), title_style.clone());
+        text::render(
+            ui,
+            locale.text("common:sizes"),
+            title_style.clone(),
+            Default::default(),
+        );
         ui.add_space(8.0);
         ui.horizontal(|ui| {
-            render_interactive_switch(ui, "switch_size_sm", false, switch::Style::new_sm(theme));
+            render_interactive_switch(
+                ui,
+                "switch_size_sm",
+                false,
+                switch::Style::new_sm(theme),
+                Default::default(),
+            );
             ui.add_space(16.0);
-            render_interactive_switch(ui, "switch_size_md", false, switch::Style::new_md(theme));
+            render_interactive_switch(
+                ui,
+                "switch_size_md",
+                false,
+                switch::Style::new_md(theme),
+                Default::default(),
+            );
             ui.add_space(16.0);
-            render_interactive_switch(ui, "switch_size_lg", true, switch::Style::new_lg(theme));
+            render_interactive_switch(
+                ui,
+                "switch_size_lg",
+                true,
+                switch::Style::new_lg(theme),
+                Default::default(),
+            );
         });
 
         ui.add_space(24.0);
 
-        text::render(ui, locale.text("common:colors"), title_style.clone());
+        text::render(
+            ui,
+            locale.text("common:colors"),
+            title_style.clone(),
+            Default::default(),
+        );
         ui.add_space(8.0);
         ui.horizontal(|ui| {
             render_interactive_switch(
@@ -26,6 +54,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 "switch_color_primary",
                 true,
                 switch::Style::new_md(theme),
+                Default::default(),
             );
             ui.add_space(16.0);
             render_interactive_switch(
@@ -33,6 +62,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 "switch_color_green",
                 true,
                 switch::Style::new_md_color(theme, theme.colors.green),
+                Default::default(),
             );
             ui.add_space(16.0);
             render_interactive_switch(
@@ -40,6 +70,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 "switch_color_red",
                 true,
                 switch::Style::new_md_color(theme, theme.colors.red),
+                Default::default(),
             );
             ui.add_space(16.0);
             render_interactive_switch(
@@ -47,26 +78,34 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 "switch_color_blue",
                 true,
                 switch::Style::new_md_color(theme, theme.colors.blue),
+                Default::default(),
             );
         });
 
         ui.add_space(24.0);
 
-        text::render(ui, locale.text("common:disabledHeading"), title_style);
+        text::render(
+            ui,
+            locale.text("common:disabledHeading"),
+            title_style,
+            Default::default(),
+        );
         ui.add_space(8.0);
         ui.horizontal(|ui| {
             render_interactive_switch(
                 ui,
                 "switch_disabled_off",
                 false,
-                switch::Style::new_md(theme).disabled(true),
+                switch::Style::new_md(theme),
+                switch::Options::default().disabled(true),
             );
             ui.add_space(16.0);
             render_interactive_switch(
                 ui,
                 "switch_disabled_on",
                 true,
-                switch::Style::new_md(theme).disabled(true),
+                switch::Style::new_md(theme),
+                switch::Options::default().disabled(true),
             );
         });
     });
@@ -77,10 +116,11 @@ fn render_interactive_switch(
     id_source: &str,
     default: bool,
     style: switch::Style,
+    options: switch::Options<'_>,
 ) {
     let id = ui.make_persistent_id(id_source);
     let mut val = ui.memory(|mem| mem.data.get_temp::<bool>(id).unwrap_or(default));
-    let response = switch::render(ui, &mut val, style);
+    let response = switch::render(ui, &mut val, style, options);
     if response.changed() {
         ui.memory_mut(|mem| mem.data.insert_temp(id, val));
     }

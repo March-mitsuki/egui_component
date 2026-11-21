@@ -421,6 +421,7 @@ fn render_toast_ui(
                         ui,
                         &toast.message,
                         text::Style::new(theme).size(theme.text_size.sm),
+                        Default::default(),
                     );
                 }
             };
@@ -433,8 +434,7 @@ fn render_toast_ui(
                         icon::Style::new(theme)
                             .box_size(20.0)
                             .icon_size(20.0)
-                            .color(color)
-                            .sense(egui::Sense::hover()),
+                            .color(color),
                         Default::default(),
                     );
                     ui.vertical(render_content);

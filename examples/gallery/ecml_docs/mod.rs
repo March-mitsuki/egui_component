@@ -230,7 +230,8 @@ impl EcmlDocs {
                             if button::render(
                                 ui,
                                 locale.text("ecml:reset"),
-                                button::Style::new_ghost_sm(theme).state(if edited {
+                                button::Style::new_ghost_sm(theme),
+                                button::Options::default().state(if edited {
                                     button::ButtonState::None
                                 } else {
                                     button::ButtonState::Disable
@@ -254,6 +255,7 @@ impl EcmlDocs {
                             text_edit::Style::new_outline_sm(theme)
                                 .text_size(13.0)
                                 .max_rows(Some(18)),
+                            Default::default(),
                         );
                         if response.changed() {
                             playground.view.replace(playground.text.clone());
@@ -273,6 +275,7 @@ impl EcmlDocs {
                                 text::Style::new(theme)
                                     .size(13.0)
                                     .color(theme.colors.red.l6),
+                                Default::default(),
                             );
                             text::render(
                                 ui,
@@ -280,6 +283,7 @@ impl EcmlDocs {
                                 text::Style::new(theme)
                                     .size(13.0)
                                     .color(theme.colors.gray.l6),
+                                Default::default(),
                             );
                         }
                     };
@@ -300,6 +304,7 @@ impl EcmlDocs {
                         text::Style::new(theme)
                             .size(13.0)
                             .color(theme.colors.gray.l6),
+                        Default::default(),
                     );
                 },
                 surface,
@@ -314,6 +319,7 @@ fn label(ui: &mut egui::Ui, value: &str, theme: &Theme) {
         text::Style::new_heading(theme)
             .size(11.0)
             .color(theme.colors.primary.l6),
+        Default::default(),
     );
 }
 

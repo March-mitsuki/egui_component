@@ -1,23 +1,29 @@
 //! A compact choice group composed from themed buttons.
 use crate::{components::button, theme::Theme};
 
+/// Behavior of [`render`], separate from visual styling.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Options {
+    pub disabled: bool,
+}
+impl Options {
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+}
+
 #[derive(Clone)]
 pub struct Style {
     pub selected: button::Style,
     pub unselected: button::Style,
-    pub disabled: bool,
 }
 impl Style {
     pub fn new(theme: &Theme) -> Self {
         Self {
             selected: button::Style::new_surface_sm_color(theme, theme.colors.primary),
             unselected: button::Style::new_ghost_sm(theme),
-            disabled: false,
         }
-    }
-    pub fn disabled(mut self, disabled: bool) -> Self {
-        self.disabled = disabled;
-        self
     }
 }
 /// A single-select group, like a WAI-ARIA radio group: the group is one Tab
@@ -29,6 +35,7 @@ pub fn render<T: Copy + PartialEq>(
     value: &mut T,
     choices: &[(T, &str)],
     style: Style,
+    options: Options,
 ) -> egui::Response {
     let mut changed = false;
     let tab_index = choices
@@ -36,7 +43,7 @@ pub fn render<T: Copy + PartialEq>(
         .position(|(choice, _)| *choice == *value)
         .unwrap_or(0);
     let group = ui
-        .add_enabled_ui(!style.disabled, |ui| {
+        .add_enabled_ui(!options.disabled, |ui| {
             ui.horizontal_wrapped(|ui| {
                 // Keyed by the choice's own widget ID, so sibling groups cannot
                 // take each other's request.
@@ -47,16 +54,23 @@ pub fn render<T: Copy + PartialEq>(
                 let mut ids = Vec::with_capacity(choices.len());
                 for (index, (choice, label)) in choices.iter().enumerate() {
                     let selected = *value == *choice;
-                    let mut button_style = if selected {
+                    let button_style = if selected {
                         style.selected.clone()
                     } else {
                         style.unselected.clone()
                     };
-                    if !ui.is_enabled() {
-                        button_style.state = button::ButtonState::Disable;
-                    }
-                    let response =
-                        button::render_inner(ui, label, button_style, index == tab_index);
+                    let state = if ui.is_enabled() {
+                        button::ButtonState::None
+                    } else {
+                        button::ButtonState::Disable
+                    };
+                    let response = button::render_inner(
+                        ui,
+                        label,
+                        button_style,
+                        button::Options::default().state(state),
+                        index == tab_index,
+                    );
                     response.widget_info(|| {
                         egui::WidgetInfo::selected(
                             egui::Role::RadioButton,
@@ -164,6 +178,7 @@ mod tests {
                             value,
                             &[(0, "A"), (1, "B"), (2, "C")],
                             Style::new(&theme),
+                            Default::default(),
                         );
                     });
                     // A disabled sibling must not take the group's focus requests.
@@ -171,9 +186,16 @@ mod tests {
                         ui,
                         &mut value.clone(),
                         &[(0, "A"), (1, "B"), (2, "C")],
-                        Style::new(&theme).disabled(true),
+                        Style::new(&theme),
+                        Options::default().disabled(true),
                     );
-                    after = button::render(ui, "After", button::Style::new_ghost_sm(&theme)).id;
+                    after = button::render(
+                        ui,
+                        "After",
+                        button::Style::new_ghost_sm(&theme),
+                        Default::default(),
+                    )
+                    .id;
                 },
             )
             .textures_delta
@@ -220,12 +242,15 @@ mod tests {
                     ..Default::default()
                 },
                 |ui| {
-                    rect.set(render(ui, value, &choices, Style::new(&theme)).rect);
+                    rect.set(
+                        render(ui, value, &choices, Style::new(&theme), Default::default()).rect,
+                    );
                     render(
                         ui,
                         &mut value.clone(),
                         &choices,
-                        Style::new(&theme).disabled(true),
+                        Style::new(&theme),
+                        Options::default().disabled(true),
                     );
                 },
             )

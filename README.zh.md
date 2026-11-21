@@ -134,13 +134,13 @@ fn my_page(ui: &mut egui::Ui) {
 
     ui.horizontal(|ui| {
         // 使用内置的预设样式快速渲染并处理交互
-        if button::render(ui, "Solid", button::Style::new_solid_md(theme)).clicked() {
+        if button::render(ui, "Solid", button::Style::new_solid_md(theme), Default::default()).clicked() {
             println!("Solid button clicked!");
         }
 
-        button::render(ui, "Surface", button::Style::new_surface_md(theme));
-        button::render(ui, "Outline", button::Style::new_outline_md(theme));
-        button::render(ui, "Ghost", button::Style::new_ghost_md(theme));
+        button::render(ui, "Surface", button::Style::new_surface_md(theme), Default::default());
+        button::render(ui, "Outline", button::Style::new_outline_md(theme), Default::default());
+        button::render(ui, "Ghost", button::Style::new_ghost_md(theme), Default::default());
     });
 }
 ```

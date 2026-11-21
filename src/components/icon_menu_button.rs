@@ -14,8 +14,6 @@ pub struct Style {
     pub gap: f32,
     pub menu_handle_width: f32,
     pub menu_handle_icon_size: f32,
-    /// Accessible name of the menu handle. Defaults to "More options".
-    pub menu_handle_aria_label: String,
 }
 impl Style {
     pub fn new(theme: &Theme) -> Self {
@@ -25,14 +23,7 @@ impl Style {
             gap: 0.0,
             menu_handle_width: 12.0,
             menu_handle_icon_size: 12.0,
-            menu_handle_aria_label: "More options".to_owned(),
         }
-    }
-
-    /// Localize the menu handle's accessible name.
-    pub fn menu_handle_aria_label(mut self, label: impl Into<String>) -> Self {
-        self.menu_handle_aria_label = label.into();
-        self
     }
 }
 
@@ -40,7 +31,6 @@ impl Style {
 pub struct MenuStyle {
     pub align: egui::RectAlign,
     pub gap: f32,
-    pub close_behavior: egui::PopupCloseBehavior,
     pub frame: egui::Frame,
 }
 impl MenuStyle {
@@ -48,7 +38,6 @@ impl MenuStyle {
         Self {
             align: egui::RectAlign::BOTTOM_START,
             gap: 0.0,
-            close_behavior: egui::PopupCloseBehavior::CloseOnClick,
             frame: egui::Frame::default()
                 .fill(theme.colors.bg.accent)
                 .stroke(egui::Stroke::NONE)
@@ -72,6 +61,30 @@ impl MenuStyle {
         self.gap = gap;
         self
     }
+}
+
+/// Behavior of [`render`], separate from visual styling.
+#[derive(Clone, Copy, Debug)]
+pub struct Options<'a> {
+    /// Accessible name of the menu handle. Defaults to "More options".
+    pub menu_handle_aria_label: &'a str,
+    /// When the menu closes. Defaults to `CloseOnClick`.
+    pub close_behavior: egui::PopupCloseBehavior,
+}
+impl Default for Options<'_> {
+    fn default() -> Self {
+        Self {
+            menu_handle_aria_label: "More options",
+            close_behavior: egui::PopupCloseBehavior::CloseOnClick,
+        }
+    }
+}
+impl<'a> Options<'a> {
+    /// Localize the menu handle's accessible name.
+    pub fn menu_handle_aria_label(mut self, label: &'a str) -> Self {
+        self.menu_handle_aria_label = label;
+        self
+    }
 
     pub fn close_behavior(mut self, close_behavior: egui::PopupCloseBehavior) -> Self {
         self.close_behavior = close_behavior;
@@ -91,6 +104,7 @@ pub fn render<'a>(
     mut on_click: impl FnMut(usize),
     theme: &Theme,
     style: Style,
+    options: Options<'_>,
 ) {
     let total_width = style.button.width + style.gap + style.menu_handle_width;
     let size = vec2(total_width, style.button.height);
@@ -157,9 +171,15 @@ pub fn render<'a>(
         tooltip::render(
             &response,
             |ui| {
-                text::render(ui, &icon_with_tooltip.tooltip, text::Style::new(theme));
+                text::render(
+                    ui,
+                    &icon_with_tooltip.tooltip,
+                    text::Style::new(theme),
+                    Default::default(),
+                );
             },
             &tooltip::Style::new(theme),
+            Default::default(),
         );
     }
 
@@ -194,7 +214,11 @@ pub fn render<'a>(
     let main_label = icons.first().map_or("", |icon| icon.tooltip.as_str());
     response.widget_info(|| WidgetInfo::labeled(Role::Button, ui.is_enabled(), main_label));
     menu_handle_response.widget_info(|| {
-        WidgetInfo::labeled(Role::Button, ui.is_enabled(), &style.menu_handle_aria_label)
+        WidgetInfo::labeled(
+            Role::Button,
+            ui.is_enabled(),
+            options.menu_handle_aria_label,
+        )
     });
     let expanded = Popup::is_id_open(ui.ctx(), id);
     ui.ctx()
@@ -206,7 +230,7 @@ pub fn render<'a>(
         .id(id)
         .frame(style.menu.frame)
         .align(style.menu.align)
-        .close_behavior(style.menu.close_behavior)
+        .close_behavior(options.close_behavior)
         .gap(style.menu.gap)
         .show(|ui| {
             super::menu_nav::content(ui, &menu_handle_response, id, |ui| {
@@ -220,9 +244,15 @@ pub fn render<'a>(
                     tooltip::render(
                         &btn_resp,
                         |ui| {
-                            text::render(ui, &icon_with_tooltip.tooltip, text::Style::new(theme));
+                            text::render(
+                                ui,
+                                &icon_with_tooltip.tooltip,
+                                text::Style::new(theme),
+                                Default::default(),
+                            );
                         },
                         &tooltip::Style::new(theme),
+                        Default::default(),
                     );
                     if btn_resp.clicked() {
                         on_click(index + 1);
@@ -285,6 +315,7 @@ mod tests {
                         |index| clicks.push(index),
                         &theme,
                         Style::new(&theme),
+                        Default::default(),
                     );
                 },
             )

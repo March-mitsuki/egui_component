@@ -131,6 +131,7 @@ impl Generator {
                     scroll_area::Style::new_no_frame()
                         .auto_shrink([false, false])
                         .padding(egui::Margin::symmetric(24, 20)),
+                    Default::default(),
                 );
             });
         apply
@@ -140,11 +141,13 @@ impl Generator {
             ui,
             locale.text("nav:themeGenerator"),
             text::Style::new_heading(shell).size(30.0),
+            Default::default(),
         );
         text::render(
             ui,
             locale.text("generator:startWithABrandColorBuildAThemeForEveryComponent"),
             text::Style::new(shell).color(shell.colors.fg.subtle),
+            Default::default(),
         );
     }
     fn controls(
@@ -203,6 +206,7 @@ impl Generator {
                         ui,
                         &mut self.seed_hex,
                         text_edit::Style::new_outline_md(shell).width(Some(140.0)),
+                        Default::default(),
                     );
                 });
                 if let Ok(c) = Color32::from_hex(&self.seed_hex) {
@@ -238,6 +242,7 @@ impl Generator {
                         (NeutralTone::Warm, locale.text("generator:warm")),
                     ],
                     segmented_control::Style::new(shell),
+                    Default::default(),
                 );
                 ui.add_space(4.0);
                 field_label(ui, locale.text("generator:radius"), shell);
@@ -268,6 +273,7 @@ impl Generator {
                         (true, locale.text("generator:focusCustom")),
                     ],
                     segmented_control::Style::new(shell),
+                    Default::default(),
                 );
                 let theme = self.theme();
                 if custom && !was_custom {
@@ -354,6 +360,7 @@ impl Generator {
                 locale.text("generator:applyToGallery"),
                 button::Style::new_solid_md_color(shell, shell.colors.primary)
                     .icon_left(button::ButtonIcon::Some(lucide::CHECK)),
+                Default::default(),
             )
             .clicked()
             {
@@ -364,6 +371,7 @@ impl Generator {
                 locale.text("generator:resetAll"),
                 button::Style::new_ghost_md(shell)
                     .icon_left(button::ButtonIcon::Some(lucide::ROTATE_CCW)),
+                Default::default(),
             )
             .clicked()
             {
@@ -380,7 +388,6 @@ impl Generator {
                 id,
                 locale.text("generator:advancedSettings"),
                 None,
-                None,
                 |ui| {
                     hint(
                         ui,
@@ -393,6 +400,7 @@ impl Generator {
                             &mut self.edit_dark,
                             &[(false, "Light"), (true, "Dark")],
                             segmented_control::Style::new(shell),
+                            Default::default(),
                         );
                         if !self.overrides.is_empty()
                             && button::render(
@@ -400,6 +408,7 @@ impl Generator {
                                 locale.text("generator:resetAllOverrides"),
                                 button::Style::new_ghost_sm(shell)
                                     .icon_left(button::ButtonIcon::Some(lucide::ROTATE_CCW)),
+                                Default::default(),
                             )
                             .clicked()
                         {
@@ -427,9 +436,11 @@ impl Generator {
                         scroll_area::Style::new_no_frame()
                             .min_height(320.0)
                             .max_height(460.0),
+                        Default::default(),
                     );
                 },
                 accordion::Style::new(shell),
+                Default::default(),
             );
         });
         section(
@@ -467,6 +478,7 @@ impl Generator {
                     &mut self.json,
                     5,
                     text_edit::Style::new_outline_sm(shell),
+                    Default::default(),
                 );
                 let mut import = false;
                 ui.horizontal_wrapped(|ui| {
@@ -534,6 +546,7 @@ impl Generator {
                 ui,
                 locale.text("generator:livePreview"),
                 text::Style::new_heading(shell).size(18.0),
+                Default::default(),
             );
             ui.add_space(12.0);
             segmented_control::render(
@@ -545,6 +558,7 @@ impl Generator {
                     (2, locale.text("generator:compare")),
                 ],
                 segmented_control::Style::new(shell),
+                Default::default(),
             );
         });
         ui.add_space(4.0);
@@ -597,11 +611,13 @@ impl Generator {
                                 ui,
                                 locale.text("generator:projectSettings"),
                                 text::Style::new_heading(t).size(24.0),
+                                Default::default(),
                             );
                             text::render(
                                 ui,
                                 locale.text("generator:manageYourWorkspaceAndPreferences"),
                                 text::Style::new(t).color(t.colors.fg.subtle),
+                                Default::default(),
                             );
                             ui.add_space(18.0);
                             card::render(
@@ -611,17 +627,20 @@ impl Generator {
                                         ui,
                                         locale.text("generator:projectName"),
                                         text::Style::new(t),
+                                        Default::default(),
                                     );
                                     text_edit::render(
                                         ui,
                                         &mut self.project,
                                         text_edit::Style::new_outline_md(t),
+                                        Default::default(),
                                     );
                                     ui.add_space(12.0);
                                     text::render(
                                         ui,
                                         locale.text("generator:visibility"),
                                         text::Style::new(t),
+                                        Default::default(),
                                     );
                                     let labels = [
                                         locale.text("generator:private"),
@@ -635,6 +654,7 @@ impl Generator {
                                         id,
                                         labels[self.visibility],
                                         style.clone(),
+                                        Default::default(),
                                         |ui| {
                                             for (index, label) in labels.into_iter().enumerate() {
                                                 if select::render_item(
@@ -658,11 +678,13 @@ impl Generator {
                                             ui,
                                             locale.text("generator:notifications"),
                                             text::Style::new(t),
+                                            Default::default(),
                                         );
                                         switch::render(
                                             ui,
                                             &mut self.notifications,
                                             switch::Style::new(t),
+                                            Default::default(),
                                         );
                                     });
                                     ui.add_space(16.0);
@@ -671,6 +693,7 @@ impl Generator {
                                             ui,
                                             locale.text("generator:saveChanges"),
                                             button::Style::new_solid_md_color(t, t.colors.primary),
+                                            Default::default(),
                                         )
                                         .clicked()
                                         {
@@ -683,6 +706,7 @@ impl Generator {
                                                 t,
                                                 t.colors.primary,
                                             ),
+                                            Default::default(),
                                         );
                                     });
                                     if self.saved {
@@ -690,6 +714,7 @@ impl Generator {
                                             ui,
                                             locale.text("generator:changesSaved"),
                                             text::Style::new(t).color(t.colors.green.l6),
+                                            Default::default(),
                                         );
                                     }
                                 },
@@ -701,23 +726,27 @@ impl Generator {
                                     ui,
                                     locale.text("generator:surface"),
                                     button::Style::new_surface_sm_color(t, t.colors.primary),
+                                    Default::default(),
                                 );
                                 button::render(
                                     ui,
                                     locale.text("generator:ghost"),
                                     button::Style::new_ghost_sm_color(t, t.colors.primary),
+                                    Default::default(),
                                 );
                                 ui.add_enabled_ui(false, |ui| {
                                     button::render(
                                         ui,
                                         locale.text("generator:disabled"),
                                         button::Style::new_solid_sm_color(t, t.colors.primary),
+                                        Default::default(),
                                     );
                                 });
                                 button::render(
                                     ui,
                                     locale.text("generator:deleteProject"),
                                     button::Style::new_outline_sm_color(t, t.colors.red),
+                                    Default::default(),
                                 );
                             });
                             ui.add_space(18.0);
@@ -729,7 +758,12 @@ impl Generator {
     }
 }
 fn themed_label(ui: &mut egui::Ui, label: impl AsRef<str>, theme: &Theme) -> egui::Response {
-    text::render(ui, label.as_ref(), text::Style::new(theme))
+    text::render(
+        ui,
+        label.as_ref(),
+        text::Style::new(theme),
+        Default::default(),
+    )
 }
 const PRESETS: [(&str, &str); 4] = [
     ("Iris", "#6B65F5"),
@@ -843,7 +877,12 @@ fn audit_report(ui: &mut egui::Ui, t: &Theme, issues: &[theme_gen::ContrastCheck
                     .color(color),
                 Default::default(),
             );
-            text::render(ui, label, text::Style::new(t).size(13.0));
+            text::render(
+                ui,
+                label,
+                text::Style::new(t).size(13.0),
+                Default::default(),
+            );
         });
     };
     if issues.is_empty() {
@@ -880,6 +919,7 @@ fn audit_report(ui: &mut egui::Ui, t: &Theme, issues: &[theme_gen::ContrastCheck
                 ui,
                 &format!("{severity} · {:.2}:1 < {}:1", issue.ratio, issue.required),
                 text::Style::new(t).size(12.0).color(t.colors.fg.subtle),
+                Default::default(),
             );
         });
     }
@@ -918,7 +958,12 @@ fn contrast_row(ui: &mut egui::Ui, t: &Theme, label: &str, value: f32, min: f32)
                 .color(color),
             Default::default(),
         );
-        text::render(ui, label, text::Style::new(t).size(13.0));
+        text::render(
+            ui,
+            label,
+            text::Style::new(t).size(13.0),
+            Default::default(),
+        );
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.add_space(12.0);
             let value = if value.is_nan() {
@@ -930,6 +975,7 @@ fn contrast_row(ui: &mut egui::Ui, t: &Theme, label: &str, value: f32, min: f32)
                 ui,
                 &value,
                 text::Style::new(t).size(13.0).color(t.colors.fg.subtle),
+                Default::default(),
             );
         });
     });
@@ -1000,7 +1046,12 @@ fn section(
                     .color(theme.colors.primary.l6),
                 Default::default(),
             );
-            text::render(ui, title, text::Style::new_heading(theme).size(15.0));
+            text::render(
+                ui,
+                title,
+                text::Style::new_heading(theme).size(15.0),
+                Default::default(),
+            );
         });
         ui.add_space(4.0);
         add_contents(ui);
@@ -1014,6 +1065,7 @@ fn field_label(ui: &mut egui::Ui, label: &str, theme: &Theme) -> egui::Response 
         text::Style::new(theme)
             .size(13.0)
             .color(theme.colors.fg.subtle),
+        Default::default(),
     )
 }
 fn hint(ui: &mut egui::Ui, label: &str, color: Color32) {
@@ -1053,7 +1105,7 @@ fn preset_chip(
     if selected {
         style.palette.normal_bg = theme.colors.bg.subtle;
     }
-    button::render(ui, label, style)
+    button::render(ui, label, style, Default::default())
 }
 fn slider_with_input(
     ui: &mut egui::Ui,
@@ -1067,7 +1119,8 @@ fn slider_with_input(
             ui,
             value,
             range.clone(),
-            slider::Style::new(theme).width(180.0).step(0.5),
+            slider::Style::new(theme).width(180.0),
+            slider::Options::default().step(0.5),
         );
         numeric_input(
             ui,
@@ -1089,6 +1142,7 @@ fn action(
         ui,
         label,
         button::Style::new_outline_sm(theme).icon_left(button::ButtonIcon::Some(icon_source)),
+        Default::default(),
     )
 }
 // Page-specific parsing only: the widget is the same TextEdit used for ordinary text.
@@ -1112,6 +1166,7 @@ fn numeric_input(
                 ui,
                 &mut draft,
                 text_edit::Style::new_outline_sm(theme).width(Some(72.0)),
+                Default::default(),
             )
         })
         .inner;
@@ -1186,7 +1241,12 @@ fn edit_value(
                     } else {
                         key.clone()
                     };
-                    text::render(ui, &label, text::Style::new_heading(shell).size(14.0));
+                    text::render(
+                        ui,
+                        &label,
+                        text::Style::new_heading(shell).size(14.0),
+                        Default::default(),
+                    );
                     if value.is_object() {
                         ui.indent(&key, |ui| {
                             edit_value(
@@ -1222,8 +1282,8 @@ fn edit_value(
                         ui,
                         ui.make_persistent_id(path),
                         &mut c,
-                        color_picker::Style::new(shell).alpha(true),
-                        Default::default(),
+                        color_picker::Style::new(shell),
+                        color_picker::Options::default().alpha(true),
                     )
                     .changed();
                     themed_label(ui, c.to_hex(), shell);
@@ -1300,6 +1360,7 @@ fn focus_ring_contrast(ui: &mut egui::Ui, t: &Theme, shell: &Theme, locale: Loca
                 text::Style::new(shell)
                     .size(12.0)
                     .color(shell.colors.fg.subtle),
+                Default::default(),
             );
             ui.add_space(8.0);
         }

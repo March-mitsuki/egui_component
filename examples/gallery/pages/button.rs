@@ -10,6 +10,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         locale.text("demo.button:variants"),
         text::Style::new_heading(theme).size(14.0),
+        Default::default(),
     );
     ui.add_space(8.0);
     ui.horizontal_wrapped(|ui| {
@@ -31,7 +32,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 button::Style::new_ghost_md(theme),
             ),
         ] {
-            if button::render(ui, label, style).clicked() {
+            if button::render(ui, label, style, Default::default()).clicked() {
                 egui_component::toast::create(
                     ui.ctx(),
                     locale.format("common:clicked", &[("label", label)]),
@@ -45,6 +46,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         locale.text("demo.button:states"),
         text::Style::new_heading(theme).size(14.0),
+        Default::default(),
     );
     ui.add_space(8.0);
     ui.horizontal_wrapped(|ui| {
@@ -52,16 +54,19 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             ui,
             locale.text("common:primary"),
             button::Style::new_solid_md_color(theme, theme.colors.primary),
+            Default::default(),
         );
         button::render(
             ui,
             locale.text("common:disabled"),
-            button::Style::new_outline_md(theme).state(button::ButtonState::Disable),
+            button::Style::new_outline_md(theme),
+            button::Options::default().state(button::ButtonState::Disable),
         );
         button::render(
             ui,
             locale.text("common:loading"),
-            button::Style::new_solid_md(theme).state(button::ButtonState::Loading),
+            button::Style::new_solid_md(theme),
+            button::Options::default().state(button::ButtonState::Loading),
         );
     });
     ui.add_space(20.0);
@@ -69,6 +74,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         locale.text("demo.button:content_alignment"),
         text::Style::new_heading(theme).size(14.0),
+        Default::default(),
     );
     ui.add_space(8.0);
     for (align, label) in [
@@ -82,6 +88,6 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             .icon_left(button::ButtonIcon::Some(
                 egui_component::icon::lucide::LANGUAGES,
             ));
-        button::render(ui, locale.text(label), style);
+        button::render(ui, locale.text(label), style, Default::default());
     }
 }

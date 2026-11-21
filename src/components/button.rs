@@ -6,7 +6,7 @@ use crate::{
     theme::{ButtonPalette, ButtonSize, ButtonVariant, Color, Theme},
 };
 
-#[derive(Clone, PartialEq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum ButtonState {
     #[default]
     None,
@@ -31,9 +31,6 @@ pub struct Style {
     pub width: Option<f32>,
     /// 整组内容的水平对齐方式，默认居中。
     pub content_align: egui::Align,
-    pub state: ButtonState,
-    /// Screen-reader name, like `aria-label`; never drawn. `None` (default) uses the button text.
-    pub aria_label: Option<String>,
 }
 
 #[derive(Clone)]
@@ -100,8 +97,6 @@ impl Style {
             gap,
             width: None,
             content_align: egui::Align::Center,
-            state: ButtonState::None,
-            aria_label: None,
         }
     }
 
@@ -511,22 +506,33 @@ impl Style {
         self.content_align = align;
         self
     }
+}
 
+/// Behavior of [`render`], separate from visual styling.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Options<'a> {
+    /// Disabled or loading; `ButtonState::None` (default) is clickable.
+    pub state: ButtonState,
+    /// Screen-reader name, like `aria-label`; never drawn. `None` (default) uses the button text.
+    pub aria_label: Option<&'a str>,
+}
+impl<'a> Options<'a> {
     pub fn state(mut self, state: ButtonState) -> Self {
         self.state = state;
         self
     }
 
-    /// Name the button for screen readers when its text alone is unclear or empty, e.g. "Delete Buy milk"
-    /// for one of many Delete buttons. Like `aria-label`, it replaces the text.
-    pub fn aria_label(mut self, label: impl Into<String>) -> Self {
-        self.aria_label = Some(label.into());
+    /// Name the button for screen readers when its text alone is unclear or empty, e.g.
+    /// "Delete Buy milk" for one of many Delete buttons. Like `aria-label`, it replaces
+    /// the text.
+    pub fn aria_label(mut self, label: &'a str) -> Self {
+        self.aria_label = Some(label);
         self
     }
 }
 
-pub fn render(ui: &mut Ui, text: &str, style: Style) -> egui::Response {
-    render_inner(ui, text, style, true)
+pub fn render(ui: &mut Ui, text: &str, style: Style, options: Options<'_>) -> egui::Response {
+    render_inner(ui, text, style, options, true)
 }
 
 /// `tab_stop: false` keeps the button clickable but out of the Tab order, for
@@ -535,6 +541,7 @@ pub(super) fn render_inner(
     ui: &mut Ui,
     text: &str,
     style: Style,
+    options: Options<'_>,
     tab_stop: bool,
 ) -> egui::Response {
     let mut font_id = egui::TextStyle::Button.resolve(ui.style());
@@ -542,7 +549,7 @@ pub(super) fn render_inner(
 
     let icon_size = style.icon_size;
     let has_text = !text.is_empty();
-    let is_loading = style.state == ButtonState::Loading;
+    let is_loading = options.state == ButtonState::Loading;
 
     let has_left_icon = matches!(style.icon_left, ButtonIcon::Some(_));
     let has_right_icon = matches!(style.icon_right, ButtonIcon::Some(_));
@@ -562,7 +569,7 @@ pub(super) fn render_inner(
         .map(|w| (w - style.padding_x * 2.0 - icon_width).max(0.0))
         .unwrap_or(f32::INFINITY);
 
-    let text_color = match style.state {
+    let text_color = match options.state {
         ButtonState::Disable => style.palette.text_color.gamma_multiply(0.4),
         _ => style.palette.text_color,
     };
@@ -611,7 +618,7 @@ pub(super) fn render_inner(
     let total_width = style.width.unwrap_or(content_width + style.padding_x * 2.0);
     let size = egui::vec2(total_width, style.height);
 
-    let sense = match style.state {
+    let sense = match options.state {
         ButtonState::None if tab_stop => egui::Sense::click(),
         ButtonState::None => egui::Sense::CLICK,
         // Loading stays focusable without clicking (like `aria-disabled`), so a
@@ -623,20 +630,20 @@ pub(super) fn render_inner(
     response.widget_info(|| {
         egui::WidgetInfo::labeled(
             egui::Role::Button,
-            style.state == ButtonState::None && ui.is_enabled(),
-            style.aria_label.as_deref().unwrap_or(text),
+            options.state == ButtonState::None && ui.is_enabled(),
+            options.aria_label.unwrap_or(text),
         )
     });
     // Buttons inside a menu popup take part in its arrow-key navigation.
     super::menu_nav::register(&response, false);
 
     // 绘制背景 (0.2s 渐变)
-    let is_hovered = response.hovered() && style.state == ButtonState::None;
+    let is_hovered = response.hovered() && options.state == ButtonState::None;
     let animation_factor = ui
         .ctx()
         .animate_bool_with_time(response.id, is_hovered, 0.2);
 
-    let fill_color = match style.state {
+    let fill_color = match options.state {
         ButtonState::Disable => style.palette.normal_bg.gamma_multiply(0.5),
         ButtonState::Loading => style.palette.normal_bg,
         ButtonState::None => {
@@ -652,7 +659,7 @@ pub(super) fn render_inner(
         }
     };
 
-    let stroke = match style.state {
+    let stroke = match options.state {
         ButtonState::Disable => Stroke::new(
             style.palette.stroke.width,
             style.palette.stroke.color.gamma_multiply(0.4),
@@ -736,7 +743,7 @@ pub(super) fn render_inner(
 
     focus::ring(ui, &response, rect, style.corner_radius, style.focus_ring);
 
-    match style.state {
+    match options.state {
         ButtonState::Disable => response.on_hover_cursor(egui::CursorIcon::NotAllowed),
         _ => response.on_hover_cursor(egui::CursorIcon::PointingHand),
     }

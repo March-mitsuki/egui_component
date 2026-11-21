@@ -7,7 +7,6 @@ use crate::theme::Theme;
 pub struct Style {
     align: egui::RectAlign,
     gap: f32,
-    close_behavior: egui::PopupCloseBehavior,
     frame: egui::Frame,
 }
 
@@ -16,7 +15,6 @@ impl Style {
         Self {
             align: egui::RectAlign::BOTTOM,
             gap: 4.0,
-            close_behavior: egui::PopupCloseBehavior::CloseOnClick,
             frame: egui::Frame::default()
                 .fill(theme.colors.bg.accent)
                 .stroke(egui::Stroke {
@@ -43,7 +41,22 @@ impl Style {
         self.gap = gap;
         self
     }
+}
 
+/// Behavior of [`render`], separate from visual styling.
+#[derive(Clone, Copy, Debug)]
+pub struct Options {
+    /// When the tooltip closes. Defaults to `CloseOnClick`.
+    pub close_behavior: egui::PopupCloseBehavior,
+}
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            close_behavior: egui::PopupCloseBehavior::CloseOnClick,
+        }
+    }
+}
+impl Options {
     pub fn close_behavior(mut self, close_behavior: egui::PopupCloseBehavior) -> Self {
         self.close_behavior = close_behavior;
         self
@@ -52,7 +65,7 @@ impl Style {
 
 /// Show `content` while `target` is hovered or has keyboard focus (WCAG 1.4.13).
 /// Escape dismisses it until the pointer leaves and focus moves away.
-pub fn render(target: &Response, content: impl FnOnce(&mut Ui), style: &Style) {
+pub fn render(target: &Response, content: impl FnOnce(&mut Ui), style: &Style, options: Options) {
     let ctx = &target.ctx;
     let dismissed_id = target.id.with("egui_component_tooltip_dismissed");
     let hovered = target.enabled() && Tooltip::should_show_tooltip(target, true);
@@ -75,7 +88,7 @@ pub fn render(target: &Response, content: impl FnOnce(&mut Ui), style: &Style) {
         .open(open)
         .frame(style.frame)
         .align(style.align)
-        .close_behavior(style.close_behavior)
+        .close_behavior(options.close_behavior)
         .gap(style.gap);
     let target_id = target.id;
     tooltip.show(|ui| {
@@ -116,8 +129,18 @@ mod tests {
                     ..Default::default()
                 },
                 |ui| {
-                    let r = button::render(ui, "Save", button::Style::new_solid_md(&theme));
-                    render(&r, |_| shown = true, &Style::new(&theme));
+                    let r = button::render(
+                        ui,
+                        "Save",
+                        button::Style::new_solid_md(&theme),
+                        Default::default(),
+                    );
+                    render(
+                        &r,
+                        |_| shown = true,
+                        &Style::new(&theme),
+                        Default::default(),
+                    );
                 },
             )
             .textures_delta

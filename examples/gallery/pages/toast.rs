@@ -11,11 +11,13 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         locale.text("component.toast:name"),
         text::Style::new_heading(theme),
+        Default::default(),
     );
     text::render(
         ui,
         locale.text("demo.toast:description"),
         text::Style::new(theme),
+        Default::default(),
     );
     ui.horizontal(|ui| {
         for (label, kind) in [
@@ -24,7 +26,14 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
             (locale.text("common:warning"), toast::ToastKind::Warning),
             (locale.text("common:error"), toast::ToastKind::Error),
         ] {
-            if button::render(ui, label, button::Style::new_solid_md(theme)).clicked() {
+            if button::render(
+                ui,
+                label,
+                button::Style::new_solid_md(theme),
+                Default::default(),
+            )
+            .clicked()
+            {
                 toast::create(
                     ui.ctx(),
                     locale.format("demo.toast:message", &[("label", label)]),
@@ -37,6 +46,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         locale.text("demo.toast:custom"),
         button::Style::new_solid_md(theme),
+        Default::default(),
     )
     .clicked()
     {

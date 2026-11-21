@@ -28,7 +28,6 @@ impl WindowState {
 pub struct Style {
     pub frame: egui::Frame,
     pub header_frame: egui::Frame,
-    pub init_pos: egui::Pos2,
     /// resize 允许的最小宽度
     /// 如果没有那么是自动计算的 header 的宽度
     pub min_width: Option<f32>,
@@ -41,8 +40,6 @@ pub struct Style {
     pub height: Option<f32>,
     /// Header bar height
     pub header_height: f32,
-    /// Whether the window is collapsible
-    pub collapsible: bool,
     /// Close button style
     pub close_button_style: icon_button::Style,
 }
@@ -61,20 +58,13 @@ impl Style {
         Self {
             frame: card_frame.frame,
             header_frame,
-            init_pos: egui::pos2(150.0, 150.0),
             min_width: None,
             min_height: None,
             width: None,
             height: None,
             header_height: 36.0,
-            collapsible: true,
             close_button_style: icon_button::Style::new_ghost_sm(theme).icon_size(20.0),
         }
-    }
-
-    pub fn init_pos(mut self, init_pos: egui::Pos2) -> Self {
-        self.init_pos = init_pos;
-        self
     }
 
     pub fn min_width(mut self, min_width: f32) -> Self {
@@ -107,20 +97,19 @@ impl Style {
         self
     }
 
-    pub fn collapsible(mut self, collapsible: bool) -> Self {
-        self.collapsible = collapsible;
-        self
-    }
-
     pub fn close_button_style(mut self, close_button_style: icon_button::Style) -> Self {
         self.close_button_style = close_button_style;
         self
     }
 }
 
-/// Optional behavior configuration, separate from visual styling.
+/// Behavior of [`render`], separate from visual styling.
 #[derive(Clone, Copy, Debug)]
 pub struct Options<'a> {
+    /// Where the window first appears. Defaults to (150, 150).
+    pub init_pos: egui::Pos2,
+    /// Whether the window can be collapsed. Defaults to `true`.
+    pub collapsible: bool,
     /// Screen-reader name of the close button, like `aria-label`. Defaults to "Close".
     pub close_aria_label: &'a str,
     /// Screen-reader name of the collapse toggle. Defaults to "Collapse".
@@ -129,9 +118,32 @@ pub struct Options<'a> {
 impl Default for Options<'_> {
     fn default() -> Self {
         Self {
+            init_pos: egui::pos2(150.0, 150.0),
+            collapsible: true,
             close_aria_label: "Close",
             collapse_aria_label: "Collapse",
         }
+    }
+}
+impl<'a> Options<'a> {
+    pub fn init_pos(mut self, init_pos: egui::Pos2) -> Self {
+        self.init_pos = init_pos;
+        self
+    }
+
+    pub fn collapsible(mut self, collapsible: bool) -> Self {
+        self.collapsible = collapsible;
+        self
+    }
+
+    pub fn close_aria_label(mut self, label: &'a str) -> Self {
+        self.close_aria_label = label;
+        self
+    }
+
+    pub fn collapse_aria_label(mut self, label: &'a str) -> Self {
+        self.collapse_aria_label = label;
+        self
     }
 }
 
@@ -148,7 +160,7 @@ pub fn render(
     let mut state = WindowState::load(ctx, id).unwrap_or_else(|| {
         let is_open_init = open.as_ref().map_or(true, |o| **o);
         WindowState {
-            pos: style.init_pos,
+            pos: options.init_pos,
             is_collapsed: false,
             is_open: is_open_init,
             min_size: egui::vec2(
@@ -236,7 +248,7 @@ pub fn render(
                 ui.set_height(style.header_height - outer_magin_y as f32);
 
                 // 1. Collapse Toggle Button
-                if style.collapsible {
+                if options.collapsible {
                     let (collapse_rect, collapse_response) =
                         ui.allocate_exact_size(egui::vec2(14.0, 14.0), egui::Sense::click());
 

@@ -53,11 +53,6 @@ impl Style {
             calendar,
         }
     }
-    pub fn disabled(mut self, disabled: bool) -> Self {
-        self.trigger.disabled = disabled;
-        self.calendar.disabled = disabled;
-        self
-    }
 }
 pub struct Options<'a> {
     pub calendar: calendar::Options<'a>,
@@ -65,6 +60,8 @@ pub struct Options<'a> {
     /// Called for nonempty selections, including an unfinished range.
     pub format_selection: Option<&'a dyn Fn(&Selection) -> String>,
     pub close_on_selection: bool,
+    /// Ignore input on the trigger and calendar, and draw them dimmed.
+    pub disabled: bool,
 }
 impl Default for Options<'_> {
     fn default() -> Self {
@@ -73,9 +70,37 @@ impl Default for Options<'_> {
             placeholder: "Select date",
             format_selection: None,
             close_on_selection: true,
+            disabled: false,
         }
     }
 }
+impl<'a> Options<'a> {
+    pub fn calendar(mut self, calendar: calendar::Options<'a>) -> Self {
+        self.calendar = calendar;
+        self
+    }
+
+    pub fn placeholder(mut self, placeholder: &'a str) -> Self {
+        self.placeholder = placeholder;
+        self
+    }
+
+    pub fn format_selection(mut self, format_selection: &'a dyn Fn(&Selection) -> String) -> Self {
+        self.format_selection = Some(format_selection);
+        self
+    }
+
+    pub fn close_on_selection(mut self, close_on_selection: bool) -> Self {
+        self.close_on_selection = close_on_selection;
+        self
+    }
+
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+}
+
 pub struct DatePickerResponse {
     pub response: Response,
     pub selection_finished: bool,
@@ -104,16 +129,20 @@ pub fn render(
     id: Id,
     selection: &mut Selection,
     state: &mut State,
-    mut style: Style,
+    style: Style,
     options: Options<'_>,
 ) -> DatePickerResponse {
     let before = *selection;
     let was_open = state.was_open;
-    let enabled = ui.is_enabled() && !style.trigger.disabled;
+    let enabled = ui.is_enabled() && !options.disabled;
     if !enabled {
         state.open = false;
     }
-    style.trigger.placeholder = options.placeholder.to_owned();
+    let trigger = select::Options {
+        placeholder: options.placeholder,
+        disabled: options.disabled,
+        ..Default::default()
+    };
     let label = if anchor(selection).is_some() {
         options
             .format_selection
@@ -124,7 +153,7 @@ pub fn render(
     let mut response = ui
         .push_id(id, |ui| {
             ui.add_enabled_ui(enabled, |ui| {
-                select::render_trigger(ui, &label, &style.trigger, state.open)
+                select::render_trigger(ui, &label, &style.trigger, &trigger, state.open)
             })
             .inner
         })
@@ -168,7 +197,10 @@ pub fn render(
                 selection,
                 &mut state.calendar,
                 style.calendar,
-                options.calendar,
+                calendar::Options {
+                    disabled: options.calendar.disabled || options.disabled,
+                    ..options.calendar
+                },
             );
             finished = result.selection_finished;
         });
@@ -233,8 +265,9 @@ mod tests {
                         Id::unique("picker"),
                         &mut self.selection,
                         &mut self.state,
-                        Style::new(&theme.light).disabled(self.disabled),
+                        Style::new(&theme.light),
                         Options {
+                            disabled: self.disabled,
                             close_on_selection: self.close,
                             calendar: calendar::Options {
                                 caption_layout: calendar::CaptionLayout::Dropdowns,

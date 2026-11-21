@@ -141,9 +141,10 @@ mod tests {
                     ..Default::default()
                 },
                 |ui| {
-                    let mut style = button::Style::new_outline_md(&theme).state(state.clone());
+                    let mut style = button::Style::new_outline_md(&theme);
                     style.focus_ring = ring;
-                    button_rect.set(button::render(ui, "Action", style).rect);
+                    let options = button::Options::default().state(state);
+                    button_rect.set(button::render(ui, "Action", style, options).rect);
                 },
             );
             output.textures_delta.clear();

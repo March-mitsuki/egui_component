@@ -86,19 +86,26 @@ impl FontDemo {
             ui,
             locale.text("demo.text:heading"),
             text::Style::new_heading(theme),
+            Default::default(),
         );
         text::render(
             ui,
             locale.text("demo.text:description"),
             text::Style::new(theme),
+            Default::default(),
         );
         ui.horizontal(|ui| {
             for (label, font_name) in [
                 ("demo.text:sans", "Ubuntu-Light"),
                 ("demo.text:monospace", "Hack"),
             ] {
-                if button::render(ui, locale.text(label), button::Style::new_outline_sm(theme))
-                    .clicked()
+                if button::render(
+                    ui,
+                    locale.text(label),
+                    button::Style::new_outline_sm(theme),
+                    Default::default(),
+                )
+                .clicked()
                 {
                     // These bytes could also come from an asynchronous download.
                     let fonts = egui::FontDefinitions::default();
@@ -124,6 +131,7 @@ impl FontDemo {
                 ui,
                 locale.text("demo.text:clear"),
                 button::Style::new_outline_sm(theme),
+                Default::default(),
             )
             .clicked()
             {
@@ -137,6 +145,7 @@ impl FontDemo {
                 ui,
                 locale.text("demo.text:invalid"),
                 button::Style::new_outline_sm(theme),
+                Default::default(),
             )
             .clicked()
             {
@@ -148,7 +157,12 @@ impl FontDemo {
             }
         });
         ui.add_space(8.0);
-        text::render(ui, locale.text("demo.text:url"), text::Style::new(theme));
+        text::render(
+            ui,
+            locale.text("demo.text:url"),
+            text::Style::new(theme),
+            Default::default(),
+        );
         let loading = self.download.is_some();
         let submit = ui
             .horizontal(|ui| {
@@ -161,7 +175,8 @@ impl FontDemo {
                     let clicked = button::render(
                         ui,
                         locale.text("demo.text:load"),
-                        button::Style::new_solid_sm(theme).state(state),
+                        button::Style::new_solid_sm(theme),
+                        button::Options::default().state(state),
                     )
                     .clicked();
                     let input = ui
@@ -170,8 +185,9 @@ impl FontDemo {
                                 ui,
                                 &mut self.font_url,
                                 text_edit::Style::new_outline_sm(theme)
-                                    .placeholder("https://example.com/font.woff2")
                                     .width(Some(ui.available_width())),
+                                text_edit::Options::default()
+                                    .placeholder("https://example.com/font.woff2"),
                             )
                         })
                         .inner;
@@ -185,7 +201,12 @@ impl FontDemo {
         if submit {
             self.start_download(ui.ctx());
         }
-        text::render(ui, locale.text("demo.text:help"), text::Style::new(theme));
+        text::render(
+            ui,
+            locale.text("demo.text:help"),
+            text::Style::new(theme),
+            Default::default(),
+        );
         if self.download.is_some() {
             ui.horizontal(|ui| {
                 ui.spinner();
@@ -193,11 +214,13 @@ impl FontDemo {
                     ui,
                     locale.text("demo.text:downloading"),
                     text::Style::new(theme),
+                    Default::default(),
                 );
                 if button::render(
                     ui,
                     locale.text("common:cancel"),
                     button::Style::new_outline_sm(theme),
+                    Default::default(),
                 )
                 .clicked()
                 {
@@ -208,7 +231,14 @@ impl FontDemo {
             });
         }
         ui.horizontal(|ui| {
-            if switch::render(ui, &mut self.cjk_fallback, switch::Style::new_sm(theme)).changed() {
+            if switch::render(
+                ui,
+                &mut self.cjk_fallback,
+                switch::Style::new_sm(theme),
+                Default::default(),
+            )
+            .changed()
+            {
                 FONT_MANAGER.set_fallback_chain(if self.cjk_fallback {
                     &["gallery-cjk"]
                 } else {
@@ -220,6 +250,7 @@ impl FontDemo {
                 ui,
                 locale.text("demo.text:fallbackToggle"),
                 text::Style::new(theme),
+                Default::default(),
             );
         });
         text::render(
@@ -229,24 +260,32 @@ impl FontDemo {
                 &[("primary", locale.text(self.primary))],
             ),
             text::Style::new(theme),
+            Default::default(),
         );
         text::render(
             ui,
             &self.status.render(locale),
             text::Style::new(theme).truncate(true),
+            Default::default(),
         );
         ui.add_space(16.0);
-        text::render(ui, "BLACK OPS ONE", text::Style::new(theme).size(32.0));
+        text::render(
+            ui,
+            "BLACK OPS ONE",
+            text::Style::new(theme).size(32.0),
+            Default::default(),
+        );
         ui.add_space(8.0);
         for (label, weight) in [
             (locale.text("demo.text:regular"), FontWeight::Regular),
             (locale.text("demo.text:bold"), FontWeight::Bold),
         ] {
-            text::render(ui, label, text::Style::new(theme));
+            text::render(ui, label, text::Style::new(theme), Default::default());
             text::render(
                 ui,
                 "Hello, dynamic fonts! 0123456789 — 中文字体回退",
                 text::Style::new(theme).size(24.0).font_weight(weight),
+                Default::default(),
             );
         }
         ui.add_space(16.0);
@@ -254,6 +293,7 @@ impl FontDemo {
             ui,
             locale.text("demo.text:decorations"),
             text::Style::new(theme),
+            Default::default(),
         );
         // Lines take an egui Stroke, as in TextFormat: width and color of their own.
         let primary = theme.colors.primary.l6;
@@ -262,6 +302,7 @@ impl FontDemo {
             ui,
             locale.text("demo.text:underline"),
             text::Style::new(theme).underline(egui::Stroke::new(1.0, primary)),
+            Default::default(),
         );
         text::render(
             ui,
@@ -269,6 +310,7 @@ impl FontDemo {
             text::Style::new(theme)
                 .color(muted)
                 .strikethrough(egui::Stroke::new(1.0, muted)),
+            Default::default(),
         );
         text::render(
             ui,
@@ -276,19 +318,22 @@ impl FontDemo {
             text::Style::new(theme)
                 .underline(egui::Stroke::new(2.0, primary))
                 .strikethrough(egui::Stroke::new(1.0, theme.colors.red.l6)),
+            Default::default(),
         );
         ui.add_space(16.0);
         text::render(
             ui,
             locale.text("demo.text:clickable"),
             text::Style::new(theme),
+            Default::default(),
         );
         // Sense, as in egui's Label: not selectable, so a double click does not select a word.
         let count = self.double_clicks.to_string();
         let response = text::render(
             ui,
             &locale.format("demo.text:doubleClick", &[("count", &count)]),
-            text::Style::new(theme)
+            text::Style::new(theme),
+            text::Options::default()
                 .selectable(false)
                 .sense(egui::Sense::click()),
         );
@@ -300,6 +345,7 @@ impl FontDemo {
             ui,
             locale.text("demo.text:fallbackHelp"),
             text::Style::new(theme),
+            Default::default(),
         );
     }
 }

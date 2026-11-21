@@ -15,10 +15,12 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                     ui,
                     &locale.format("demo.scrollArea:item", &[("index", &format!("{index:02}"))]),
                     text::Style::new(theme),
+                    Default::default(),
                 );
                 ui.add_space(8.0);
             }
         },
         scroll_area::Style::new(theme).max_height(200.0),
+        Default::default(),
     );
 }

@@ -11,8 +11,6 @@ pub struct Style {
     /// Minimum viewport height, including inside another scroll area.
     pub min_height: Option<f32>,
     pub auto_shrink: [bool; 2],
-    /// Apply an explicit offset for this frame, e.g. when switching pages.
-    pub scroll_offset: Option<egui::Vec2>,
 }
 impl Style {
     pub fn new(theme: &Theme) -> Self {
@@ -24,7 +22,6 @@ impl Style {
             max_height: None,
             min_height: None,
             auto_shrink: [true, true],
-            scroll_offset: None,
         }
     }
 
@@ -35,7 +32,6 @@ impl Style {
             max_height: None,
             min_height: None,
             auto_shrink: [true, true],
-            scroll_offset: None,
         }
     }
 
@@ -51,11 +47,6 @@ impl Style {
 
     pub fn auto_shrink(mut self, axes: [bool; 2]) -> Self {
         self.auto_shrink = axes;
-        self
-    }
-
-    pub fn scroll_offset(mut self, offset: egui::Vec2) -> Self {
-        self.scroll_offset = Some(offset);
         self
     }
 
@@ -78,12 +69,26 @@ pub enum ScrollAxes {
     Both,
 }
 
+/// Behavior of [`render`] and [`render_global`], separate from visual styling.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Options {
+    /// Apply an explicit offset for this frame, e.g. when switching pages.
+    pub scroll_offset: Option<egui::Vec2>,
+}
+impl Options {
+    pub fn scroll_offset(mut self, offset: egui::Vec2) -> Self {
+        self.scroll_offset = Some(offset);
+        self
+    }
+}
+
 pub fn render_global(
     ui: &mut Ui,
     id_salt: impl egui::AsIdSalt,
     scroll_axes: ScrollAxes,
     renderer: impl FnOnce(&mut Ui),
     style: Style,
+    options: Options,
 ) {
     style.outer_frame.show(ui, |ui| {
         let scroll_axes = match scroll_axes {
@@ -102,7 +107,7 @@ pub fn render_global(
                     .min(style.max_height.unwrap_or(f32::INFINITY)),
             )
             .auto_shrink(style.auto_shrink);
-        if let Some(offset) = style.scroll_offset {
+        if let Some(offset) = options.scroll_offset {
             scroll = scroll.scroll_offset(offset);
         }
         scroll.show(ui, |ui| {
@@ -126,6 +131,7 @@ pub fn render(
     scroll_axes: ScrollAxes,
     renderer: impl FnOnce(&mut Ui),
     style: Style,
+    options: Options,
 ) {
     style.outer_frame.show(ui, |ui| {
         // `Frame::show` gives us a child `Ui`, so this style change stays
@@ -147,7 +153,7 @@ pub fn render(
                     .min(style.max_height.unwrap_or(f32::INFINITY)),
             )
             .auto_shrink(style.auto_shrink);
-        if let Some(offset) = style.scroll_offset {
+        if let Some(offset) = options.scroll_offset {
             scroll = scroll.scroll_offset(offset);
         }
         scroll.show(ui, |ui| {
@@ -208,6 +214,7 @@ mod tests {
                         Style::new_no_frame()
                             .auto_shrink([false, false])
                             .padding(egui::Margin::same(24)),
+                        Default::default(),
                     );
                 });
                 assert!((response.response.rect.right() - available.right()).abs() < 1.0);
@@ -237,6 +244,7 @@ mod tests {
                             .min_height(180.0)
                             .max_height(180.0)
                             .auto_shrink([false, false]),
+                        Default::default(),
                     );
                 });
                 assert!((response.response.rect.height() - 180.0).abs() < 1.0);

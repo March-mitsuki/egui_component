@@ -1061,11 +1061,12 @@ fn render<S: 'static>(
                     if rt.boolean(access, strikethrough) {
                         style = style.strikethrough(line);
                     }
+                    let mut options = text::Options::default();
                     if click.is_some() || double_click.is_some() {
                         // A double click would otherwise also select a word.
-                        style = style.selectable(false).sense(egui::Sense::click());
+                        options = options.selectable(false).sense(egui::Sense::click());
                     }
-                    let response = text::render(ui, &rt.text(access, parts), style);
+                    let response = text::render(ui, &rt.text(access, parts), style, options);
                     if rt.first {
                         // egui reports the second release of a double click as a click too,
                         // as browsers do; the click handler runs first.
@@ -1090,7 +1091,7 @@ fn render<S: 'static>(
                     aria_label,
                     click,
                 } => {
-                    let mut style = button::Style::new(
+                    let style = button::Style::new(
                         theme,
                         color.as_ref().map(|c| *(rt.value(access, c).0)(theme)),
                         rt.value(access, size),
@@ -1098,16 +1099,17 @@ fn render<S: 'static>(
                         button::ButtonIcon::None,
                         button::ButtonIcon::None,
                     )
-                    .width(*width)
-                    .state(if rt.boolean(access, disabled) {
-                        button::ButtonState::Disable
-                    } else {
-                        button::ButtonState::None
-                    });
-                    if let Some(label) = aria_label {
-                        style = style.aria_label(rt.text(access, label));
-                    }
-                    let response = button::render(ui, &rt.text(access, text), style);
+                    .width(*width);
+                    let aria_label = aria_label.as_ref().map(|label| rt.text(access, label));
+                    let options = button::Options {
+                        state: if rt.boolean(access, disabled) {
+                            button::ButtonState::Disable
+                        } else {
+                            button::ButtonState::None
+                        },
+                        aria_label: aria_label.as_deref(),
+                    };
+                    let response = button::render(ui, &rt.text(access, text), style, options);
                     if rt.first
                         && response.clicked()
                         && let Some(click) = click
@@ -1147,11 +1149,13 @@ fn render<S: 'static>(
                         rt.value(access, size),
                         rt.value(access, variant),
                     )
-                    .width(*width)
-                    .placeholder(rt.text(access, placeholder))
-                    .disabled(disabled)
-                    .read_only(!rt.first);
-                    let response = text_edit::render(ui, &mut value, style);
+                    .width(*width);
+                    let placeholder = rt.text(access, placeholder);
+                    let options = text_edit::Options::default()
+                        .placeholder(&placeholder)
+                        .disabled(disabled)
+                        .read_only(!rt.first);
+                    let response = text_edit::render(ui, &mut value, style, options);
                     if response.changed() {
                         rt.write(access, *model, Value::String(value));
                     }
@@ -1209,19 +1213,17 @@ fn render<S: 'static>(
                     let Value::Bool(mut value) = rt.get(access, *model) else {
                         unreachable!()
                     };
-                    let mut style = match rt.value(access, size) {
+                    let style = match rt.value(access, size) {
                         "sm" => switch::Style::new_sm(theme),
                         "lg" => switch::Style::new_lg(theme),
                         _ => switch::Style::new_md(theme),
                     };
-                    if let Some(label) = aria_label {
-                        style = style.aria_label(rt.text(access, label));
-                    }
-                    let response = switch::render(
-                        ui,
-                        &mut value,
-                        style.disabled(rt.boolean(access, disabled)),
-                    );
+                    let aria_label = aria_label.as_ref().map(|label| rt.text(access, label));
+                    let options = switch::Options {
+                        disabled: rt.boolean(access, disabled),
+                        aria_label: aria_label.as_deref(),
+                    };
+                    let response = switch::render(ui, &mut value, style, options);
                     if response.changed() {
                         rt.write(access, *model, Value::Bool(value));
                     }
@@ -1237,20 +1239,22 @@ fn render<S: 'static>(
                     let Value::Bool(mut value) = rt.get(access, *model) else {
                         unreachable!()
                     };
-                    let mut style = match rt.value(access, size) {
+                    let style = match rt.value(access, size) {
                         "sm" => checkbox::Style::new_sm(theme),
                         "lg" => checkbox::Style::new_lg(theme),
                         _ => checkbox::Style::new_md(theme),
-                    }
-                    .disabled(rt.boolean(access, disabled));
-                    if let Some(label) = aria_label {
-                        style = style.aria_label(rt.text(access, label));
-                    }
+                    };
+                    let aria_label = aria_label.as_ref().map(|label| rt.text(access, label));
+                    let options = checkbox::Options {
+                        disabled: rt.boolean(access, disabled),
+                        aria_label: aria_label.as_deref(),
+                        ..Default::default()
+                    };
                     let label = rt.text(access, label);
                     let response = if label.is_empty() {
-                        checkbox::render(ui, &mut value, style)
+                        checkbox::render(ui, &mut value, style, options)
                     } else {
-                        checkbox::render_with_label(ui, &mut value, &label, style)
+                        checkbox::render_with_label(ui, &mut value, &label, style, options)
                     };
                     if response.changed() {
                         rt.write(access, *model, Value::Bool(value));

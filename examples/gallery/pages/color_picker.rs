@@ -5,7 +5,12 @@ use egui_component::{
     theme::Theme,
 };
 pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
-    text::render(ui, locale.text("colorPicker:help"), text::Style::new(theme));
+    text::render(
+        ui,
+        locale.text("colorPicker:help"),
+        text::Style::new(theme),
+        Default::default(),
+    );
     let id = ui.make_persistent_id("color-picker-demo");
     let mut color = ui.data_mut(|data| {
         data.get_temp::<egui::Color32>(id)
@@ -18,7 +23,12 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         color_picker::Style::new(theme),
         Default::default(),
     );
-    text::render(ui, &color.to_hex(), text::Style::new(theme));
+    text::render(
+        ui,
+        &color.to_hex(),
+        text::Style::new(theme),
+        Default::default(),
+    );
     ui.data_mut(|data| data.insert_temp(id, color));
     let id = ui.make_persistent_id("color-picker-alpha");
     let mut alpha = ui.data_mut(|data| {
@@ -44,8 +54,9 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         id,
         &mut alpha,
-        color_picker::Style::new(theme).alpha(true),
+        color_picker::Style::new(theme),
         color_picker::Options {
+            alpha: true,
             error_message: Some(&error_message),
             aria_labels: color_picker::AriaLabels {
                 plane: locale.text("colorPicker:ariaPlane"),
@@ -54,6 +65,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
                 hue: locale.text("colorPicker:ariaHue"),
                 alpha: locale.text("colorPicker:ariaAlpha"),
             },
+            ..Default::default()
         },
     );
     ui.data_mut(|data| data.insert_temp(id, alpha));
@@ -61,7 +73,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         ui.make_persistent_id("color-disabled"),
         &mut color,
-        color_picker::Style::new(theme).disabled(true),
-        Default::default(),
+        color_picker::Style::new(theme),
+        color_picker::Options::default().disabled(true),
     );
 }

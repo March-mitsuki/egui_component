@@ -13,8 +13,6 @@ pub struct Style {
     pub height: f32,
     pub border_stroke: Stroke,
     pub corner_radius: CornerRadius,
-    pub alpha: bool,
-    pub disabled: bool,
     pub theme: Theme,
 }
 impl Style {
@@ -24,8 +22,6 @@ impl Style {
             height: theme.button.md.size,
             border_stroke: Stroke::new(1.0_f32, theme.colors.gray.l3),
             corner_radius: theme.corner_radius.sm.into(),
-            alpha: false,
-            disabled: false,
             theme: theme.clone(),
         }
     }
@@ -48,14 +44,6 @@ impl Style {
     }
     pub fn corner_radius(mut self, corner_radius: CornerRadius) -> Self {
         self.corner_radius = corner_radius;
-        self
-    }
-    pub fn alpha(mut self, alpha: bool) -> Self {
-        self.alpha = alpha;
-        self
-    }
-    pub fn disabled(mut self, disabled: bool) -> Self {
-        self.disabled = disabled;
         self
     }
 }
@@ -118,12 +106,36 @@ pub fn rgba_to_hex([r, g, b, a]: [u8; 4]) -> String {
     format!("#{r:02x}{g:02x}{b:02x}{a:02x}")
 }
 
-/// Optional behavior configuration, separate from visual styling.
+/// Behavior of [`render`], separate from visual styling.
 #[derive(Default)]
 pub struct Options<'a> {
+    /// Edit and show the alpha channel. Defaults to `false`.
+    pub alpha: bool,
+    pub disabled: bool,
     /// Called when a committed input is invalid. Without this, only an error outline is shown.
     pub error_message: Option<&'a dyn Fn(&ColorInputError) -> String>,
     pub aria_labels: AriaLabels<'a>,
+}
+impl<'a> Options<'a> {
+    pub fn alpha(mut self, alpha: bool) -> Self {
+        self.alpha = alpha;
+        self
+    }
+
+    pub fn disabled(mut self, disabled: bool) -> Self {
+        self.disabled = disabled;
+        self
+    }
+
+    pub fn error_message(mut self, error_message: &'a dyn Fn(&ColorInputError) -> String) -> Self {
+        self.error_message = Some(error_message);
+        self
+    }
+
+    pub fn aria_labels(mut self, aria_labels: AriaLabels<'a>) -> Self {
+        self.aria_labels = aria_labels;
+        self
+    }
 }
 
 /// Screen-reader names of the popup's sliders, like `aria-label`; never shown.
@@ -449,7 +461,14 @@ fn picker_ui(ui: &mut Ui, state: &mut Editor, theme: &Theme, options: &Options<'
         } else {
             "RGB"
         };
-        if button::render(ui, label, button::Style::new_ghost_sm(theme)).clicked() {
+        if button::render(
+            ui,
+            label,
+            button::Style::new_ghost_sm(theme),
+            Default::default(),
+        )
+        .clicked()
+        {
             state.hex_mode = !state.hex_mode;
             state.refresh();
         }
@@ -473,6 +492,7 @@ fn picker_ui(ui: &mut Ui, state: &mut Editor, theme: &Theme, options: &Options<'
                             text_edit::Style::new_outline_sm(theme)
                                 .padding_x(5.0)
                                 .width(Some(width)),
+                            Default::default(),
                         );
                         let response = response.on_hover_text(if state.hex_mode {
                             "HEX"
@@ -513,6 +533,7 @@ fn picker_ui(ui: &mut Ui, state: &mut Editor, theme: &Theme, options: &Options<'
                     text::Style::new(theme)
                         .color(theme.colors.red.normal())
                         .size(11.0),
+                    Default::default(),
                 );
             }
         });
@@ -563,7 +584,7 @@ pub fn render(
     let before = *color;
     let theme = &style.theme;
     let mut response = ui
-        .add_enabled_ui(!style.disabled, |ui| {
+        .add_enabled_ui(!options.disabled, |ui| {
             let (rect, response) =
                 ui.allocate_exact_size(egui::vec2(style.width, style.height), Sense::click());
             let short_side = rect.width().min(rect.height());
@@ -592,8 +613,8 @@ pub fn render(
                     let key = id.with("editor");
                     let mut state = ui
                         .data_mut(|data| data.get_temp::<Editor>(key))
-                        .filter(|state| state.source == *color && state.alpha == style.alpha)
-                        .unwrap_or_else(|| Editor::new(*color, style.alpha));
+                        .filter(|state| state.source == *color && state.alpha == options.alpha)
+                        .unwrap_or_else(|| Editor::new(*color, options.alpha));
                     if picker_ui(ui, &mut state, theme, &options) {
                         let [r, g, b, a] = state.rgba;
                         *color = Color32::from_rgba_unmultiplied(r, g, b, a);
@@ -828,8 +849,8 @@ mod tests {
                         ui,
                         Id::unique("color"),
                         &mut color,
-                        Style::new(&theme.dark).alpha(true),
-                        Options::default(),
+                        Style::new(&theme.dark),
+                        Options::default().alpha(true),
                     )
                     .rect;
                 },

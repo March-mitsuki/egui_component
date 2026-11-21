@@ -15,10 +15,6 @@ pub struct Style {
     pub on_bg_color: Color32,
     pub off_bg_color: Color32,
     pub knob_color: Color32,
-    pub disabled: bool,
-    /// Screen-reader name, like `aria-label`; never drawn. `None` (default) leaves the
-    /// switch unnamed, or named by its [`field`](super::field) label.
-    pub aria_label: Option<String>,
 }
 
 impl Style {
@@ -29,9 +25,7 @@ impl Style {
             on_bg_color: theme.colors.primary.l6,
             off_bg_color: theme.colors.gray.l3,
             knob_color: theme.colors.primary.foreground,
-            disabled: false,
             focus_ring: theme.focus_ring,
-            aria_label: None,
         }
     }
 
@@ -42,9 +36,7 @@ impl Style {
             on_bg_color: theme.colors.primary.l6,
             off_bg_color: theme.colors.gray.l3,
             knob_color: theme.colors.primary.foreground,
-            disabled: false,
             focus_ring: theme.focus_ring,
-            aria_label: None,
         }
     }
 
@@ -59,9 +51,7 @@ impl Style {
             on_bg_color: theme.colors.primary.l6,
             off_bg_color: theme.colors.gray.l3,
             knob_color: theme.colors.primary.foreground,
-            disabled: false,
             focus_ring: theme.focus_ring,
-            aria_label: None,
         }
     }
 
@@ -72,9 +62,7 @@ impl Style {
             on_bg_color: color.l6,
             off_bg_color: theme.colors.gray.l3,
             knob_color: color.foreground,
-            disabled: false,
             focus_ring: theme.focus_ring,
-            aria_label: None,
         }
     }
 
@@ -85,9 +73,7 @@ impl Style {
             on_bg_color: color.l6,
             off_bg_color: theme.colors.gray.l3,
             knob_color: color.foreground,
-            disabled: false,
             focus_ring: theme.focus_ring,
-            aria_label: None,
         }
     }
 
@@ -98,9 +84,7 @@ impl Style {
             on_bg_color: color.l6,
             off_bg_color: theme.colors.gray.l3,
             knob_color: color.foreground,
-            disabled: false,
             focus_ring: theme.focus_ring,
-            aria_label: None,
         }
     }
 
@@ -118,7 +102,17 @@ impl Style {
         self.knob_color = color;
         self
     }
+}
 
+/// Behavior of [`render`], separate from visual styling.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Options<'a> {
+    pub disabled: bool,
+    /// Screen-reader name, like `aria-label`; never drawn. `None` (default) leaves the
+    /// switch unnamed, or named by its [`field`](super::field) label.
+    pub aria_label: Option<&'a str>,
+}
+impl<'a> Options<'a> {
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
@@ -126,31 +120,31 @@ impl Style {
 
     /// Name the switch for screen readers, e.g. "Dark mode". A switch draws no text,
     /// so give it a name unless a [`field`](super::field) label names it.
-    pub fn aria_label(mut self, label: impl Into<String>) -> Self {
-        self.aria_label = Some(label.into());
+    pub fn aria_label(mut self, label: &'a str) -> Self {
+        self.aria_label = Some(label);
         self
     }
 }
 
-pub fn render(ui: &mut Ui, on: &mut bool, style: Style) -> Response {
+pub fn render(ui: &mut Ui, on: &mut bool, style: Style, options: Options<'_>) -> Response {
     let size = egui::vec2(style.width, style.height);
-    let sense = if style.disabled {
+    let sense = if options.disabled {
         Sense::hover()
     } else {
         Sense::click()
     };
     let (rect, mut response) = ui.allocate_exact_size(size, sense);
 
-    if super::activation::toggle_requested(ui, &response) && !style.disabled {
+    if super::activation::toggle_requested(ui, &response) && !options.disabled {
         *on = !*on;
         response.mark_changed();
     }
     response.widget_info(|| {
         egui::WidgetInfo::selected(
             egui::Role::Switch,
-            !style.disabled && ui.is_enabled(),
+            !options.disabled && ui.is_enabled(),
             *on,
-            style.aria_label.as_deref().unwrap_or_default(),
+            options.aria_label.unwrap_or_default(),
         )
     });
 
@@ -161,7 +155,7 @@ pub fn render(ui: &mut Ui, on: &mut bool, style: Style) -> Response {
     let inactive_bg = style.off_bg_color;
 
     // Background color (disabled has opacity adjustment)
-    let fill_color = if style.disabled {
+    let fill_color = if options.disabled {
         let base = if *on { active_bg } else { inactive_bg };
         base.gamma_multiply(0.4)
     } else {
@@ -189,14 +183,14 @@ pub fn render(ui: &mut Ui, on: &mut bool, style: Style) -> Response {
     let knob_center_x = x_start + (x_end - x_start) * animation_factor;
     let knob_center = egui::pos2(knob_center_x, rect.center().y);
 
-    let knob_color = if style.disabled {
+    let knob_color = if options.disabled {
         style.knob_color.gamma_multiply(0.6)
     } else {
         style.knob_color
     };
 
     // Knob shadow
-    if !style.disabled {
+    if !options.disabled {
         let shadow_center = knob_center + egui::vec2(0.0, 1.0);
         ui.painter()
             .circle_filled(shadow_center, r, Color32::from_black_alpha(35));
@@ -205,7 +199,7 @@ pub fn render(ui: &mut Ui, on: &mut bool, style: Style) -> Response {
     ui.painter().circle_filled(knob_center, r, knob_color);
 
     focus::ring(ui, &response, rect, corner_radius, style.focus_ring);
-    if style.disabled {
+    if options.disabled {
         response.on_hover_cursor(egui::CursorIcon::NotAllowed)
     } else {
         response.on_hover_cursor(egui::CursorIcon::PointingHand)
@@ -235,7 +229,7 @@ mod tests {
                 events,
                 ..Default::default()
             },
-            |ui| out = Some(render(ui, on, style.clone())),
+            |ui| out = Some(render(ui, on, style.clone(), Options::default())),
         )
         .textures_delta
         .clear();

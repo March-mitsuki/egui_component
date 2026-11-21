@@ -20,8 +20,6 @@ pub struct Style {
     pub backdrop_color: egui::Color32,
     /// Duration in seconds. Zero disables animation.
     pub animation_duration: f32,
-    pub close_on_escape: bool,
-    pub close_on_backdrop: bool,
 }
 impl Style {
     pub fn new(theme: &Theme) -> Self {
@@ -33,8 +31,6 @@ impl Style {
             width: 320.0,
             backdrop_color: egui::Color32::from_black_alpha(100),
             animation_duration: 0.2,
-            close_on_escape: true,
-            close_on_backdrop: true,
         }
     }
     pub fn side(mut self, value: Side) -> Self {
@@ -51,14 +47,6 @@ impl Style {
     }
     pub fn animation_duration(mut self, value: f32) -> Self {
         self.animation_duration = value;
-        self
-    }
-    pub fn close_on_escape(mut self, value: bool) -> Self {
-        self.close_on_escape = value;
-        self
-    }
-    pub fn close_on_backdrop(mut self, value: bool) -> Self {
-        self.close_on_backdrop = value;
         self
     }
 }
@@ -128,7 +116,12 @@ impl Default for HeaderOptions<'_> {
 pub fn render_header(ui: &mut Ui, theme: &Theme, title: &str, options: HeaderOptions<'_>) -> bool {
     let mut clicked = false;
     ui.horizontal(|ui| {
-        let title = super::text::render(ui, title, super::text::Style::new_heading(theme));
+        let title = super::text::render(
+            ui,
+            title,
+            super::text::Style::new_heading(theme),
+            Default::default(),
+        );
         super::modal_focus::label_dialog(ui.ctx(), title.id);
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             clicked = super::icon_button::render(
@@ -149,6 +142,34 @@ pub fn render_header(ui: &mut Ui, theme: &Theme, title: &str, options: HeaderOpt
     clicked
 }
 
+/// Behavior of [`render`], separate from visual styling.
+#[derive(Clone, Copy, Debug)]
+pub struct Options {
+    /// Request closing on Escape. Defaults to `true`.
+    pub close_on_escape: bool,
+    /// Request closing on a backdrop click. Defaults to `true`.
+    pub close_on_backdrop: bool,
+}
+impl Default for Options {
+    fn default() -> Self {
+        Self {
+            close_on_escape: true,
+            close_on_backdrop: true,
+        }
+    }
+}
+impl Options {
+    pub fn close_on_escape(mut self, value: bool) -> Self {
+        self.close_on_escape = value;
+        self
+    }
+
+    pub fn close_on_backdrop(mut self, value: bool) -> Self {
+        self.close_on_backdrop = value;
+        self
+    }
+}
+
 /// `id` must be stable and unique. Continue calling when `open` becomes false.
 /// Close requests never change `open`; the caller can accept or veto them.
 pub fn render<'a, R>(
@@ -157,6 +178,7 @@ pub fn render<'a, R>(
     open: bool,
     renderer: impl FnOnce(&mut Drawer<'a>) -> R,
     style: Style,
+    options: Options,
 ) -> DrawerResponse<R> {
     let id = Id::unique(id);
     let animation_id = id.with("animation");
@@ -281,9 +303,9 @@ pub fn render<'a, R>(
         Some(CloseReason::CloseButton)
     } else if modal.response.should_close() {
         Some(CloseReason::Content)
-    } else if style.close_on_backdrop && modal.backdrop_response.clicked() {
+    } else if options.close_on_backdrop && modal.backdrop_response.clicked() {
         Some(CloseReason::Backdrop)
-    } else if style.close_on_escape
+    } else if options.close_on_escape
         && !modal.any_popup_open
         && ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
     {
@@ -354,6 +376,7 @@ mod tests {
                                             ui,
                                             "Save",
                                             super::super::button::Style::new_solid_md(&theme),
+                                            Default::default(),
                                         )
                                         .rect,
                                     );
@@ -363,6 +386,7 @@ mod tests {
                         });
                     },
                     Style::new(&theme).animation_duration(0.0),
+                    Default::default(),
                 );
             });
         }
@@ -394,12 +418,20 @@ mod tests {
                         });
                     },
                     Style::new(&theme),
+                    Default::default(),
                 );
             });
         }
         let open_x = x.get();
         frame(&ctx, 20.0 / 60.0, |ctx| {
-            let r = render(ctx, "animation", false, |_| (), Style::new(&theme));
+            let r = render(
+                ctx,
+                "animation",
+                false,
+                |_| (),
+                Style::new(&theme),
+                Default::default(),
+            );
             visible.set(r.response.is_some());
         });
         assert!(visible.get(), "exit should still be drawn");
@@ -414,12 +446,20 @@ mod tests {
                     });
                 },
                 Style::new(&theme),
+                Default::default(),
             );
         });
         assert!((x.get() - open_x).abs() < 2.0);
         for n in 22..50 {
             frame(&ctx, n as f64 / 60.0, |ctx| {
-                let r = render(ctx, "animation", false, |_| (), Style::new(&theme));
+                let r = render(
+                    ctx,
+                    "animation",
+                    false,
+                    |_| (),
+                    Style::new(&theme),
+                    Default::default(),
+                );
                 visible.set(r.response.is_some());
             });
         }
@@ -446,6 +486,7 @@ mod tests {
                         });
                     },
                     Style::new(&theme).animation_duration(0.0),
+                    Default::default(),
                 );
                 reason.set(r.close_reason());
                 assert!(r.response.is_some());
@@ -498,8 +539,8 @@ mod tests {
                             "input",
                             true,
                             |_| (),
-                            Style::new(&theme)
-                                .animation_duration(0.0)
+                            Style::new(&theme).animation_duration(0.0),
+                            Options::default()
                                 .close_on_escape(enabled)
                                 .close_on_backdrop(enabled),
                         );
@@ -529,8 +570,12 @@ mod tests {
             frame(&ctx, n as f64 / 60.0, |ctx| {
                 let opener = egui::Area::new(Id::unique("drawer_test_background"))
                     .show(ctx, |ui| {
-                        let opener =
-                            button::render(ui, "Open", button::Style::new_solid_md(&theme));
+                        let opener = button::render(
+                            ui,
+                            "Open",
+                            button::Style::new_solid_md(&theme),
+                            Default::default(),
+                        );
                         if focus_opener {
                             opener.request_focus();
                         }
@@ -545,12 +590,18 @@ mod tests {
                     |drawer| {
                         drawer.body(|ui| {
                             inside.set(
-                                button::render(ui, "Inside", button::Style::new_solid_md(&theme))
-                                    .id,
+                                button::render(
+                                    ui,
+                                    "Inside",
+                                    button::Style::new_solid_md(&theme),
+                                    Default::default(),
+                                )
+                                .id,
                             );
                         });
                     },
                     Style::new(&theme).animation_duration(0.0),
+                    Default::default(),
                 );
                 ids.set((opener, inside.get()));
             });

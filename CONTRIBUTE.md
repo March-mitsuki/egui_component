@@ -129,6 +129,32 @@ uv run python -m unittest discover -s tests -p 'test_*.py'
 Commit generated Lucide assets and their Rust index together when updating icons;
 see [Lucide icon maintenance](#lucide-icon-maintenance) below.
 
+## Component API conventions
+
+Each component module exposes `render(ui, ..., style: Style, options: Options)`.
+A component with nothing but appearance to configure, such as `card` or
+`progress`, takes no `Options` until it gains a behavior setting:
+
+- `Style` holds appearance only: colors, sizes, spacing, fonts, frames,
+  alignment, animation timing, and how content is laid out (such as `truncate`
+  or `max_rows`). Theme-based constructors (`new_*`) and builders set it.
+- `Options` holds everything else: interaction (`disabled`, `read_only`,
+  `sense`, `selectable`, `step`, close behavior), state (`indeterminate`,
+  `is_invalid`, a loading button, the initial open state, position or scroll
+  offset), content text (`placeholder`, `title`, `description`), and semantics
+  and accessible names (`aria_label`, `current_kind`).
+- `Options` implements `Default` with the previous behavior and has builders, so
+  most calls pass `Default::default()`. Strings are borrowed `&'a str`; derive
+  `Clone, Copy, Debug` when the fields allow it.
+- The main `render` takes `Options`; another public function takes its own
+  `<Function>Options`, such as `HeaderOptions` for `render_header`. `Options`
+  comes after `style`, and before a trailing content closure.
+- A name that a control cannot do without, because it has no visible text, is a
+  positional parameter instead, as in `icon_button::render(ui, icon, aria_label,
+  style)`.
+- Use egui's names where egui has one (`sense`, `selectable`). In ECML, styling
+  attributes map to `Style` and the rest to `Options`.
+
 ## Upgrading egui and eframe
 
 Update all nine dependency declarations below together when changing the supported

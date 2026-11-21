@@ -27,10 +27,6 @@ pub struct Style {
     /// Space between the box and its label.
     pub gap: f32,
     pub focus_ring: crate::theme::FocusRing,
-    pub disabled: bool,
-    pub indeterminate: bool,
-    /// Screen-reader name, like `aria-label`; never drawn. `None` (default) uses the label.
-    pub aria_label: Option<String>,
 }
 
 impl Style {
@@ -41,12 +37,9 @@ impl Style {
             checked_bg_color: color.l6,
             border_color: theme.colors.fg.base.gamma_multiply(0.35),
             check_color: color.foreground,
-            label_style: text::Style::new(theme).size(text_size).selectable(false),
+            label_style: text::Style::new(theme).size(text_size),
             gap: 8.0,
             focus_ring: theme.focus_ring,
-            disabled: false,
-            indeterminate: false,
-            aria_label: None,
         }
     }
 
@@ -102,42 +95,66 @@ impl Style {
         self.gap = gap;
         self
     }
+}
 
+/// Behavior of [`render`] and [`render_with_label`], separate from visual styling.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Options<'a> {
+    pub disabled: bool,
+    /// Show a dash instead of a check mark, e.g. for a partially selected
+    /// "select all". Like HTML, it does not change the value; clicking still sets
+    /// `checked` to `true`.
+    pub indeterminate: bool,
+    /// Screen-reader name, like `aria-label`; never drawn. `None` (default) uses the label.
+    pub aria_label: Option<&'a str>,
+}
+impl<'a> Options<'a> {
     pub fn disabled(mut self, disabled: bool) -> Self {
         self.disabled = disabled;
         self
     }
 
-    /// Show a dash instead of a check mark, e.g. for a partially selected
-    /// "select all". Visual only; clicking still sets `checked` to `true`.
     pub fn indeterminate(mut self, indeterminate: bool) -> Self {
         self.indeterminate = indeterminate;
         self
     }
 
-    /// Name the checkbox for screen readers when it has no label, or the label alone is unclear, e.g. "Buy milk" for
-    /// the done box of a todo. Like `aria-label`, it replaces the label.
-    pub fn aria_label(mut self, label: impl Into<String>) -> Self {
-        self.aria_label = Some(label.into());
+    /// Name the checkbox for screen readers when it has no label, or the label alone is
+    /// unclear, e.g. "Buy milk" for the done box of a todo. Like `aria-label`, it replaces
+    /// the label.
+    pub fn aria_label(mut self, label: &'a str) -> Self {
+        self.aria_label = Some(label);
         self
     }
 }
 
 /// Render only the box. Inside [`field`](super::field), clicking the field
 /// label toggles it.
-pub fn render(ui: &mut Ui, checked: &mut bool, style: Style) -> Response {
-    show(ui, checked, None, style)
+pub fn render(ui: &mut Ui, checked: &mut bool, style: Style, options: Options<'_>) -> Response {
+    show(ui, checked, None, style, options)
 }
 
 /// Render the box followed by `label`. Box and label are one control: clicking
 /// either toggles it, and it is a single Tab stop.
-pub fn render_with_label(ui: &mut Ui, checked: &mut bool, label: &str, style: Style) -> Response {
-    show(ui, checked, Some(label), style)
+pub fn render_with_label(
+    ui: &mut Ui,
+    checked: &mut bool,
+    label: &str,
+    style: Style,
+    options: Options<'_>,
+) -> Response {
+    show(ui, checked, Some(label), style, options)
 }
 
-fn show(ui: &mut Ui, checked: &mut bool, label: Option<&str>, mut style: Style) -> Response {
+fn show(
+    ui: &mut Ui,
+    checked: &mut bool,
+    label: Option<&str>,
+    style: Style,
+    options: Options<'_>,
+) -> Response {
     // A disabled parent Ui also disables (and dims) the checkbox.
-    style.disabled |= !ui.is_enabled();
+    let disabled = options.disabled || !ui.is_enabled();
     let galley = label.map(|label| {
         WidgetText::from(text::rich_text(ui, label, &style.label_style)).into_galley(
             ui,
@@ -149,24 +166,24 @@ fn show(ui: &mut Ui, checked: &mut bool, label: Option<&str>, mut style: Style) 
     let text_size = galley.as_ref().map_or(egui::Vec2::ZERO, |g| g.size());
     let width = style.size + galley.as_ref().map_or(0.0, |_| style.gap + text_size.x);
     let height = style.size.max(text_size.y);
-    let sense = if style.disabled {
+    let sense = if disabled {
         Sense::hover()
     } else {
         Sense::click()
     };
     let (rect, mut response) = ui.allocate_exact_size(vec2(width, height), sense);
 
-    if super::activation::toggle_requested(ui, &response) && !style.disabled {
+    if super::activation::toggle_requested(ui, &response) && !disabled {
         *checked = !*checked;
         response.mark_changed();
     }
-    let indeterminate = style.indeterminate && !response.changed();
+    let indeterminate = options.indeterminate && !response.changed();
     response.widget_info(|| {
         let mut info = WidgetInfo::selected(
             Role::CheckBox,
-            !style.disabled,
+            !disabled,
             *checked,
-            style.aria_label.as_deref().or(label).unwrap_or_default(),
+            options.aria_label.or(label).unwrap_or_default(),
         );
         if indeterminate {
             info.selected = None;
@@ -178,13 +195,21 @@ fn show(ui: &mut Ui, checked: &mut bool, label: Option<&str>, mut style: Style) 
         pos2(rect.left(), rect.center().y - style.size / 2.0),
         vec2(style.size, style.size),
     );
-    paint_box(ui, &response, box_rect, *checked, indeterminate, &style);
+    paint_box(
+        ui,
+        &response,
+        box_rect,
+        *checked,
+        indeterminate,
+        disabled,
+        &style,
+    );
     if let Some(galley) = galley {
         let pos = pos2(
             box_rect.right() + style.gap,
             rect.center().y - galley.size().y / 2.0,
         );
-        if style.disabled {
+        if disabled {
             let color = style.label_style.color.gamma_multiply(0.5);
             ui.painter()
                 .galley_with_override_text_color(pos, galley, color);
@@ -200,7 +225,7 @@ fn show(ui: &mut Ui, checked: &mut bool, label: Option<&str>, mut style: Style) 
         CornerRadius::same(style.corner_radius.round() as u8),
         style.focus_ring,
     );
-    if style.disabled {
+    if disabled {
         response.on_hover_cursor(egui::CursorIcon::NotAllowed)
     } else {
         response.on_hover_cursor(egui::CursorIcon::PointingHand)
@@ -213,17 +238,18 @@ fn paint_box(
     rect: Rect,
     checked: bool,
     indeterminate: bool,
+    disabled: bool,
     style: &Style,
 ) {
     let on = checked || indeterminate;
     let t = ui.ctx().animate_bool_with_time(response.id, on, 0.12);
-    let alpha = if style.disabled { 0.4 } else { 1.0 };
+    let alpha = if disabled { 0.4 } else { 1.0 };
     let radius = CornerRadius::same(style.corner_radius.round() as u8);
     let painter = ui.painter();
 
     let fill = style.checked_bg_color.gamma_multiply(t * alpha);
     let mut border = style.border_color;
-    if response.hovered() && !style.disabled {
+    if response.hovered() && !disabled {
         border = style.checked_bg_color;
     }
     let border = lerp_color(border, style.checked_bg_color, t).gamma_multiply(alpha);
@@ -297,7 +323,7 @@ mod tests {
         ctx: &egui::Context,
         events: Vec<Event>,
         checked: &mut bool,
-        style: &Style,
+        style: &(Style, Options<'static>),
     ) -> Response {
         let mut out = None;
         ctx.run_ui(
@@ -305,7 +331,15 @@ mod tests {
                 events,
                 ..Default::default()
             },
-            |ui| out = Some(render_with_label(ui, checked, "Accept", style.clone())),
+            |ui| {
+                out = Some(render_with_label(
+                    ui,
+                    checked,
+                    "Accept",
+                    style.0.clone(),
+                    style.1,
+                ))
+            },
         )
         .textures_delta
         .clear();
@@ -315,7 +349,7 @@ mod tests {
     #[test]
     fn clicking_box_or_label_toggles() {
         let ctx = egui::Context::default();
-        let style = Style::new(&theme());
+        let style = (Style::new(&theme()), Options::default());
         let mut checked = false;
         let r = pass(&ctx, vec![], &mut checked, &style);
         let (box_pos, label_pos) = (
@@ -335,7 +369,7 @@ mod tests {
     #[test]
     fn space_toggles_but_enter_does_not() {
         let ctx = egui::Context::default();
-        let style = Style::new(&theme());
+        let style = (Style::new(&theme()), Options::default());
         let mut checked = false;
         pass(&ctx, vec![], &mut checked, &style).request_focus();
         pass(&ctx, vec![], &mut checked, &style);
@@ -350,14 +384,14 @@ mod tests {
         let ctx = egui::Context::default();
         let theme = theme();
         let mut checked = false;
-        let disabled = Style::new(&theme).disabled(true);
+        let disabled = (Style::new(&theme), Options::default().disabled(true));
         let r = pass(&ctx, vec![], &mut checked, &disabled);
         for events in click(r.rect.center()) {
             pass(&ctx, events, &mut checked, &disabled);
         }
         assert!(!checked);
 
-        let mixed = Style::new(&theme).indeterminate(true);
+        let mixed = (Style::new(&theme), Options::default().indeterminate(true));
         let r = pass(&ctx, vec![], &mut checked, &mixed);
         for events in click(r.rect.center()) {
             pass(&ctx, events, &mut checked, &mixed);
@@ -381,7 +415,7 @@ mod tests {
                     let r = field::render(
                         ui,
                         "Subscribe",
-                        |ui| render(ui, checked, Style::new(&theme)),
+                        |ui| render(ui, checked, Style::new(&theme), Options::default()),
                         field::Style::new(&theme),
                     );
                     label_pos = pos2(r.response.rect.left() + 10.0, r.response.rect.center().y);

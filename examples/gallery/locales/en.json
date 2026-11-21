@@ -257,6 +257,8 @@
   "docs.brandcolors:body": "The gallery uses #6B65F5 on white with #202124 text in light mode, and #8B85FF on #101318 with #F6F7FB text in dark mode. Configure these in examples/theme.json. Each color scale's required foreground sets text and icons on its solid colors, such as solid buttons and the switch knob. focus_ring sets the color and width of the keyboard focus indicator for every component.",
   "docs.tokens:title": "A shared set of tokens",
   "docs.tokens:body": "Themes hold semantic foreground and background colors, color scales, the focus ring, typography sizes, corner radii, and component sizing. Presets translate those tokens into component styles.",
+  "docs.options:title": "Style and options",
+  "docs.options:body": "Style holds how a component looks: colors, sizes, spacing and fonts. Everything else goes in Options, the last argument of render: behavior such as disabled or sense, content such as a placeholder, and screen-reader names such as aria_label, which replaces the visible text for screen readers. Options::default() keeps the usual behavior, so most calls pass Default::default().",
   "docs.compose:title": "Compose with egui",
   "docs.compose:body": "Use egui layouts to arrange components. Cards, fields, and scroll areas accept rendering closures, so the composition remains in your hands.",
   "docs.visibility:title": "Hide without moving",

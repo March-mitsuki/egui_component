@@ -10,6 +10,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         ui,
         locale.text("demo.code:heading"),
         text::Style::new_heading(theme),
+        Default::default(),
     );
     ui.add_space(12.0);
 
@@ -18,7 +19,7 @@ pub fn show(ui: &mut egui::Ui, theme: &Theme, locale: Locale) {
         "code_scroll",
         scroll_area::ScrollAxes::Both,
         |ui| {
-            text::render(ui, "Rust", text::Style::new(theme));
+            text::render(ui, "Rust", text::Style::new(theme), Default::default());
             code::render(
                 ui,
                 r#"// Display a highlighted code snippet
@@ -28,9 +29,10 @@ fn main() {
 }"#,
                 "rs",
                 code::Style::new(theme),
+                Default::default(),
             );
             ui.add_space(20.0);
-            text::render(ui, "JSON", text::Style::new(theme));
+            text::render(ui, "JSON", text::Style::new(theme), Default::default());
             code::render(
                 ui,
                 r#"{
@@ -40,8 +42,10 @@ fn main() {
 }"#,
                 "json",
                 code::Style::new(theme),
+                Default::default(),
             );
         },
         scroll_area::Style::new_no_frame(),
+        Default::default(),
     );
 }

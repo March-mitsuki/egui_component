@@ -38,19 +38,25 @@ fn controls_expose_roles_names_and_states() {
     let theme = theme();
     let mut on = true;
     let nodes = nodes(&ctx, |ui| {
-        button::render(ui, "Save", button::Style::new_solid_md(&theme));
+        button::render(
+            ui,
+            "Save",
+            button::Style::new_solid_md(&theme),
+            Default::default(),
+        );
         icon_button::render(
             ui,
             ICONS.close.clone(),
             "Close",
             icon_button::Style::new_ghost_sm(&theme),
         );
-        switch::render(ui, &mut on, switch::Style::new(&theme));
+        switch::render(ui, &mut on, switch::Style::new(&theme), Default::default());
         select::render(
             ui,
             egui::Id::unique("fruit"),
             "Apple",
             select::Style::new(&theme, None, select::SelectSize::Md),
+            Default::default(),
             |_| {},
         );
     });
@@ -80,9 +86,11 @@ fn navigation_items_are_links_marked_current() {
     let theme = theme();
     let nodes = nodes(&ctx, |ui| {
         navigation::group(ui, "Sections", |ui| {
-            let style = navigation::Style::new(&theme).current_kind(navigation::Current::Location);
-            navigation::render(ui, "Intro", true, style.clone());
-            navigation::render(ui, "Usage", false, style);
+            let style = navigation::Style::new(&theme);
+            let options =
+                navigation::Options::default().current_kind(navigation::Current::Location);
+            navigation::render(ui, "Intro", true, style.clone(), options);
+            navigation::render(ui, "Usage", false, style, options);
         });
     });
     let link = |label: &str| {
@@ -117,7 +125,8 @@ fn loading_button_keeps_focus_and_ignores_activation() {
                 let r = button::render(
                     ui,
                     "Save",
-                    button::Style::new_solid_md(&theme).state(state.clone()),
+                    button::Style::new_solid_md(&theme),
+                    button::Options::default().state(state),
                 );
                 if focus {
                     r.request_focus();
@@ -167,15 +176,23 @@ fn select_popup_is_keyboard_operable() {
             |ui| {
                 let style = select::Style::new(&theme, None, select::SelectSize::Md);
                 let current = *value;
-                let trigger = select::render(ui, popup, current, style.clone(), |ui| {
-                    for option in options {
-                        let r = select::render_item(ui, option, option == current, &style, &theme);
-                        if r.clicked() {
-                            *value = option;
+                let trigger = select::render(
+                    ui,
+                    popup,
+                    current,
+                    style.clone(),
+                    Default::default(),
+                    |ui| {
+                        for option in options {
+                            let r =
+                                select::render_item(ui, option, option == current, &style, &theme);
+                            if r.clicked() {
+                                *value = option;
+                            }
+                            names.insert(r.id, option);
                         }
-                        names.insert(r.id, option);
-                    }
-                });
+                    },
+                );
                 if focus_trigger {
                     trigger.request_focus();
                 }
@@ -249,8 +266,12 @@ fn menu_button_popup_is_keyboard_operable() {
                     ui,
                     popup,
                     |ui| {
-                        let r =
-                            button::render(ui, "Actions", button::Style::new_outline_md(&theme));
+                        let r = button::render(
+                            ui,
+                            "Actions",
+                            button::Style::new_outline_md(&theme),
+                            Default::default(),
+                        );
                         if focus_trigger {
                             r.request_focus();
                         }
@@ -259,7 +280,12 @@ fn menu_button_popup_is_keyboard_operable() {
                     },
                     |ui| {
                         for item in ["New", "Archive"] {
-                            let r = button::render(ui, item, button::Style::new_ghost_sm(&theme));
+                            let r = button::render(
+                                ui,
+                                item,
+                                button::Style::new_ghost_sm(&theme),
+                                Default::default(),
+                            );
                             if r.clicked() {
                                 activated.push(item);
                             }
@@ -267,6 +293,7 @@ fn menu_button_popup_is_keyboard_operable() {
                         }
                     },
                     menu_button::Style::new(&theme),
+                    Default::default(),
                 );
                 names.insert(trigger_id, "trigger");
             },
@@ -350,6 +377,7 @@ fn field_label_names_its_control_and_form_errors_describe_it() {
                                 ui,
                                 value,
                                 super::text_edit::Style::new_outline_md(&theme),
+                                Default::default(),
                             )
                         },
                         super::field::Style::new(&theme),
@@ -390,7 +418,8 @@ fn dialog_and_drawer_are_modal_dialogs_named_by_their_header() {
         super::dialog::render(
             ui.ctx(),
             |ui| super::dialog::render_header(ui, &theme, "Delete file", || {}, Default::default()),
-            super::dialog::Style::new(&theme).title("delete"),
+            super::dialog::Style::new(&theme),
+            super::dialog::Options::default().title("delete"),
         );
     };
     tree(&ctx, vec![], &mut run);
@@ -416,6 +445,7 @@ fn dialog_and_drawer_are_modal_dialogs_named_by_their_header() {
                 })
             },
             super::drawer::Style::new(&theme),
+            Default::default(),
         );
     };
     tree(&ctx, vec![], &mut run);
@@ -435,13 +465,19 @@ fn tooltip_describes_its_target() {
     ctx.enable_accesskit();
     let theme = theme();
     let mut run = |ui: &mut egui::Ui| {
-        let target = button::render(ui, "Save", button::Style::new_solid_md(&theme));
+        let target = button::render(
+            ui,
+            "Save",
+            button::Style::new_solid_md(&theme),
+            Default::default(),
+        );
         super::tooltip::render(
             &target,
             |ui| {
                 ui.label("Saves the draft");
             },
             &super::tooltip::Style::new(&theme),
+            Default::default(),
         );
     };
     tree(&ctx, vec![], &mut run);
@@ -474,9 +510,9 @@ fn disclosure_popup_and_value_states_are_exposed() {
             egui::Id::unique("faq"),
             "Shipping",
             None,
-            None,
             |_| {},
             accordion::Style::new(&theme),
+            Default::default(),
         );
         date_picker::render(
             ui,
@@ -501,7 +537,8 @@ fn disclosure_popup_and_value_states_are_exposed() {
             ui,
             &mut value,
             0.0..=10.0,
-            slider::Style::new(&theme).step(1.0),
+            slider::Style::new(&theme),
+            slider::Options::default().step(1.0),
         );
     });
     let accordion = nodes
@@ -546,9 +583,16 @@ fn arrow_keys_on_a_slider_do_not_move_focus() {
                         ui,
                         &mut a,
                         0.0..=10.0,
-                        slider::Style::new(&theme).step(1.0),
+                        slider::Style::new(&theme),
+                        slider::Options::default().step(1.0),
                     );
-                    slider::render(ui, &mut b, 0.0..=10.0, slider::Style::new(&theme).step(1.0));
+                    slider::render(
+                        ui,
+                        &mut b,
+                        0.0..=10.0,
+                        slider::Style::new(&theme),
+                        slider::Options::default().step(1.0),
+                    );
                     if focus {
                         r.request_focus();
                     }
@@ -575,12 +619,10 @@ fn icon_aria_label_picks_button_image_or_decorative() {
     let theme = theme();
     let nodes = nodes(&ctx, |ui| {
         let style = || icon::Style::new(&theme);
-        let named = |label| icon::Options {
-            aria_label: Some(label),
-        };
+        let named = |label| icon::Options::default().aria_label(label);
         icon::render(ui, ICONS.close.clone(), style(), named("Status"));
-        let handle = style().sense(egui::Sense::drag());
-        icon::render(ui, ICONS.close.clone(), handle, named("Reorder"));
+        let handle = named("Reorder").sense(egui::Sense::drag());
+        icon::render(ui, ICONS.close.clone(), style(), handle);
         icon::render(ui, ICONS.close.clone(), style(), Default::default());
     });
     let role_of = |label| {
@@ -607,18 +649,21 @@ fn aria_label_replaces_the_visible_name() {
     let theme = theme();
     let (mut done, mut on) = (false, true);
     let nodes = nodes(&ctx, |ui| {
-        let delete = button::Style::new_ghost_sm(&theme).aria_label("Delete Buy milk");
-        button::render(ui, "Delete", delete);
-        button::render(ui, "Edit", button::Style::new_ghost_sm(&theme));
-        let done_box = checkbox::Style::new(&theme).aria_label("Buy milk");
-        checkbox::render(ui, &mut done, done_box);
-        let all = checkbox::Style::new(&theme).aria_label("Mark all as complete");
-        checkbox::render_with_label(ui, &mut done, "All", all);
-        switch::render(
+        let ghost = || button::Style::new_ghost_sm(&theme);
+        let delete = button::Options::default().aria_label("Delete Buy milk");
+        button::render(ui, "Delete", ghost(), delete);
+        button::render(ui, "Edit", ghost(), Default::default());
+        let named = |label| checkbox::Options::default().aria_label(label);
+        checkbox::render(
             ui,
-            &mut on,
-            switch::Style::new(&theme).aria_label("Dark mode"),
+            &mut done,
+            checkbox::Style::new(&theme),
+            named("Buy milk"),
         );
+        let all = named("Mark all as complete");
+        checkbox::render_with_label(ui, &mut done, "All", checkbox::Style::new(&theme), all);
+        let dark = switch::Options::default().aria_label("Dark mode");
+        switch::render(ui, &mut on, switch::Style::new(&theme), dark);
     });
     // AccessKit's update lists nodes in no fixed order.
     let name_of = |role: Role| -> std::collections::BTreeSet<_> {

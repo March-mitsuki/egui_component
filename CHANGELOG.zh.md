@@ -8,6 +8,26 @@
 
 - 从 `egui_component` 0.4.0 开始，支持的 egui 版本为 0.37。如果项目直接依赖 `egui`、`eframe` 或 `egui_extras`，请将这些依赖同步升级至 0.37。
 - 表单和滚动区的 ID 参数现在要求 `egui::AsIdSalt`，`drawer::render` 的 ID 参数现在要求 `Hash + Debug`。如果自定义 ID 类型原先只实现了 `Hash`，请添加 `#[derive(Debug)]` 或手动实现 `Debug`。
+- 各组件的 `Style` 现在只包含外观：颜色、尺寸、间距、字体、frame 和对齐。行为、状态、内容和无障碍名称移到 `Options` 结构体中，`render` 在 `style` 之后接收它（`select::render` 中位于末尾的 `menu_render` 闭包之前）。`Options` 实现了 `Default` 并提供构建方法，其中的字符串为借用的 `&str`。传 `Default::default()` 即可保持原来的默认值；`.disabled(true)` 等构建方法需从 style 移到 options，例如 `button::render(ui, "Save", style, button::Options::default().state(ButtonState::Loading))`。逐项列出字段的结构体字面量和穷尽解构需去掉被移走的字段。各组件移走的字段：
+  - `text`：`selectable` 和 `sense`。用 `.selectable(false).sense(egui::Sense::click())` 让文字可点击，并从返回的 `Response` 读取 `clicked()` 或 `double_clicked()`；不加 `.selectable(false)` 时，双击还会选中一个词。
+  - `code`：`selectable`。
+  - `button`：`state`，以及新增的 `aria_label`。
+  - `switch`：`disabled`，以及新增的 `aria_label`。
+  - `text_edit`（`render` 和 `render_multiline`）：`placeholder` 和 `input_type`，以及新增的 `disabled`、`read_only` 和 `password_toggle_aria_label`（默认 `"Show password"`）。
+  - `select`：`placeholder`、`disabled`、`is_invalid` 和 `popup_close_behavior`；签名为 `render(ui, id, selected_text, style, options, menu_render)`。
+  - `slider`：`disabled` 和 `step`。
+  - `segmented_control`：`disabled`。
+  - `accordion`：`default_open` 和 `disabled`，以及原来的 `description` 参数，改为 `Options::description`：`render(ui, id, title, open, body, style, options)`。
+  - `avatar` 和 `icon`：`sense`（`icon` 的移入已有的 `icon::Options`）。
+  - `navigation`：新增的 `current_kind`。
+  - `scroll_area`（`render` 和 `render_global`）：`scroll_offset`。
+  - `dialog`：`title`，用于标识模态框。
+  - `window`：`init_pos` 和 `collapsible`，移入新增的 `window::Options`。
+  - `color_picker`：`alpha` 和 `disabled`，移入已有的 `color_picker::Options`。
+  - `icon_menu_button`：`menu.close_behavior`（改为 `close_behavior`），以及新增的 `menu_handle_aria_label`（默认 `"More options"`）。
+  - `menu_button` 和 `tooltip`：`close_behavior`；签名为 `menu_button::render(ui, id, button_render, menu_render, style, options)` 和 `tooltip::render(target, content, &style, options)`。
+
+  `aria_label` 选项为控件提供屏幕阅读器读出的名称，相当于 `aria-label`，会替代可见文字：例如在多个 Delete 按钮之一上设置 `.aria_label("删除 买牛奶")`，或为没有文字的 switch 命名。`checkbox`、`drawer`、`calendar` 和 `date_picker` 是本版本新增的组件，同样遵循这种划分。
 - `color_picker::Style` 将 `size: f32` 拆分为 `width: f32` 和 `height: f32`。要保持正方形，请将两者都设为原来的尺寸。逐项列出字段的结构体字面量还需补上 `border_stroke` 和 `corner_radius`。可用 `Style::new(theme).width(...).height(...)` 保留默认边框和圆角，也可通过同名构建方法覆盖。色块默认仍为 32 × 32，透明度棋盘格在圆角轮廓内保持方格。
 - `icon_button::Style` 的公开字段 `size: f32` 拆分为 `width: f32` 和 `height: f32`。直接读取 `style.size` 的代码应改为读取所需的宽度或高度。使用结构体字面量时，应将 `size` 替换为这两个字段。`.size(value)` 仍可同时设置宽高，`.width(value)` 和 `.height(value)` 可分别设置宽度和高度。
 - `button::Style` 新增公开字段 `content_align: egui::Align`。逐项列出字段的结构体字面量需补上 `content_align: egui::Align::Center` 以保持居中。穷尽解构时需列出该字段或使用 `..`。构造函数默认使用 `Center`。可通过 `.content_align(...)` 选择 `Min`、`Center` 或 `Max`，将整组内容左对齐、居中或右对齐。
@@ -17,28 +37,24 @@
 - `theme::Color.foreground` 由 `Option<Color32>` 改为必填的 `Color32`。主题 JSON 在两个模式下的每个色阶（`primary`、`gray`、`red`、`green`、`blue`、`yellow`、`orange`）都必须提供 `foreground`。以前缺省时，实心按钮文字回退到 `colors.fg.base`，开关圆钮回退到白色；如需保持原外观，可设为 `fg.base`，或像 gallery 主题现在这样，在 `fg.base` 和 `bg.base` 中选与 `l5`–`l7` 对比度更高的一个。`theme_gen::generate` 已为每个色阶生成该值。Rust 代码中把 `Some(color)` 改为 `color`，并去掉 `unwrap_or(...)`。
 - `Color::to_button_palette` 不再接收 `&Theme`，改为 `color.to_button_palette(variant)`。
 - 移除仅在 debug 构建中可用的 `UiTheme::dummy`。请用 `theme_gen::generate` 或已有的主题文件创建主题。
-- `text_edit::Style` 新增公开字段 `disabled: bool` 和 `read_only: bool`。逐项列出字段的结构体字面量需补上这两个字段，并将两者设为 `false` 以保持可编辑。穷尽解构时需列出这两个字段或使用 `..`。构造函数默认将两者设为 `false`，单行和多行输入框均支持 `.disabled(...)` 和 `.read_only(...)`。
 - `accordion::Style` 新增公开字段 `show_body_guide: bool`。逐项列出字段的结构体字面量需补上 `show_body_guide: false`。穷尽解构时需列出该字段或使用 `..`。正文竖线默认关闭，可通过 `.show_body_guide(true)` 开启。
 - `accordion::Style` 将 `padding: i8` 拆为 `header_padding_y: i8` 和 `body_indent: i8`，分别控制标题上下各自的内边距，以及开启竖线时的正文左缩进。两者默认均为 `12`，负值按 `0` 处理。逐项列出字段的结构体字面量和穷尽解构需用这两个字段替换 `padding`。折叠组件的标题现在接受可转换为 `egui::WidgetText` 的值。可传入 `egui::RichText` 自定义标题样式，显式设置的标题颜色也会用于悬停下划线。标题栏默认透明、无描边，悬停时标题文字显示下划线。自定义 `hover_background` 时，透明值现在会沿用 `background`。
 - `egui_component` 不再启用 `egui_extras` 的 `all_loaders` feature，只启用内置图标所需的 `svg`。需要加载其他图片的应用，例如 `avatar` 通过 `http(s)://` 或 `file://` 加载的头像，以及 PNG/JPEG、GIF、WebP，请在自己的 `egui_extras` 依赖中启用对应的加载器，例如 `egui_extras = { version = "0.37", features = ["all_loaders"] }`，并继续调用 `egui_extras::install_image_loaders(ctx)`。未启用时，`avatar` 会回退为显示名字首字母。
-- `field::render` 的 `input_content` 闭包现在必须返回输入控件的 `egui::Response`，返回值也从 `InnerResponse<R>` 改为 `InnerResponse<Response>`。点击 label 会聚焦该控件，`switch` 等开关类控件还会同时切换。大多数情况下，只需去掉闭包末尾的 `;`，把控件的 Response 返回即可；`form.field` 和 `form.field_with_error` 本身已返回该值。如需从闭包中带出其他数据，请赋值给闭包外声明的变量。无论 `label_style.selectable` 如何设置，field 的 label 都不再可选中文本，也不会成为 Tab 停留点。
+- `field::render` 的 `input_content` 闭包现在必须返回输入控件的 `egui::Response`，返回值也从 `InnerResponse<R>` 改为 `InnerResponse<Response>`。点击 label 会聚焦该控件，`switch` 等开关类控件还会同时切换。大多数情况下，只需去掉闭包末尾的 `;`，把控件的 Response 返回即可；`form.field` 和 `form.field_with_error` 本身已返回该值。如需从闭包中带出其他数据，请赋值给闭包外声明的变量。field 的 label 不再可选中文本，也不会成为 Tab 停留点。
 - `icon_button::render` 新增无障碍名称参数：`render(ui, icon, aria_label, style)`。屏幕阅读器会读出 `aria_label`（相当于 `aria-label`），它不会被绘制。请传入简短、已本地化的操作名称，例如 `"关闭"`。在整个 crate 中，`label` 指显示在界面上的文字，`aria_label` 指只给屏幕阅读器读的名称。
-- `icon::render` 新增参数 `options: icon::Options`：`render(ui, icon, style, options)`。装饰性图标传 `Default::default()`。设置 `Options::aria_label` 可以为图标命名：可交互的图标（例如用 `.sense(egui::Sense::drag())` 做拖拽把手）会作为按钮，只能悬停的图标会作为图片。可交互但没有设置名称的图标，在 debug 构建下会记录一次警告。
+- `icon::render` 新增参数 `options: icon::Options`：`render(ui, icon, style, options)`。装饰性图标传 `Default::default()`。设置 `Options::aria_label` 可以为图标命名：可交互的图标（例如用 `icon::Options::default().sense(egui::Sense::drag())` 做拖拽把手）会作为按钮，只能悬停的图标会作为图片。可交互但没有设置名称的图标，在 debug 构建下会记录一次警告。
 - 删除 `calendar::render_with_options`、`date_picker::render_with_options` 和 `color_picker::render_with_options`，`render` 改为把原来的 `options` 作为最后一个参数。把 `render_with_options` 调用改名为 `render`，原有的 `render` 调用末尾补上 `Default::default()`。
 - `dialog::render_header` 和 `drawer::render_header` 末尾新增参数 `options: HeaderOptions`，`window::render` 新增 `options: window::Options`。传 `Default::default()` 即可；设置 `close_aria_label`（`window` 还有 `collapse_aria_label`）可以本地化关闭按钮和折叠按钮的屏幕阅读器名称，默认值为 `"Close"` 和 `"Collapse"`。
-- `text_edit::Style` 新增公开字段 `password_toggle_aria_label: String`，`icon_menu_button::Style` 新增 `menu_handle_aria_label: String`，分别是密码显示切换按钮和菜单把手的无障碍名称，默认值为 `"Show password"` 和 `"More options"`。逐项列出字段的结构体字面量需补上这两个字段，也可以用 `.password_toggle_aria_label(...)` 和 `.menu_handle_aria_label(...)` 本地化。
 - `toast::custom` 在 `content` 前新增参数 `announcement: Option<&str>`：`custom(ctx, kind, duration, announcement, content)`。内容自己绘制了文字时传 `None`，屏幕阅读器会读出这些文字；内容没有文字（例如只有进度条）时，传 `Some("...")` 作为 toast 的播报名称。
-- `navigation::Style` 新增公开字段 `current_kind: navigation::Current`。逐项列出字段的结构体字面量需补上 `current_kind: navigation::Current::Page`，穷尽解构模式需包含该字段或使用 `..`。`navigation::render` 的第三个参数由 `selected` 改名为 `current`，类型和含义不变。
+- `navigation::render` 的第三个参数由 `selected` 改名为 `current`，类型和含义不变。
 - 移除 `FontManager::set_egui_fonts`，请改用它原本转发到的 `FontManager::apply`。`get_egui_font_family_with_style` 合并进 `get_egui_font_family`，后者新增最后一个参数 `italic: bool`：现有调用补上 `false`，`get_egui_font_family_with_style` 的调用改名为 `get_egui_font_family`。
 - `text::Style` 新增公开字段 `underline: egui::Stroke` 和 `strikethrough: egui::Stroke`，名称与 egui `TextFormat` 的字段一致。逐项列出字段的结构体字面量需补上 `underline: egui::Stroke::NONE` 和 `strikethrough: egui::Stroke::NONE` 以保持无装饰线。穷尽解构时需列出这两个字段或使用 `..`。构造函数默认两者均为 `Stroke::NONE`；用 `.underline(Stroke::new(1.0, color))` 或 `.strikethrough(...)` 绘制线条，宽度和颜色各自独立。
-- `text::Style` 新增公开字段 `sense: egui::Sense`，与 `icon::Style` 和 egui 的 `Label::sense` 一致。逐项列出字段的结构体字面量需补上 `sense: egui::Sense::hover()` 以保持文字不响应交互；穷尽解构时需列出该字段或使用 `..`。构造函数默认为 `Sense::hover()`。用 `.selectable(false).sense(egui::Sense::click())` 让文字可点击，并从返回的 `Response` 读取 `clicked()` 或 `double_clicked()`；不设置 `.selectable(false)` 时，双击还会选中一个单词。
-- `button::Style`、`checkbox::Style` 和 `switch::Style` 新增公开字段 `aria_label: Option<String>`，作为屏幕阅读器读出的名称，替代按钮文字或复选框的 label（switch 本身没有文字）。逐项列出字段的结构体字面量需补上 `aria_label: None`，以继续使用可见文字作为名称；穷尽解构时需列出该字段或使用 `..`。构造函数默认为 `None`。可见文字不够明确（例如很多行都有 Delete 按钮）或没有可见文字（没有 label 的复选框、switch）时，用 `.aria_label("删除 买牛奶")` 设置。
 
 ### 颜色选择器行为变更
 
 - 颜色选择器弹窗改为饱和度／明度色板、色相条、可选透明度条，以及用于切换 HEX 和 RGB(A) 输入的 ghost button。透明度输入使用 `0–1`，替代原先透明度滑块的 `0–255` 刻度；RGB 输入仍为 `0–255` 整数。依赖旧弹窗布局或透明度刻度的 UI 自动化和使用说明需要相应更新。
 - HEX 输入允许省略 `#`，合法输入在按 Enter 或失焦时规范化。关闭透明度时显示 `#rrggbb`，开启时显示 `#rrggbbaa`。合法输入仍实时更新颜色，非法草稿保留最后一个合法颜色，并在 Enter 或失焦时显示错误边框。错误文字需通过 `Options::error_message` 回调启用，由应用将 `ColorInputError` 转换为本地化的 `String`。
-- 现有 `Style` 字段和构建方法保持不变，无损转换函数 `hex_to_rgba` / `rgba_to_hex` 为新增。`render` 现在也接收 `Options`（见破坏性变更）。
+- `alpha` 和 `disabled` 从 `Style` 移到 `Options`（见不兼容变更），无损转换函数 `hex_to_rgba` / `rgba_to_hex` 为新增。
 
 ### 表单行为变更
 
@@ -53,7 +69,7 @@
 
 以下变更遵循 WAI-ARIA Authoring Practices 和 WCAG。除特别说明外无需修改代码，但可能影响 UI 自动化测试。
 
-- `icon::Style` 和 `avatar::Style` 的默认值改为 `Sense::hover()`，装饰用的图标和头像不再是 Tab 停留点。需要可点击时请传入 `.sense(egui::Sense::click())`；可点击的图标建议改用 `icon_button`。
+- `icon` 和 `avatar` 的默认 sense 改为 `Sense::hover()`，装饰用的图标和头像不再是 Tab 停留点。需要可点击时请传入 `Options::default().sense(egui::Sense::click())`；可点击的图标建议改用 `icon_button`。
 - `tooltip::render` 显示的提示在目标获得键盘焦点时也会出现，按 Esc 可关闭，直到指针移开且焦点离开后才会再次显示。
 - 处于 `Loading` 状态的 `button` 仍可聚焦但无法触发，按下后焦点不会丢失。禁用的按钮仍不可聚焦。
 - `segmented_control` 现在整组只有一个 Tab 停留点，位于选中项上。←/→（以及 ↑/↓）选择上一个或下一个选项，到两端时循环。各选项以单选按钮的语义提供给屏幕阅读器。
