@@ -6,8 +6,32 @@ use super::{
 use crate::theme::{
     self, ButtonSize, ButtonVariant, SetColor, TextEditSize, TextEditVariant, Theme,
 };
+use crate::{components::text_edit::InputType, font::weight::FontWeight};
 use egui::Color32;
 use std::collections::{HashMap, HashSet};
+
+/// A text `size`: a theme text size, or `heading` (the heading preset: large and bold).
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(super) enum TextSize {
+    Xxs,
+    Xs,
+    Sm,
+    Md,
+    Lg,
+    Xl,
+    Heading,
+}
+const FONT_WEIGHTS: &[(&str, FontWeight)] = &[
+    ("thin", FontWeight::Thin),
+    ("extra_light", FontWeight::ExtraLight),
+    ("light", FontWeight::Light),
+    ("regular", FontWeight::Regular),
+    ("medium", FontWeight::Medium),
+    ("semi_bold", FontWeight::SemiBold),
+    ("bold", FontWeight::Bold),
+    ("extra_bold", FontWeight::ExtraBold),
+    ("black", FontWeight::Black),
+];
 
 /// A resolved name: a root registration, or a registration of the list of the loop
 /// at `depth` in the enclosing loops (0 is the outermost).
@@ -225,10 +249,14 @@ pub(super) enum Kind {
     },
     Text {
         text: Vec<TextPart>,
-        heading: Expr<bool>,
+        size: Expr<TextSize>,
+        font_weight: Option<Expr<FontWeight>>,
         color: Option<Expr<ThemeColor>>,
         underline: BoolExpr,
         strikethrough: BoolExpr,
+        truncate: BoolExpr,
+        /// `None` keeps the default: selectable unless an event makes the text clickable.
+        selectable: Option<BoolExpr>,
         /// Handlers for egui's `clicked()` and `double_clicked()`; either makes the text
         /// clickable and not selectable.
         click: Option<Ref>,
@@ -241,6 +269,7 @@ pub(super) enum Kind {
         color: Option<Expr<ThemeScale>>,
         width: Option<f32>,
         disabled: BoolExpr,
+        loading: BoolExpr,
         aria_label: Option<Vec<TextPart>>,
         click: Option<Ref>,
     },
@@ -248,9 +277,13 @@ pub(super) enum Kind {
         model: Ref,
         size: Expr<TextEditSize>,
         variant: Expr<TextEditVariant>,
+        color: Option<Expr<ThemeScale>>,
         width: Option<f32>,
         placeholder: Vec<TextPart>,
         disabled: BoolExpr,
+        read_only: BoolExpr,
+        input_type: Expr<InputType>,
+        password_toggle_aria_label: Option<Vec<TextPart>>,
         autofocus: bool,
         /// Handlers for losing focus by Enter, by Escape, and otherwise.
         submit: Option<Ref>,
@@ -260,6 +293,7 @@ pub(super) enum Kind {
     Switch {
         model: Ref,
         size: Expr<&'static str>,
+        color: Option<Expr<ThemeScale>>,
         disabled: BoolExpr,
         aria_label: Option<Vec<TextPart>>,
     },
@@ -267,7 +301,9 @@ pub(super) enum Kind {
         model: Ref,
         label: Vec<TextPart>,
         size: Expr<&'static str>,
+        color: Option<Expr<ThemeScale>>,
         disabled: BoolExpr,
+        indeterminate: BoolExpr,
         aria_label: Option<Vec<TextPart>>,
     },
 }
@@ -294,16 +330,20 @@ impl ListNames {
                     .is_some()
             {
                 return Err(format!(
-                    "invalid or duplicate row binding '{}' in list '{}'",
-                    b.name, list.name
+                    "invalid or duplicate row binding '{}' in list '{}'{}",
+                    b.name,
+                    list.name,
+                    reserved_hint(&b.name)
                 ));
             }
         }
         for (i, a) in list.actions.iter().enumerate() {
             if !identifier(&a.name) || names.actions.insert(a.name.clone(), i).is_some() {
                 return Err(format!(
-                    "invalid or duplicate row handler '{}' in list '{}'",
-                    a.name, list.name
+                    "invalid or duplicate row handler '{}' in list '{}'{}",
+                    a.name,
+                    list.name,
+                    reserved_hint(&a.name)
                 ));
             }
         }
@@ -320,7 +360,11 @@ fn lists<S>(
     let mut result = HashMap::new();
     for (index, list) in lists.iter().enumerate() {
         if !identifier(&list.name) {
-            return Err(format!("invalid list name '{}'", list.name));
+            return Err(format!(
+                "invalid list name '{}'{}",
+                list.name,
+                reserved_hint(&list.name)
+            ));
         }
         if bindings.contains_key(&list.name)
             || actions.contains_key(&list.name)
@@ -387,7 +431,11 @@ impl Registry {
         };
         for (i, b) in bindings.iter().enumerate() {
             if !identifier(&b.name) {
-                return Err(format!("invalid binding name '{}'", b.name));
+                return Err(format!(
+                    "invalid binding name '{}'{}",
+                    b.name,
+                    reserved_hint(&b.name)
+                ));
             }
             if result
                 .bindings
@@ -399,7 +447,11 @@ impl Registry {
         }
         for (i, a) in actions.iter().enumerate() {
             if !identifier(&a.name) {
-                return Err(format!("invalid handler name '{}'", a.name));
+                return Err(format!(
+                    "invalid handler name '{}'{}",
+                    a.name,
+                    reserved_hint(&a.name)
+                ));
             }
             if result.actions.insert(a.name.clone(), i).is_some() {
                 return Err(format!("duplicate handler '{}'", a.name));
@@ -433,12 +485,23 @@ fn chain((condition, node): (Option<BoolExpr>, Node)) -> Node {
         },
     }
 }
+/// A registered or template name. `true` and `false` are reserved for literals.
 fn identifier(s: &str) -> bool {
     let mut chars = s.chars();
-    chars
-        .next()
-        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+    !RESERVED.contains(&s)
+        && chars
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
         && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+const RESERVED: &[&str] = &["true", "false"];
+/// Why `name` failed [`identifier`], when it is a reserved word.
+fn reserved_hint(name: &str) -> &'static str {
+    if RESERVED.contains(&name) {
+        "; true and false are reserved for bool literals"
+    } else {
+        ""
+    }
 }
 struct Compiler<'a> {
     registry: &'a Registry,
@@ -587,7 +650,14 @@ impl<'r> Compiler<'r> {
             None => (None, list),
         };
         if !identifier(alias) || !identifier(field) || outer.is_some_and(|o| !identifier(o)) {
-            return Err(self.error(&e, "e-for", "e-for alias and list must be plain names"));
+            return Err(self.error(
+                &e,
+                "e-for",
+                format!(
+                    "e-for alias and list must be plain names{}",
+                    reserved_hint(alias)
+                ),
+            ));
         }
         let registry: &'r Registry = self.registry;
         let (list, names) = match outer {
@@ -733,9 +803,9 @@ impl<'r> Compiler<'r> {
         e.attrs.remove(directive);
         Ok((condition, self.node(e, path, false)?))
     }
-    /// Terms joined by `||` and `&&` (tighter), without parentheses. A term is a bool name,
-    /// `$contains_pointer.<id>` or `$contains_focus.<id>`, optionally negated with `!`: the
-    /// condition syntax of :disabled, e-if and styling expressions.
+    /// Terms joined by `||` and `&&` (tighter), without parentheses. A term is `true`,
+    /// `false`, a bool name, `$contains_pointer.<id>` or `$contains_focus.<id>`, optionally
+    /// negated with `!`: the condition syntax of :disabled, e-if and styling expressions.
     fn condition(&self, e: &Element, attr: &str) -> Result<BoolExpr, Error> {
         self.condition_in(e, attr, self.attr(e, attr, ""))
     }
@@ -771,6 +841,11 @@ impl<'r> Compiler<'r> {
             .map_or((expr, false), |n| (n.trim(), true));
         if name.is_empty() {
             return Err(self.error(e, attr, format!("{attr} needs a registered bool name")));
+        }
+        match name {
+            "true" => return Ok(BoolExpr::Literal(!negate)),
+            "false" => return Ok(BoolExpr::Literal(negate)),
+            _ => {}
         }
         if name.starts_with('$') {
             return self.contains(e, attr, name, negate);
@@ -966,10 +1041,11 @@ impl<'r> Compiler<'r> {
             // Only id and directives, which are handled before reaching here.
             "fragment" => &[],
             "layout" => &["direction", "cross_align", "item_spacing.x", "item_spacing.y"],
-            "text" => &["size", ":size", "color", ":color", "underline", ":underline", "strikethrough", ":strikethrough", "@click", "@double_click"],
-            "button" => &["size", ":size", "variant", ":variant", "color", ":color", "width", "disabled", ":disabled", "aria_label", "@click"],
-            "text_edit" => &["size", ":size", "variant", ":variant", "width", "placeholder", "disabled", ":disabled", "e-model", "autofocus", "@submit", "@cancel", "@blur"],
-            "switch" | "checkbox" => &["size", ":size", "disabled", ":disabled", "aria_label", "e-model"],
+            "text" => &["size", ":size", "font_weight", ":font_weight", "color", ":color", "underline", ":underline", "strikethrough", ":strikethrough", "truncate", ":truncate", "selectable", ":selectable", "@click", "@double_click"],
+            "button" => &["size", ":size", "variant", ":variant", "color", ":color", "width", "disabled", ":disabled", "loading", ":loading", "aria_label", "@click"],
+            "text_edit" => &["size", ":size", "variant", ":variant", "color", ":color", "width", "placeholder", "disabled", ":disabled", "read_only", ":read_only", "input_type", ":input_type", "password_toggle_aria_label", "e-model", "autofocus", "@submit", "@cancel", "@blur"],
+            "switch" => &["size", ":size", "color", ":color", "disabled", ":disabled", "aria_label", "e-model"],
+            "checkbox" => &["size", ":size", "color", ":color", "disabled", ":disabled", "indeterminate", ":indeterminate", "aria_label", "e-model"],
             _ => return Err(self.error(&e, "", format!("unknown component '{}'; prototype supports built-in layout and fragment and components text, button, text_edit, switch, checkbox (no aliases)", e.tag))),
         };
         // Every element may be hidden while keeping its space.
@@ -1035,20 +1111,61 @@ impl<'r> Compiler<'r> {
             "fragment" => Kind::Fragment {
                 children: self.children(e.children, &path)?,
             },
-            "text" => Kind::Text {
-                text: self.text(&e, "", e.text.trim())?,
-                heading: self.value(
-                    &e,
-                    "size",
-                    false,
-                    &words("size", &[("md", false), ("heading", true)]),
-                )?,
-                color: self.optional(&e, "color", &color)?,
-                underline: self.flag(&e, "underline")?,
-                strikethrough: self.flag(&e, "strikethrough")?,
-                click: self.event(&e, "@click")?,
-                double_click: self.event(&e, "@double_click")?,
-            },
+            "text" => {
+                let click = self.event(&e, "@click")?;
+                let double_click = self.event(&e, "@double_click")?;
+                let selectable = if e.attrs.contains_key("selectable")
+                    || e.attrs.contains_key(":selectable")
+                {
+                    if click.is_some() || double_click.is_some() {
+                        let attr = if e.attrs.contains_key("selectable") {
+                            "selectable"
+                        } else {
+                            ":selectable"
+                        };
+                        return Err(self.error(
+                            &e,
+                            attr,
+                            "text with @click or @double_click is never selectable; remove selectable",
+                        ));
+                    }
+                    Some(self.flag(&e, "selectable")?)
+                } else {
+                    None
+                };
+                Kind::Text {
+                    text: self.text(&e, "", e.text.trim())?,
+                    size: self.value(
+                        &e,
+                        "size",
+                        TextSize::Md,
+                        &words(
+                            "size",
+                            &[
+                                ("xxs", TextSize::Xxs),
+                                ("xs", TextSize::Xs),
+                                ("sm", TextSize::Sm),
+                                ("md", TextSize::Md),
+                                ("lg", TextSize::Lg),
+                                ("xl", TextSize::Xl),
+                                ("heading", TextSize::Heading),
+                            ],
+                        ),
+                    )?,
+                    font_weight: self.optional(
+                        &e,
+                        "font_weight",
+                        &words("font_weight", FONT_WEIGHTS),
+                    )?,
+                    color: self.optional(&e, "color", &color)?,
+                    underline: self.flag(&e, "underline")?,
+                    strikethrough: self.flag(&e, "strikethrough")?,
+                    truncate: self.flag(&e, "truncate")?,
+                    selectable,
+                    click,
+                    double_click,
+                }
+            }
             "button" => {
                 let size = self.value(
                     &e,
@@ -1087,6 +1204,7 @@ impl<'r> Compiler<'r> {
                     click,
                     width: self.number(&e, "width")?,
                     disabled: self.flag(&e, "disabled")?,
+                    loading: self.flag(&e, "loading")?,
                     aria_label: self.aria_label(&e)?,
                 }
             }
@@ -1128,9 +1246,25 @@ impl<'r> Compiler<'r> {
                     )?,
                     size,
                     variant,
+                    color: self.optional(&e, "color", &color_scale)?,
                     placeholder: self.text(&e, "placeholder", self.attr(&e, "placeholder", ""))?,
                     width: self.number(&e, "width")?,
                     disabled: self.flag(&e, "disabled")?,
+                    read_only: self.flag(&e, "read_only")?,
+                    input_type: self.value(
+                        &e,
+                        "input_type",
+                        InputType::Text,
+                        &words(
+                            "input_type",
+                            &[("text", InputType::Text), ("password", InputType::Password)],
+                        ),
+                    )?,
+                    password_toggle_aria_label: e
+                        .attrs
+                        .get("password_toggle_aria_label")
+                        .map(|a| self.text(&e, "password_toggle_aria_label", &a.value))
+                        .transpose()?,
                     autofocus: self.choice(&e, "autofocus", "false", &["true", "false"])? == "true",
                     submit: self.event(&e, "@submit")?,
                     cancel: self.event(&e, "@cancel")?,
@@ -1151,6 +1285,7 @@ impl<'r> Compiler<'r> {
                     "md",
                     &words("size", &[("sm", "sm"), ("md", "md"), ("lg", "lg")]),
                 )?,
+                color: self.optional(&e, "color", &color_scale)?,
                 disabled: self.flag(&e, "disabled")?,
                 aria_label: self.aria_label(&e)?,
             },
@@ -1169,7 +1304,9 @@ impl<'r> Compiler<'r> {
                     "md",
                     &words("size", &[("sm", "sm"), ("md", "md"), ("lg", "lg")]),
                 )?,
+                color: self.optional(&e, "color", &color_scale)?,
                 disabled: self.flag(&e, "disabled")?,
+                indeterminate: self.flag(&e, "indeterminate")?,
                 aria_label: self.aria_label(&e)?,
             },
             _ => unreachable!(),

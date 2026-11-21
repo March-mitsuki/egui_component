@@ -6,7 +6,7 @@
 //! show submits edits immediately and then handlers in tree order. Later passes render the
 //! resulting state without resubmitting interactions. This is not rollback/transaction semantics.
 use super::Source;
-use super::template::{BoolExpr, Expr, Kind, Node, Ref, TextPart};
+use super::template::{BoolExpr, Expr, Kind, Node, Ref, TextPart, TextSize};
 use super::{parser, source, template};
 use crate::{
     components::{button, checkbox, switch, text, text_edit},
@@ -1038,18 +1038,30 @@ fn render<S: 'static>(
                 }
                 Kind::Text {
                     text: parts,
-                    heading,
+                    size,
+                    font_weight,
                     color,
                     underline,
                     strikethrough,
+                    truncate,
+                    selectable,
                     click,
                     double_click,
                 } => {
-                    let mut style = if rt.value(access, heading) {
-                        text::Style::new_heading(theme)
-                    } else {
-                        text::Style::new(theme)
+                    let sizes = &theme.text_size;
+                    let mut style = match rt.value(access, size) {
+                        TextSize::Heading => text::Style::new_heading(theme),
+                        TextSize::Xxs => text::Style::new(theme).size(sizes.xxs),
+                        TextSize::Xs => text::Style::new(theme).size(sizes.xs),
+                        TextSize::Sm => text::Style::new(theme).size(sizes.sm),
+                        TextSize::Md => text::Style::new(theme),
+                        TextSize::Lg => text::Style::new(theme).size(sizes.lg),
+                        TextSize::Xl => text::Style::new(theme).size(sizes.xl),
                     };
+                    if let Some(weight) = font_weight {
+                        style = style.font_weight(rt.value(access, weight));
+                    }
+                    style = style.truncate(rt.boolean(access, truncate));
                     if let Some(color) = color {
                         style = style.color(rt.value(access, color).get(theme));
                     }
@@ -1062,6 +1074,9 @@ fn render<S: 'static>(
                         style = style.strikethrough(line);
                     }
                     let mut options = text::Options::default();
+                    if let Some(selectable) = selectable {
+                        options = options.selectable(rt.boolean(access, selectable));
+                    }
                     if click.is_some() || double_click.is_some() {
                         // A double click would otherwise also select a word.
                         options = options.selectable(false).sense(egui::Sense::click());
@@ -1088,6 +1103,7 @@ fn render<S: 'static>(
                     color,
                     width,
                     disabled,
+                    loading,
                     aria_label,
                     click,
                 } => {
@@ -1102,8 +1118,12 @@ fn render<S: 'static>(
                     .width(*width);
                     let aria_label = aria_label.as_ref().map(|label| rt.text(access, label));
                     let options = button::Options {
+                        // Disabled wins over loading: neither can be activated, but only a
+                        // loading button keeps focus.
                         state: if rt.boolean(access, disabled) {
                             button::ButtonState::Disable
+                        } else if rt.boolean(access, loading) {
+                            button::ButtonState::Loading
                         } else {
                             button::ButtonState::None
                         },
@@ -1122,9 +1142,13 @@ fn render<S: 'static>(
                     model,
                     size,
                     variant,
+                    color,
                     width,
                     placeholder,
                     disabled,
+                    read_only,
+                    input_type,
+                    password_toggle_aria_label,
                     autofocus,
                     submit,
                     cancel,
@@ -1145,16 +1169,25 @@ fn render<S: 'static>(
                     }
                     let style = text_edit::Style::new(
                         theme,
-                        None,
+                        color.as_ref().map(|c| *(rt.value(access, c).0)(theme)),
                         rt.value(access, size),
                         rt.value(access, variant),
                     )
                     .width(*width);
+                    let read_only = rt.boolean(access, read_only);
                     let placeholder = rt.text(access, placeholder);
-                    let options = text_edit::Options::default()
+                    let toggle_label = password_toggle_aria_label
+                        .as_ref()
+                        .map(|label| rt.text(access, label));
+                    let mut options = text_edit::Options::default()
                         .placeholder(&placeholder)
+                        .input_type(rt.value(access, input_type))
                         .disabled(disabled)
-                        .read_only(!rt.first);
+                        // Later passes of a frame must not apply the same typing again.
+                        .read_only(read_only || !rt.first);
+                    if let Some(label) = &toggle_label {
+                        options = options.password_toggle_aria_label(label);
+                    }
                     let response = text_edit::render(ui, &mut value, style, options);
                     if response.changed() {
                         rt.write(access, *model, Value::String(value));
@@ -1197,7 +1230,8 @@ fn render<S: 'static>(
                                 (false, true) if cancel.is_some() => *cancel,
                                 _ => *blur,
                             };
-                            if let Some(handler) = handler {
+                            // A read-only field reports nothing, like a disabled one.
+                            if let (false, Some(handler)) = (read_only, handler) {
                                 rt.handle(access, handler);
                             }
                         }
@@ -1207,16 +1241,20 @@ fn render<S: 'static>(
                 Kind::Switch {
                     model,
                     size,
+                    color,
                     disabled,
                     aria_label,
                 } => {
                     let Value::Bool(mut value) = rt.get(access, *model) else {
                         unreachable!()
                     };
+                    let color = color
+                        .as_ref()
+                        .map_or(theme.colors.primary, |c| *(rt.value(access, c).0)(theme));
                     let style = match rt.value(access, size) {
-                        "sm" => switch::Style::new_sm(theme),
-                        "lg" => switch::Style::new_lg(theme),
-                        _ => switch::Style::new_md(theme),
+                        "sm" => switch::Style::new_sm_color(theme, color),
+                        "lg" => switch::Style::new_lg_color(theme, color),
+                        _ => switch::Style::new_md_color(theme, color),
                     };
                     let aria_label = aria_label.as_ref().map(|label| rt.text(access, label));
                     let options = switch::Options {
@@ -1233,22 +1271,27 @@ fn render<S: 'static>(
                     model,
                     label,
                     size,
+                    color,
                     disabled,
+                    indeterminate,
                     aria_label,
                 } => {
                     let Value::Bool(mut value) = rt.get(access, *model) else {
                         unreachable!()
                     };
+                    let color = color
+                        .as_ref()
+                        .map_or(theme.colors.primary, |c| *(rt.value(access, c).0)(theme));
                     let style = match rt.value(access, size) {
-                        "sm" => checkbox::Style::new_sm(theme),
-                        "lg" => checkbox::Style::new_lg(theme),
-                        _ => checkbox::Style::new_md(theme),
+                        "sm" => checkbox::Style::new_sm_color(theme, color),
+                        "lg" => checkbox::Style::new_lg_color(theme, color),
+                        _ => checkbox::Style::new_md_color(theme, color),
                     };
                     let aria_label = aria_label.as_ref().map(|label| rt.text(access, label));
                     let options = checkbox::Options {
                         disabled: rt.boolean(access, disabled),
+                        indeterminate: rt.boolean(access, indeterminate),
                         aria_label: aria_label.as_deref(),
-                        ..Default::default()
                     };
                     let label = rt.text(access, label);
                     let response = if label.is_empty() {

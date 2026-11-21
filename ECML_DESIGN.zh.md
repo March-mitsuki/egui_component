@@ -34,10 +34,10 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 - 适配器把样式属性（`size`、`variant`、`color` 等）映射到组件的 `Style`，其余属性（`disabled`、`placeholder`、`aria_label`、事件）映射到 `Options`，遵循 [CONTRIBUTE.zh.md](CONTRIBUTE.zh.md#组件-api-约定) 中的组件 API 约定。
 - 保留 egui 字段名和 snake_case。结构化属性使用 `item_spacing.x` 这样的点号路径，不使用 `gap_x`、`item_spacing_x`。
 - 解析器保留完整属性名；schema 显式定义每个支持路径的类型、默认值及映射。UI 点号属性不等于嵌套状态绑定或任意 Rust 反射。
-- 指令使用 `e-`，动态属性使用 `:`，事件使用 `@`。当前表达式仅包含已注册名称、文本插值、条件（`!`、`&&`、`||`、`$contains_pointer.<id>`、`$contains_focus.<id>`），以及样式属性中的 `cond ? value : value`（见“动态样式”）；计算放在 Rust getter 中。
+- 指令使用 `e-`，动态属性使用 `:`，事件使用 `@`。当前表达式仅包含已注册名称、文本插值、条件（`true`、`false`、`!`、`&&`、`||`、`$contains_pointer.<id>`、`$contains_focus.<id>`），以及样式属性中的 `cond ? value : value`（见“动态样式”）；计算放在 Rust getter 中。
 - 未知标签/属性、重复项、非法值、未注册名称和类型/读写能力不匹配必须报错，不得静默忽略未支持语法或进行有损转换。
 
-自定义语法要求一个根节点，属性值必须带引号；不带值的 `e-else` 是唯一例外。支持自闭合节点、文本、节点内部注释，以及五种具名实体（`amp`、`lt`、`gt`、`quot`、`apos`）。与 HTML 相同，不构成 `&名称;` 的 `&` 按字面处理，所以条件里的 `a && b` 不需要转义。名称段使用 ASCII 字母或下划线开头，后续允许字母、数字、下划线和连字符；属性路径可用点号连接名称段，并可带 `:`/`@` 前缀。模板上限为 256 KiB、64 层节点。错误包含文件、行、列；文本插值错误目前定位到所属节点。
+自定义语法要求一个根节点，属性值必须带引号；不带值的 `e-else` 是唯一例外。支持自闭合节点、文本、节点内部注释，以及五种具名实体（`amp`、`lt`、`gt`、`quot`、`apos`）。与 HTML 相同，不构成 `&名称;` 的 `&` 按字面处理，所以条件里的 `a && b` 不需要转义。名称段使用 ASCII 字母或下划线开头，后续允许字母、数字、下划线和连字符；属性路径可用点号连接名称段，并可带 `:`/`@` 前缀。`true` 和 `false` 保留为 bool 字面量：已注册的 binding、handler、list 以及 `e-for` 的别名都不能使用这两个名字。模板上限为 256 KiB、64 层节点。错误包含文件、行、列；文本插值错误目前定位到所属节点。
 
 ## 布局约定
 
@@ -196,7 +196,7 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 </layout>
 ```
 
-- `e-if` 和 `e-else-if` 接收一个条件，规则与 `:disabled` 相同：`cond := all ("||" all)*`，`all := term ("&&" term)*`，其中 term 是已注册的 bool（根名称或 `别名.名称`）、`$contains_pointer.<id>` 或 `$contains_focus.<id>`，可用 `!` 取反。`&&` 优先级更高，不支持括号；`!` 只作用于一个 term。比较等计算放在 Rust 的 `bind` getter 中。`e-else` 是语法中唯一不带值的属性。
+- `e-if` 和 `e-else-if` 接收一个条件，规则与 `:disabled` 相同：`cond := all ("||" all)*`，`all := term ("&&" term)*`，其中 term 是 `true`、`false`、已注册的 bool（根名称或 `别名.名称`）、`$contains_pointer.<id>` 或 `$contains_focus.<id>`，可用 `!` 取反。有了字面量，编辑时可以用 `e-if="false"` 临时关闭一个分支，`:disabled="true"` 也与 `disabled="true"` 等价。`&&` 优先级更高，不支持括号；`!` 只作用于一个 term。比较等计算放在 Rust 的 `bind` getter 中。`e-else` 是语法中唯一不带值的属性。
 - `e-else-if` 和 `e-else` 必须紧跟在带 `e-if` 或 `e-else-if` 的兄弟元素之后，中间只允许注释。一条分支链最多渲染第一个为真的分支，`e-else` 结束分支链。
 - 条件在每个 pass 绘制到分支链时求值一次。循环外的写回是立即的，后面的条件在同一 pass 就能看到；循环内的写回是缓冲的，条件要到下一 pass 才看到。pass 之间模板结构不变，只有选中的分支会变。
 - 隐藏的分支不绘制、不占空间，`View::response(id)` 对其中节点返回 `None`。每个分支都是独立的模板元素，有自己的结构路径，因此切换分支不会改变兄弟节点的自动 ID。隐藏与移除一样不保证清除 egui 记忆，获得焦点的控件被隐藏时会失去焦点。显式 ID 仍在 View 内唯一，跨分支也不得重复。
@@ -220,7 +220,13 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 - 表达式语法刻意保持很小：`expr := value | cond "?" value ":" expr`。`value` 是带引号的单词（`'ghost'`，因为属性本身用双引号，所以用单引号）或主题路径；`cond` 是与 `e-if` 相同的条件（用 `&&` 和 `||` 连接的 term）。以 `$theme` 之外的 `$` 名字开头的表达式视为以条件开头。条件成立时取的值只能是单个值，连写发生在 else 位置，取第一个为真的条件。bool 属性（`underline`、`strikethrough`、`disabled`）接受 `true`/`false`，写成 `:name` 时直接写条件。不支持算术、比较和函数调用，计算放在 Rust 的 `bind` getter 里。
 - `$theme` 是保留关键字，路径与 Rust 的 `Theme` 字段一致：`$theme.colors.<色阶>.<foreground|l0..l9>` 和 `$theme.colors.<bg|fg>.<base|subtle|accent>` 是颜色，`$theme.colors.<色阶>` 是整个色阶（用于 button 的 `color`）。色阶有 primary、gray、red、green、blue、yellow、orange。路径在编译模板时与一张固定的表匹配（不做反射），绘制时在传给 `View::show` 的 Theme 里取值，所以切换明暗主题不需要重新编译。其他 `Theme` 字段暂未开放。
 - 每个值都在编译期按属性检查类型：单词必须是该属性的可选值之一，颜色必须是颜色路径，色阶必须是色阶路径。Rust 绑定暂时不能返回颜色或 variant。
-- 目前支持：text 的 `size`、`color`、`underline`、`strikethrough`；button 的 `size`、`variant`、`color`；text_edit 的 `size`、`variant`；switch 和 checkbox 的 `size`。text 的线宽为 1 点，颜色取文字颜色，对应 `text::Style::underline`/`strikethrough`。layout 属性和 `width` 仍只接受常量。
+- 目前支持以下属性，均可写常量或 `:` 表达式：
+  - text 的 `size`（主题字号 `xxs`–`xl`，或大号加粗的预设 `heading`）、`font_weight`（`thin` … `black`，会覆盖预设的字重）、`color`、`underline`、`strikethrough`、`truncate`、`selectable`；
+  - button 的 `size`、`variant`、`color`、`disabled`、`loading`（两者同时成立时以 disabled 为准）；
+  - text_edit 的 `size`、`variant`、`color`、`disabled`、`read_only`、`input_type`（`text`、`password`）；
+  - switch 的 `size`、`color`、`disabled`；checkbox 的 `size`、`color`、`disabled`、`indeterminate`。
+
+  button、text_edit、switch 和 checkbox 的 `color` 是色阶，传给组件的 `_color` 构造函数。text 的线宽为 1 点，颜色取文字颜色，对应 `text::Style::underline`/`strikethrough`。layout 属性、`width` 以及文字类属性（`placeholder`、`aria_label`、`password_toggle_aria_label`，支持插值）只接受常量。padding、圆角、palette 等底层 `Style` 字段不开放：它们由主题决定，若要在模板中单独覆盖，需要另行设计机制。
 - 表达式在每次绘制元素时求值，读取规则与 `:disabled` 相同：在循环内，缓冲的写入在下一个 pass 才可见。样式不会改变身份。
 
 ## 文本输入事件与焦点
@@ -269,7 +275,7 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 ```
 
 - text 上的 `@click` 和 `@double_click` 对应 egui 的 `Response::clicked()` 和 `double_clicked()`，名字跟随 egui，而不是 HTML 的 `dblclick`。handler 不带参数，执行方式与 button 的 `@click` 相同：可以是根或行 handler，在遍历结束后、只在每帧的第一个 pass 执行。
-- 带任一事件的 text 用 `text::Options::selectable(false)` 和 `.sense(Sense::click())` 绘制，所以双击不会同时选中单词。没有事件的 text 保持 egui 默认（可选中，`Sense::hover()`）。ECML 不单独提供 `selectable` 或 `sense` 属性。
+- 带任一事件的 text 用 `text::Options::selectable(false)` 和 `.sense(Sense::click())` 绘制，所以双击不会同时选中单词。没有事件的 text 保持 egui 默认（可选中，`Sense::hover()`），`selectable="false"` 可以关闭选中。`selectable` 与事件同时出现会在编译期报错，因为可点击的 text 永远不能选中。ECML 不提供 `sense` 属性，由事件决定。
 - egui 把双击的第二次松开也报告为一次点击，所以双击会触发两次 `@click` 和一次 `@double_click`，与浏览器的 click、click、dblclick 一致。同一帧内 `@click` 先执行。单击不会为了区分双击而延迟；需要单击什么都不做时，只绑定 `@double_click`。
 - 可点击的 text 可以用 Tab 获得焦点：按 Space 或 Enter 触发 `@click`（egui 的模拟点击），egui 用下划线标示焦点。双击没有对应的键盘操作，所以要配合另一个控件，比如 todo app 里的 Edit 按钮。
 - 三击、右键点击和其他事件暂不支持；以后按同样方式、使用 egui 的名字添加。

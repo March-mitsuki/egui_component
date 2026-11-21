@@ -16,5 +16,7 @@
         <button :disabled="!can_increment" @click="increment">Increment ({{ count }})</button>
         <button variant="outline" @click="reset">Reset</button>
         <button disabled="true">Disabled</button>
+        <!-- Loading ignores clicks but keeps keyboard focus. -->
+        <button variant="surface" :loading="enabled">Loading while enabled</button>
     </layout>
 </layout>

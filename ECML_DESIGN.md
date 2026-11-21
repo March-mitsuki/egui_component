@@ -68,8 +68,8 @@ Keep the public `egui_component::ecml::*` paths stable when reorganizing interna
   each supported path, value type, default, and mapping. Dotted UI properties do
   not imply nested application-state binding or automatic Rust reflection.
 - Use `e-` for directives, `:` for dynamic properties and `@` for events. Current
-  expressions are registered names, text interpolation, conditions (`!`, `&&`,
-  `||`, `$contains_pointer.<id>`, `$contains_focus.<id>`), and `cond ? value : value`
+  expressions are registered names, text interpolation, conditions (`true`,
+  `false`, `!`, `&&`, `||`, `$contains_pointer.<id>`, `$contains_focus.<id>`), and `cond ? value : value`
   in styling attributes (see Dynamic styling). Computations belong in Rust getters.
 - Reject unknown tags/attributes, duplicates, invalid values, unresolved names
   and type/capability mismatches. Never silently ignore unsupported syntax or
@@ -81,7 +81,9 @@ self-closing elements, text, comments inside elements, and five named entities
 (`amp`, `lt`, `gt`, `quot`, `apos`). As in HTML, an `&` that does not start
 `&name;` is literal, so conditions write `a && b` without escaping. Names use ASCII segments starting with a letter
 or underscore, followed by letters, digits, underscores or hyphens; attribute
-paths may join segments with dots, with optional `:`/`@` prefixes. Templates are
+paths may join segments with dots, with optional `:`/`@` prefixes. `true` and
+`false` are reserved for bool literals: registered bindings, handlers and lists,
+and `e-for` aliases, cannot use them. Templates are
 limited to 256 KiB and 64 element levels. Errors carry file, line and column;
 text interpolation errors currently point to the containing element.
 
@@ -336,9 +338,11 @@ to that registration exactly as `group.name` resolves to a row binding.
 ```
 
 - `e-if` and `e-else-if` take a condition, exactly like `:disabled`:
-  `cond := all ("||" all)*`, `all := term ("&&" term)*`, where a term is a
-  registered bool (root or `alias.name`), `$contains_pointer.<id>` or
-  `$contains_focus.<id>`, optionally negated with `!`. `&&` binds tighter and
+  `cond := all ("||" all)*`, `all := term ("&&" term)*`, where a term is `true`,
+  `false`, a registered bool (root or `alias.name`), `$contains_pointer.<id>` or
+  `$contains_focus.<id>`, optionally negated with `!`. Literals let `e-if="false"`
+  switch a branch off while editing, and make `:disabled="true"` equal to
+  `disabled="true"`. `&&` binds tighter and
   there are no parentheses; `!` applies to one term. Comparisons and other
   computations belong in Rust `bind` getters. `e-else` is the only bare attribute in the
   grammar and takes no value.
@@ -411,11 +415,24 @@ fragment.
 - Every value is type-checked at compile time against its attribute: words must
   be one of the attribute's choices, colors must be color paths and scales must
   be scale paths. Rust bindings cannot return colors or variants yet.
-- Supported now: text `size`, `color`, `underline`, `strikethrough`; button
-  `size`, `variant`, `color`; text_edit `size`, `variant`; switch and checkbox
-  `size`. Text lines are 1 point wide in the text color, mapping to
-  `text::Style::underline`/`strikethrough`. Layout attributes and `width` stay
-  constant.
+- Supported now, each as a constant or a `:` expression:
+  - text `size` (the theme text sizes `xxs`–`xl`, or `heading`, the large bold
+    preset), `font_weight` (`thin` … `black`, overriding the preset's weight),
+    `color`, `underline`, `strikethrough`, `truncate`, `selectable`;
+  - button `size`, `variant`, `color`, `disabled`, `loading` (disabled wins when
+    both hold);
+  - text_edit `size`, `variant`, `color`, `disabled`, `read_only`, `input_type`
+    (`text`, `password`);
+  - switch `size`, `color`, `disabled`; checkbox `size`, `color`, `disabled`,
+    `indeterminate`.
+
+  `color` on button, text_edit, switch and checkbox is a color scale, passed to
+  the component's `_color` constructors. Text lines are 1 point wide in the text
+  color, mapping to `text::Style::underline`/`strikethrough`. Layout attributes,
+  `width` and text attributes (`placeholder`, `aria_label`,
+  `password_toggle_aria_label`, which interpolate) stay constant. Raw `Style`
+  fields such as padding, corner radius or palettes are not exposed: the theme
+  decides them, and per-template overrides would need a separate mechanism.
 - Expressions are evaluated each pass when the element is drawn, with the same
   read rules as `:disabled`: inside loops, buffered writes show on the next pass.
   Styling never changes identity.
@@ -533,8 +550,10 @@ fragment.
   traversal, on the first pass of a frame.
 - A text with either event is drawn with `text::Options::selectable(false)` and
   `.sense(Sense::click())`, so a double click does not also select a word. Text
-  without events keeps egui's default (selectable, `Sense::hover()`). ECML exposes
-  no separate `selectable` or `sense` attribute.
+  without events keeps egui's default (selectable, `Sense::hover()`), and
+  `selectable="false"` turns selection off. `selectable` together with an event is
+  a compile-time error, since clickable text is never selectable. ECML exposes no
+  `sense` attribute: the events decide it.
 - egui reports the second release of a double click as a click as well, so a double
   click fires `@click` twice and `@double_click` once, like browsers' click, click,
   dblclick. In one frame `@click` runs first. Single clicks are not delayed to tell

@@ -6,4 +6,6 @@
         <text>Large, without a label</text>
     </layout>
     <checkbox disabled="true" e-model="enabled">Disabled</checkbox>
+    <!-- indeterminate shows a dash; it does not change the value. -->
+    <checkbox e-model="enabled" :indeterminate="!enabled" color="$theme.colors.red">Mixed until checked</checkbox>
 </layout>

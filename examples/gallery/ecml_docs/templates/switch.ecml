@@ -2,6 +2,7 @@
     <switch size="sm" e-model="enabled" />
     <switch e-model="enabled" />
     <switch size="lg" e-model="enabled" />
+    <switch color="$theme.colors.green" e-model="enabled" />
     <switch disabled="true" e-model="enabled" />
     <text>enabled = {{ enabled }}</text>
 </layout>

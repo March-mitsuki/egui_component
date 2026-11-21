@@ -1,4 +1,5 @@
 use super::*;
+use crate::font::weight::FontWeight;
 use crate::theme::{Theme, UiTheme};
 use egui::{Event, PointerButton, Pos2, RawInput};
 use std::collections::HashMap;
@@ -2007,4 +2008,297 @@ fn aria_label_names_controls_with_interpolation() {
         .err()
         .expect("text takes no aria_label");
     assert!(error.message.contains("unknown attribute"), "{error}");
+}
+
+/// Draws one frame with `events` and returns the full output.
+fn output<S: 'static>(
+    ctx: &egui::Context,
+    view: &mut View<S>,
+    state: &mut S,
+    events: Vec<Event>,
+) -> egui::FullOutput {
+    let theme = theme();
+    let mut output = ctx.run_ui(
+        RawInput {
+            events,
+            screen_rect: Some(egui::Rect::from_min_size(
+                Pos2::ZERO,
+                egui::vec2(600.0, 500.0),
+            )),
+            ..Default::default()
+        },
+        |ui| view.show(ui, &theme, state),
+    );
+    output.textures_delta.clear();
+    output
+}
+fn text_shapes(output: &egui::FullOutput) -> HashMap<String, std::sync::Arc<egui::Galley>> {
+    output
+        .shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(text) => Some((text.galley.text().to_owned(), text.galley.clone())),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn text_takes_theme_sizes_weight_truncate_and_selectable() {
+    let ctx = egui::Context::default();
+    let long = "word ".repeat(60);
+    let mut v = view(&format!(
+        r#"<layout>
+            <text size="sm">Small</text>
+            <text :size="enabled ? 'xl' : 'xs'">Toggled</text>
+            <text font_weight="bold">Bold</text>
+            <text size="heading" font_weight="regular">Light heading</text>
+            <text truncate="true">{long}</text>
+            <text id="plain">Plain</text>
+            <text id="fixed" selectable="false">Fixed</text>
+        </layout>"#
+    ));
+    let t = theme();
+    let mut state = State::default();
+    let out = output(&ctx, &mut v, &mut state, vec![]);
+    let shapes = text_shapes(&out);
+    let font = |text: &str| shapes[text].job.sections[0].format.font_id.clone();
+    assert_eq!(font("Small").size, t.text_size.sm);
+    assert_eq!(font("Toggled").size, t.text_size.xs);
+    let family = |weight| {
+        crate::consts::FONT_MANAGER.get_egui_font_family(
+            &ctx,
+            crate::consts::DEFAULT_FONT_FAMILY_ALIAS,
+            weight,
+            false,
+        )
+    };
+    assert_eq!(font("Bold").family, family(FontWeight::Bold));
+    // An explicit weight overrides the heading preset's bold, keeping its size.
+    assert_eq!(font("Light heading").family, family(FontWeight::Regular));
+    assert_eq!(font("Light heading").size, t.text_size.lg);
+    assert!(shapes[long.trim()].elided, "truncated to one row");
+    // Selectable text senses clicks and drags for selection; selectable="false" does not.
+    assert!(v.response("plain").unwrap().sense.senses_drag());
+    assert!(!v.response("fixed").unwrap().sense.senses_drag());
+    state.enabled = true;
+    let out = output(&ctx, &mut v, &mut state, vec![]);
+    assert_eq!(
+        text_shapes(&out)["Toggled"].job.sections[0]
+            .format
+            .font_id
+            .size,
+        t.text_size.xl
+    );
+    assert!(v.last_error().is_none());
+}
+
+#[test]
+fn loading_buttons_and_indeterminate_checkboxes_follow_their_conditions() {
+    use egui::accesskit::{Role, Toggled};
+    let ctx = egui::Context::default();
+    ctx.enable_accesskit();
+    let mut v = view(
+        r#"<layout>
+            <button id="save" :loading="enabled" @click="increment">Save</button>
+            <button id="both" loading="true" disabled="true">Both</button>
+            <checkbox e-model="enabled" :indeterminate="!enabled" color="$theme.colors.red" />
+            <switch e-model="enabled" color="$theme.colors.green" />
+        </layout>"#,
+    );
+    let t = theme();
+    let mut state = State::default();
+    let out = output(&ctx, &mut v, &mut state, vec![]);
+    let nodes = out.platform_output.accesskit_update.clone().unwrap().nodes;
+    let checkbox = nodes
+        .iter()
+        .find(|(_, n)| n.role() == Role::CheckBox)
+        .unwrap();
+    assert_eq!(checkbox.1.toggled(), Some(Toggled::Mixed));
+    let filled = |out: &egui::FullOutput, color| {
+        out.shapes
+            .iter()
+            .any(|clipped| matches!(&clipped.shape, egui::Shape::Rect(rect) if rect.fill == color))
+    };
+    // The indeterminate box is filled with its color scale; the off switch is gray.
+    assert!(filled(&out, t.colors.red.l6));
+    assert!(v.response("save").unwrap().sense.senses_click());
+    // Disabled wins over loading: not focusable either.
+    assert!(!v.response("both").unwrap().sense.is_focusable());
+
+    state.enabled = true;
+    // The switch animates between colors; a new context starts it at its value.
+    let fresh = egui::Context::default();
+    let out = output(&fresh, &mut v, &mut state, vec![]);
+    assert!(
+        filled(&out, t.colors.green.l6),
+        "the on switch uses its scale"
+    );
+    output(&ctx, &mut v, &mut state, vec![]);
+    let save = v.response("save").unwrap().clone();
+    assert!(!save.sense.senses_click() && save.sense.is_focusable());
+    click(&ctx, &mut v, &mut state, "save");
+    assert_eq!(state.count, 0, "a loading button does not fire @click");
+    assert!(v.last_error().is_none());
+}
+
+#[test]
+fn read_only_and_password_text_edits() {
+    use egui::accesskit::Role;
+    let ctx = egui::Context::default();
+    ctx.enable_accesskit();
+    let mut v = view(
+        r#"<layout>
+            <text_edit id="name" e-model="name" :read_only="!enabled" autofocus="true"
+                       color="$theme.colors.red" @blur="blur" @submit="save" />
+            <text_edit id="secret" e-model="name" input_type="password"
+                       password_toggle_aria_label="Show {{ name }}" />
+        </layout>"#,
+    );
+    let mut state = State {
+        name: "hunter2".into(),
+        ..Default::default()
+    };
+    output(&ctx, &mut v, &mut state, vec![]);
+    output(&ctx, &mut v, &mut state, vec![]);
+    assert!(focused(&v, "name"), "read-only fields can still be focused");
+    output(&ctx, &mut v, &mut state, vec![Event::Text("x".into())]);
+    output(&ctx, &mut v, &mut state, vec![key(egui::Key::Enter)]);
+    for _ in 0..2 {
+        output(&ctx, &mut v, &mut state, vec![]);
+    }
+    assert_eq!(
+        state.name, "hunter2",
+        "typing does not edit a read-only field"
+    );
+    assert_eq!(
+        (state.saved.as_str(), state.blurs),
+        ("", 0),
+        "read-only fields fire nothing"
+    );
+
+    let out = output(&ctx, &mut v, &mut state, vec![]);
+    let texts = text_shapes(&out);
+    assert_eq!(
+        texts.keys().filter(|t| t.as_str() == "hunter2").count(),
+        1,
+        "only the plain field shows it"
+    );
+    let nodes = out.platform_output.accesskit_update.clone().unwrap().nodes;
+    assert!(
+        nodes
+            .iter()
+            .any(|(_, n)| n.role() == Role::Button && n.label() == Some("Show hunter2")),
+        "the toggle name supports interpolation"
+    );
+
+    state.enabled = true;
+    output(&ctx, &mut v, &mut state, vec![]);
+    v.response("name").unwrap().request_focus();
+    output(&ctx, &mut v, &mut state, vec![]);
+    output(&ctx, &mut v, &mut state, vec![Event::Text("!".into())]);
+    assert_eq!(
+        state.name, "hunter2!",
+        "editable again once the condition is false"
+    );
+    assert!(v.last_error().is_none());
+}
+
+#[test]
+fn new_attribute_errors_have_source_locations() {
+    for (source, message) in [
+        (
+            "<text selectable=\"true\" @click=\"increment\" />",
+            "never selectable",
+        ),
+        ("<text font_weight=\"heavy\" />", "must be one of"),
+        ("<text size=\"huge\" />", "must be one of"),
+        (
+            "<text_edit e-model=\"name\" input_type=\"email\" />",
+            "must be one of",
+        ),
+        (
+            "<checkbox e-model=\"enabled\" color=\"red\" />",
+            "not a color scale",
+        ),
+        (
+            "<switch e-model=\"enabled\" :color=\"enabled ? $theme.colors.red.l6 : $theme.colors.red\" />",
+            "color scale",
+        ),
+        ("<button loading=\"maybe\" />", "must be one of"),
+        (
+            "<switch e-model=\"enabled\" indeterminate=\"true\" />",
+            "unknown attribute",
+        ),
+    ] {
+        let error = builder()
+            .load(Source::inline("bad.ecml", format!("\n{source}")))
+            .err()
+            .expect(source);
+        assert!(error.message.contains(message), "{source}: {error}");
+        assert_eq!(error.line, 2, "{source}");
+    }
+}
+
+#[test]
+fn true_and_false_are_literals_in_every_condition() {
+    let ctx = egui::Context::default();
+    let mut v = view(
+        r#"<layout>
+            <text e-if="false">Never</text>
+            <text e-else-if="!false && true">Always</text>
+            <text e-if="enabled || false">Enabled</text>
+            <text :color="true ? $theme.colors.red.l6 : $theme.colors.gray.l6">Red</text>
+            <button id="off" :disabled="true" @click="increment">Off</button>
+            <button id="on" :disabled="!true" :loading="false" @click="increment">On</button>
+        </layout>"#,
+    );
+    let t = theme();
+    let mut state = State::default();
+    let shown = drawn(&mut v, &mut state);
+    assert!(!shown.contains_key("Never") && shown.contains_key("Always"));
+    assert!(!shown.contains_key("Enabled"));
+    assert_eq!(shown["Red"].color, t.colors.red.l6);
+    frame(&ctx, &mut v, &mut state, vec![], false);
+    click(&ctx, &mut v, &mut state, "off");
+    assert_eq!(state.count, 0);
+    click(&ctx, &mut v, &mut state, "on");
+    assert_eq!(state.count, 1);
+    state.enabled = true;
+    assert!(drawn(&mut v, &mut state).contains_key("Enabled"));
+    assert!(v.last_error().is_none());
+}
+
+#[test]
+fn true_and_false_cannot_be_registered_or_used_as_aliases() {
+    let template = || Source::inline("t.ecml", "<text />");
+    let reserved = |error: Error| {
+        assert!(
+            error.message.contains("reserved for bool literals"),
+            "{error}"
+        );
+    };
+    reserved(
+        View::<State>::builder()
+            .bind("true", |s| s.enabled)
+            .load(template())
+            .err()
+            .expect("a binding named true"),
+    );
+    reserved(
+        View::<State>::builder()
+            .on("false", |_| {})
+            .load(template())
+            .err()
+            .expect("a handler named false"),
+    );
+    reserved(
+        todos()
+            .load(Source::inline(
+                "t.ecml",
+                r#"<layout><text e-for="true in todos">x</text></layout>"#,
+            ))
+            .err()
+            .expect("an alias named true"),
+    );
 }

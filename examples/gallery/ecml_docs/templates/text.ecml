@@ -1,5 +1,8 @@
 <layout item_spacing.y="8">
     <text size="heading">A heading</text>
+    <!-- Theme text sizes, a weight and a theme color. -->
+    <text size="sm" font_weight="semi_bold" color="$theme.colors.fg.subtle">Small, semi-bold and subtle</text>
+    <text truncate="true" selectable="false">One row only: with truncate, a line too long for the available width is cut with an ellipsis instead of wrapping onto the next row of the layout, so the rows below it never move when the text changes.</text>
     <text>Hello, {{ name }}! The count is {{ count }}.</text>
     <text>Escaped: &lt;layout&gt; &amp; &quot;quotes&quot;</text>
     <!-- Events make text clickable and not selectable. -->
