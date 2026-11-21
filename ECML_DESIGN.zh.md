@@ -62,6 +62,8 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 
 当前值类型为 String、bool、i32、i64 和图标（`egui::ImageSource<'static>`，例如 `icon::lucide::HEART`，见“图标”）；可编辑控件分别要求 text_edit 的 String，以及 switch 和 checkbox 的 bool。getter 按需执行，没有依赖追踪和缓存，不应产生业务副作用。setter 只应同步更新状态；外部副作用放在显式 handler 中，handler 不应执行阻塞绘制的长任务。
 
+`Theme` 是 `View::show` 的参数而不是状态：宿主每次调用都会传入它，`$theme` 路径读取收到的那个主题，所以切换明暗主题不需要重新编译。模板不能替换主题。要让界面切换主题，就注册一个 bool（开关用 `.model("dark", ...)`，按钮用一个翻转它的 handler），由宿主根据这个 bool 选择主题，并同步更新 egui 自身的 visuals。两个示例都是这样做的。不计划提供 runtime 辅助：这只是几行应用代码，而且主题和 egui context 本来就归宿主所有。
+
 一个 View 表示一个 Context/viewport 中的一个挂载实例，每 pass 调用一次。多个挂载位置使用独立 View。必须保留以下更新约定：
 
 1. 新帧首次 show 时采用有效的待替换模板。

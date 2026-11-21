@@ -30,6 +30,8 @@ struct State {
     next_id: u64,
     draft: String,
     filter: Filter,
+    /// Bound to the template's switch; the host picks the theme from it.
+    dark: bool,
 }
 impl State {
     fn add(&mut self, title: &str) {
@@ -72,6 +74,7 @@ impl State {
 fn builder() -> ecml::Builder<State> {
     ecml::View::<State>::builder()
         .model("draft", |s| s.draft.clone(), |s, value| s.draft = value)
+        .model("dark", |s| s.dark, |s, value| s.dark = value)
         .bind("can_add", |s| !s.draft.trim().is_empty())
         .bind("has_todos", |s| !s.todos.is_empty())
         .bind("remaining", |s| {
@@ -136,11 +139,19 @@ struct App {
 }
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        ui.ctx().set_visuals(egui::Visuals::dark());
+        // The switch edits `dark`; the host passes the matching theme to the View and
+        // keeps egui's own visuals (panel fill, scrollbars, selection) in step.
+        let (theme, mut visuals) = if self.state.dark {
+            (&self.ui_theme.dark, egui::Visuals::dark())
+        } else {
+            (&self.ui_theme.light, egui::Visuals::light())
+        };
+        visuals.panel_fill = theme.colors.bg.base;
+        ui.ctx().set_visuals(visuals);
         egui::CentralPanel::default().show(ui, |ui| {
             // ECML layouts do not scroll; the host decides where scrolling happens.
             egui::ScrollArea::vertical().show(ui, |ui| {
-                self.view.show(ui, &self.ui_theme.dark, &mut self.state);
+                self.view.show(ui, theme, &mut self.state);
             });
         });
     }
@@ -149,7 +160,10 @@ fn main() -> eframe::Result {
     let view = builder()
         .load(ecml::source!("examples/ecml_todo_app/todos.ecml"))
         .expect("initial ECML template must be valid");
-    let mut state = State::default();
+    let mut state = State {
+        dark: true,
+        ..Default::default()
+    };
     for title in ["Try ECML", "Edit todos.ecml while this runs", "Ship it"] {
         state.add(title);
     }
@@ -328,5 +342,25 @@ mod tests {
         frame(&ctx, &mut view, &mut state, vec![key(egui::Key::Enter)]);
         assert_eq!(titles(&state), ["milk!?"]);
         assert!(view.last_error().is_none());
+    }
+
+    #[test]
+    fn the_switch_flips_dark_mode_for_the_host() {
+        let ctx = egui::Context::default();
+        let mut view = builder()
+            .load(ecml::Source::inline(
+                "todos.ecml",
+                include_str!("todos.ecml"),
+            ))
+            .unwrap();
+        let mut state = State {
+            dark: true,
+            ..Default::default()
+        };
+        frame(&ctx, &mut view, &mut state, vec![]);
+        click(&ctx, &mut view, &mut state, "dark");
+        assert!(!state.dark, "the host now passes the light theme");
+        click(&ctx, &mut view, &mut state, "dark");
+        assert!(state.dark);
     }
 }

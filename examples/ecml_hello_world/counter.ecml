@@ -10,6 +10,8 @@
     <layout direction="left_to_right" item_spacing.x="8">
         <button id="increment" :disabled="!can_increment" @click="increment">Increment</button>
         <button variant="outline" @click="reset">Reset</button>
+        <!-- The handler flips a bool in the state; the Rust host picks the theme. -->
+        <button variant="ghost" @click="toggle_theme">{{ theme_label }}</button>
     </layout>
     <text>Edit and save this template while the app is running.</text>
 </layout>

@@ -43,6 +43,10 @@ reload. [main.rs](main.rs) holds the state and every registration:
   (`:variant="showing_all ? 'outline' : 'ghost'"`).
 - The window scrolls because the host wraps `View::show` in an egui `ScrollArea`;
   ECML layouts do not scroll by themselves.
+- The Dark mode switch edits `dark` (`<switch e-model="dark" aria_label="Dark mode" />`).
+  The template cannot replace the theme; the host reads `dark` each frame, passes
+  the light or dark `Theme` to `View::show`, and updates egui's visuals to match.
+  See [Switch between light and dark themes](../ecml_hello_world/README.md#switch-between-light-and-dark-themes).
 
 Persistence and URL routing from the TodoMVC spec are left out on purpose. Both
 live in the app, not the template: saving is `serde` on the state plus eframe's

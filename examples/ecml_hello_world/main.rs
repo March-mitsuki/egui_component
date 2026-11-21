@@ -5,6 +5,7 @@ struct State {
     name: String,
     count: i32,
     enabled: bool,
+    dark: bool,
 }
 struct App {
     state: State,
@@ -13,9 +14,17 @@ struct App {
 }
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        ui.ctx().set_visuals(egui::Visuals::dark());
+        // The template toggles `dark` in the state; the host picks the theme from it.
+        // egui's own visuals (panel fill, scrollbars, selection) follow separately.
+        let (theme, mut visuals) = if self.state.dark {
+            (&self.theme.dark, egui::Visuals::dark())
+        } else {
+            (&self.theme.light, egui::Visuals::light())
+        };
+        visuals.panel_fill = theme.colors.bg.base;
+        ui.ctx().set_visuals(visuals);
         egui::CentralPanel::default().show(ui, |ui| {
-            self.view.show(ui, &self.theme.dark, &mut self.state);
+            self.view.show(ui, theme, &mut self.state);
         });
     }
 }
@@ -25,13 +34,18 @@ fn main() -> eframe::Result {
         .model("enabled", |s| s.enabled, |s, value| s.enabled = value)
         .bind("count", |s| s.count)
         .bind("can_increment", |s| s.enabled && s.count < 10)
+        .bind("theme_label", |s| {
+            if s.dark { "Light mode" } else { "Dark mode" }.to_owned()
+        })
         .on("increment", |s| s.count += 1)
         .on("reset", |s| s.count = 0)
+        .on("toggle_theme", |s| s.dark = !s.dark)
         .load(ecml::source!("examples/ecml_hello_world/counter.ecml"))
         .expect("initial ECML template must be valid");
     let app = App {
         state: State {
             enabled: true,
+            dark: true,
             ..Default::default()
         },
         view,

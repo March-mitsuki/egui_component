@@ -343,7 +343,9 @@ fn counter_example_buttons_fit_the_demo_window() {
     let ctx = egui::Context::default();
     let mut view = builder()
         .bind("can_increment", |s| s.enabled && s.count < 10)
+        .bind("theme_label", |_| String::from("Light mode"))
         .on("reset", |s| s.count = 0)
+        .on("toggle_theme", |_| {})
         .load(Source::inline(
             "counter.ecml",
             include_str!("../../examples/ecml_hello_world/counter.ecml"),

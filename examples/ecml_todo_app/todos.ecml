@@ -1,5 +1,10 @@
 <layout item_spacing.y="12">
-    <text size="heading">Todos</text>
+    <layout direction="left_to_right" item_spacing.x="8" cross_align="center">
+        <text size="heading">Todos</text>
+        <!-- Edits a bool in the state; the Rust host picks the light or dark theme. -->
+        <switch id="dark" e-model="dark" aria_label="Dark mode" />
+        <text size="sm" color="$theme.colors.fg.subtle">Dark mode</text>
+    </layout>
     <layout direction="left_to_right" item_spacing.x="8">
         <text_edit id="draft" e-model="draft" placeholder="What needs to be done?" width="320"
                    autofocus="true" @submit="add" />

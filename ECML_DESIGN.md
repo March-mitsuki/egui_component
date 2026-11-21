@@ -127,6 +127,15 @@ tracking or caching and must not have business side effects. Setters should only
 synchronously update state. External effects belong in explicit handlers, which
 must not block rendering with long work.
 
+The `Theme` is an argument of `View::show`, not state: the host passes it on every
+call and `$theme` paths read whichever theme they receive, so switching light and
+dark needs no recompilation. A template cannot replace it. To let the interface
+switch themes, register a bool (`.model("dark", ...)` for a switch, or a handler
+that flips it for a button), and have the host pick the theme from that bool and
+update egui's own visuals to match. Both examples do this. No runtime helper is
+planned: it is a few lines of application code, and the host already owns the
+theme and the egui context.
+
 A View represents one mount in one Context/viewport, shown once per pass. Use
 separate Views for multiple mounts. Preserve this update contract:
 

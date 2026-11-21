@@ -21,7 +21,9 @@ cargo run --features ecml --example ecml_hello_world
 Enter a name, increment the counter, then edit [counter.ecml](counter.ecml) and
 save. Change text, button variants or layout spacing: the interface reloads and
 the name/count stay intact. The switch enables incrementing; the counter stops at
-10 and Reset clears it. See [main.rs](main.rs) for the example application.
+10 and Reset clears it. The last button switches between the light and dark themes
+(see [Switch between light and dark themes](#switch-between-light-and-dark-themes)).
+See [main.rs](main.rs) for the example application.
 
 If you save an invalid template, the last valid interface remains visible and an
 error window shows the file, line, column and reason. Fix the template and save
@@ -102,6 +104,46 @@ For bevy_egui, align egui versions and keep the View in main-thread/non-send
 storage: its callbacks do not require Send/Sync. The host must process egui's
 repaint requests for idle hot reload. A Bevy-specific runnable example is not yet
 provided.
+
+## Switch between light and dark themes
+
+A template cannot replace the theme itself: `View::show` takes the `Theme` from
+the host on every call, and `$theme` paths read whichever one it receives. Keep a
+bool in the state, let the template change it, and pick the theme from it in the
+host:
+
+```rust
+let view = ecml::View::<State>::builder()
+    // A button with a handler...
+    .on("toggle_theme", |s| s.dark = !s.dark)
+    // ...or a switch editing the bool directly: <switch e-model="dark" aria_label="Dark mode" />
+    .model("dark", |s| s.dark, |s, value| s.dark = value)
+    // ...
+```
+
+```html
+<button variant="ghost" @click="toggle_theme">{{ theme_label }}</button>
+```
+
+```rust
+fn ui(&mut self, ui: &mut egui::Ui) {
+    let (theme, mut visuals) = if self.state.dark {
+        (&self.ui_theme.dark, egui::Visuals::dark())
+    } else {
+        (&self.ui_theme.light, egui::Visuals::light())
+    };
+    // egui's own visuals (panel fill, scrollbars, text selection) follow separately.
+    visuals.panel_fill = theme.colors.bg.base;
+    ui.ctx().set_visuals(visuals);
+    self.view.show(ui, theme, &mut self.state);
+}
+```
+
+The handler runs after the View is drawn, so the next frame shows the new theme;
+the click already requests that repaint. Keep the `UiTheme` outside the state you
+pass to `show`: `view.show(ui, &self.state.ui_theme.dark, &mut self.state)` borrows
+the state twice and does not compile. This example uses a button with a handler;
+the [todo app](../ecml_todo_app/README.md) uses a switch bound to the bool.
 
 ## Syntax reference
 
