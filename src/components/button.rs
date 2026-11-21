@@ -32,6 +32,8 @@ pub struct Style {
     /// 整组内容的水平对齐方式，默认居中。
     pub content_align: egui::Align,
     pub state: ButtonState,
+    /// Screen-reader name, like `aria-label`; never drawn. `None` (default) uses the button text.
+    pub aria_label: Option<String>,
 }
 
 #[derive(Clone)]
@@ -99,6 +101,7 @@ impl Style {
             width: None,
             content_align: egui::Align::Center,
             state: ButtonState::None,
+            aria_label: None,
         }
     }
 
@@ -513,6 +516,13 @@ impl Style {
         self.state = state;
         self
     }
+
+    /// Name the button for screen readers when its text alone is unclear or empty, e.g. "Delete Buy milk"
+    /// for one of many Delete buttons. Like `aria-label`, it replaces the text.
+    pub fn aria_label(mut self, label: impl Into<String>) -> Self {
+        self.aria_label = Some(label.into());
+        self
+    }
 }
 
 pub fn render(ui: &mut Ui, text: &str, style: Style) -> egui::Response {
@@ -614,7 +624,7 @@ pub(super) fn render_inner(
         egui::WidgetInfo::labeled(
             egui::Role::Button,
             style.state == ButtonState::None && ui.is_enabled(),
-            text,
+            style.aria_label.as_deref().unwrap_or(text),
         )
     });
     // Buttons inside a menu popup take part in its arrow-key navigation.

@@ -32,6 +32,7 @@
 - 移除 `FontManager::set_egui_fonts`，请改用它原本转发到的 `FontManager::apply`。`get_egui_font_family_with_style` 合并进 `get_egui_font_family`，后者新增最后一个参数 `italic: bool`：现有调用补上 `false`，`get_egui_font_family_with_style` 的调用改名为 `get_egui_font_family`。
 - `text::Style` 新增公开字段 `underline: egui::Stroke` 和 `strikethrough: egui::Stroke`，名称与 egui `TextFormat` 的字段一致。逐项列出字段的结构体字面量需补上 `underline: egui::Stroke::NONE` 和 `strikethrough: egui::Stroke::NONE` 以保持无装饰线。穷尽解构时需列出这两个字段或使用 `..`。构造函数默认两者均为 `Stroke::NONE`；用 `.underline(Stroke::new(1.0, color))` 或 `.strikethrough(...)` 绘制线条，宽度和颜色各自独立。
 - `text::Style` 新增公开字段 `sense: egui::Sense`，与 `icon::Style` 和 egui 的 `Label::sense` 一致。逐项列出字段的结构体字面量需补上 `sense: egui::Sense::hover()` 以保持文字不响应交互；穷尽解构时需列出该字段或使用 `..`。构造函数默认为 `Sense::hover()`。用 `.selectable(false).sense(egui::Sense::click())` 让文字可点击，并从返回的 `Response` 读取 `clicked()` 或 `double_clicked()`；不设置 `.selectable(false)` 时，双击还会选中一个单词。
+- `button::Style`、`checkbox::Style` 和 `switch::Style` 新增公开字段 `aria_label: Option<String>`，作为屏幕阅读器读出的名称，替代按钮文字或复选框的 label（switch 本身没有文字）。逐项列出字段的结构体字面量需补上 `aria_label: None`，以继续使用可见文字作为名称；穷尽解构时需列出该字段或使用 `..`。构造函数默认为 `None`。可见文字不够明确（例如很多行都有 Delete 按钮）或没有可见文字（没有 label 的复选框、switch）时，用 `.aria_label("删除 买牛奶")` 设置。
 
 ### 颜色选择器行为变更
 

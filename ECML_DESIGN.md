@@ -64,9 +64,9 @@ Keep the public `egui_component::ecml::*` paths stable when reorganizing interna
   each supported path, value type, default, and mapping. Dotted UI properties do
   not imply nested application-state binding or automatic Rust reflection.
 - Use `e-` for directives, `:` for dynamic properties and `@` for events. Current
-  expressions are registered names, text interpolation, bool negation for
-  conditions, `$contains_pointer.<id>`, and `cond ? value : value` in styling attributes (see Dynamic
-  styling). Computations belong in Rust getters.
+  expressions are registered names, text interpolation, conditions (`!`, `&&`,
+  `||`, `$contains_pointer.<id>`, `$contains_focus.<id>`), and `cond ? value : value`
+  in styling attributes (see Dynamic styling). Computations belong in Rust getters.
 - Reject unknown tags/attributes, duplicates, invalid values, unresolved names
   and type/capability mismatches. Never silently ignore unsupported syntax or
   perform lossy conversions.
@@ -74,7 +74,8 @@ Keep the public `egui_component::ecml::*` paths stable when reorganizing interna
 The custom grammar requires one root and quoted attribute values; the bare
 `e-else` is the only attribute without a value. It supports
 self-closing elements, text, comments inside elements, and five named entities
-(`amp`, `lt`, `gt`, `quot`, `apos`). Names use ASCII segments starting with a letter
+(`amp`, `lt`, `gt`, `quot`, `apos`). As in HTML, an `&` that does not start
+`&name;` is literal, so conditions write `a && b` without escaping. Names use ASCII segments starting with a letter
 or underscore, followed by letters, digits, underscores or hyphens; attribute
 paths may join segments with dots, with optional `:`/`@` prefixes. Templates are
 limited to 256 KiB and 64 element levels. Errors carry file, line and column;
@@ -330,9 +331,12 @@ to that registration exactly as `group.name` resolves to a row binding.
 </layout>
 ```
 
-- `e-if="name"` and `e-else-if="name"` take one registered bool, root or
-  `alias.name`, optionally negated with `!`, exactly like `:disabled`. Computations
-  belong in Rust `bind` getters. `e-else` is the only bare attribute in the
+- `e-if` and `e-else-if` take a condition, exactly like `:disabled`:
+  `cond := all ("||" all)*`, `all := term ("&&" term)*`, where a term is a
+  registered bool (root or `alias.name`), `$contains_pointer.<id>` or
+  `$contains_focus.<id>`, optionally negated with `!`. `&&` binds tighter and
+  there are no parentheses; `!` applies to one term. Comparisons and other
+  computations belong in Rust `bind` getters. `e-else` is the only bare attribute in the
   grammar and takes no value.
 - `e-else-if` and `e-else` must directly follow an `e-if` or `e-else-if` sibling
   element; comments may sit between them. A chain renders at most its first true
@@ -386,8 +390,8 @@ fragment.
 - The expression grammar is deliberately small:
   `expr := value | cond "?" value ":" expr`, where `value` is a quoted word
   (`'ghost'`, single quotes because the attribute uses double quotes) or a theme
-  path, and `cond` is a registered bool, root or `alias.name`, optionally negated
-  with `!`, as in `e-if`. The value chosen when a condition holds is a single value;
+  path, and `cond` is a condition as in `e-if` (terms joined with `&&` and `||`).
+  An expression starting with a `$` name other than `$theme` starts a condition. The value chosen when a condition holds is a single value;
   chaining happens in the else position and the first true condition wins. Bool
   attributes (`underline`, `strikethrough`, `disabled`) take `true`/`false` or,
   as `:name`, a condition directly. There is no arithmetic, comparison or call;
@@ -462,7 +466,8 @@ fragment.
 ```html
 <layout e-for="todo in todos" id="todo" direction="left_to_right">
     <text>{{ todo.title }}</text>
-    <button :visible="$contains_pointer.todo" @click="todo.remove">Delete</button>
+    <button :visible="$contains_pointer.todo || $contains_focus.todo"
+            aria_label="Delete {{ todo.title }}" @click="todo.remove">Delete</button>
 </layout>
 ```
 
@@ -493,9 +498,21 @@ fragment.
 - `visible`/`:visible` is accepted on every element, fragments included. When
   false the element keeps its space but is not drawn and does not respond, like
   egui's `Ui::set_invisible` (CSS `visibility: hidden`); `e-if` removes it (CSS
-  `display: none`). An invisible control cannot take focus, so a control shown
-  only on hover is unreachable by keyboard; keyboard access (something like
-  `:focus-within`) is future work.
+  `display: none`). An invisible control is also disabled, so it cannot take
+  focus; a control shown only on hover is unreachable by keyboard unless its
+  condition also uses `$contains_focus`.
+- `$contains_focus.<id>` is true while keyboard focus is on a control inside the
+  element, like CSS `:focus-within`, with the same id rules as
+  `$contains_pointer`. While drawing, the View notes whether a control inside each
+  element with an id `has_focus()`, and the condition reads the last show's
+  result, a frame late. With
+  `:visible="$contains_pointer.row || $contains_focus.row"`, tabbing onto the
+  row's first control shows the hidden one, and the next Tab reaches it; Tabbing
+  out of the row hides it again. The hidden control must not be the row's only
+  focusable control, or focus can never enter the row.
+- An invisible control still has an AccessKit node, marked disabled: egui gives
+  every focusable widget one and offers no way to leave it out of the tree.
+  Screen readers that list controls may show the hidden ones as unavailable.
 - Applications can also read the last show's responses in Rust: `View::response(id)`
   for elements outside loops, copied into state before `show` and exposed with
   `.bind`. Row responses are not public yet.
@@ -523,6 +540,26 @@ fragment.
   equivalent, so pair it with another control, as the todo app's Edit button does.
 - Triple and secondary clicks and other events are not supported yet; add them
   the same way, under egui's names.
+
+## Accessible names
+
+```html
+<checkbox e-model="todo.done" aria_label="{{ todo.title }}" />
+<button aria_label="Delete {{ todo.title }}" @click="todo.remove">Delete</button>
+<switch e-model="dark" aria_label="Dark mode" />
+```
+
+- `aria_label` on button, checkbox and switch maps to the components'
+  `Style::aria_label`: the name screen readers announce, replacing the visible
+  text, like HTML `aria-label`. It is never drawn. Use it when the visible text
+  alone is unclear (many rows' "Delete") or missing (a checkbox without content, a
+  switch).
+- It supports interpolation like `placeholder`, so there is no `:aria_label`; a
+  name is text, not a styling expression.
+- Other elements reject it: text is read as itself, layouts and fragments draw no
+  control, and text_edit has no name override in Rust yet. Labelling a text_edit
+  (Rust `field` already links a visible label) and other ARIA properties are future
+  work.
 
 ## Extending ECML
 

@@ -29,6 +29,8 @@ pub struct Style {
     pub focus_ring: crate::theme::FocusRing,
     pub disabled: bool,
     pub indeterminate: bool,
+    /// Screen-reader name, like `aria-label`; never drawn. `None` (default) uses the label.
+    pub aria_label: Option<String>,
 }
 
 impl Style {
@@ -44,6 +46,7 @@ impl Style {
             focus_ring: theme.focus_ring,
             disabled: false,
             indeterminate: false,
+            aria_label: None,
         }
     }
 
@@ -111,6 +114,13 @@ impl Style {
         self.indeterminate = indeterminate;
         self
     }
+
+    /// Name the checkbox for screen readers when it has no label, or the label alone is unclear, e.g. "Buy milk" for
+    /// the done box of a todo. Like `aria-label`, it replaces the label.
+    pub fn aria_label(mut self, label: impl Into<String>) -> Self {
+        self.aria_label = Some(label.into());
+        self
+    }
 }
 
 /// Render only the box. Inside [`field`](super::field), clicking the field
@@ -156,7 +166,7 @@ fn show(ui: &mut Ui, checked: &mut bool, label: Option<&str>, mut style: Style) 
             Role::CheckBox,
             !style.disabled,
             *checked,
-            label.unwrap_or_default(),
+            style.aria_label.as_deref().or(label).unwrap_or_default(),
         );
         if indeterminate {
             info.selected = None;

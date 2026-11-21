@@ -560,6 +560,7 @@ fn todo(id: u32, title: &str) -> Todo {
 fn todos() -> Builder<Todos> {
     View::<Todos>::builder()
         .model("draft", |s| s.draft.clone(), |s, v| s.draft = v)
+        .model("hide_done", |s| s.hide_done, |s, v| s.hide_done = v)
         .bind("count", |s| s.todos.len() as i64)
         .list(
             "todos",
@@ -1847,4 +1848,163 @@ fn an_inner_row_reads_its_own_outer_row() {
     let texts = painted(&ctx, &mut view, &mut state, over_b);
     assert!(texts.contains(&"b y".to_owned()), "{texts:?}");
     assert!(!texts.contains(&"a x".to_owned()), "{texts:?}");
+}
+
+#[test]
+fn conditions_join_with_and_binding_tighter_than_or() {
+    let ctx = egui::Context::default();
+    let mut v = view(
+        r#"<layout>
+            <text e-if="enabled && disabled">Both</text>
+            <text e-if="disabled || enabled && disabled">Off</text>
+            <text e-if="!enabled && !disabled || enabled">On</text>
+            <text :color="$contains_pointer.target ? $theme.colors.red.l6 : $theme.colors.fg.base">Tom & Jerry &amp; co</text>
+            <button id="target">Target</button>
+        </layout>"#,
+    );
+    let away = Pos2::new(590.0, 490.0);
+    let mut state = State::default();
+    let texts = painted(&ctx, &mut v, &mut state, away);
+    assert!(texts.contains(&"Off".to_owned()), "{texts:?}");
+    assert!(!texts.contains(&"On".to_owned()) && !texts.contains(&"Both".to_owned()));
+    // A bare '&' is literal, as in HTML; entities still decode.
+    assert!(texts.contains(&"Tom & Jerry & co".to_owned()), "{texts:?}");
+    state.enabled = true;
+    let texts = painted(&ctx, &mut v, &mut state, away);
+    assert!(texts.contains(&"On".to_owned()), "{texts:?}");
+    assert!(!texts.contains(&"Off".to_owned()) && !texts.contains(&"Both".to_owned()));
+    for (source, message) in [
+        ("<text e-if=\"(enabled || disabled)\" />", "no parentheses"),
+        (
+            "<text e-if=\"enabled ||\" />",
+            "needs a registered bool name",
+        ),
+        ("<text e-if=\"enabled && count\" />", "expected Bool"),
+        (
+            "<text e-if=\"$contains_focus.nope\" />",
+            "no element has id 'nope'",
+        ),
+        ("<text>&nbsp;</text>", "unsupported entity"),
+    ] {
+        let error = builder()
+            .load(Source::inline("bad.ecml", format!("\n{source}")))
+            .err()
+            .expect(source);
+        assert!(error.message.contains(message), "{source}: {error}");
+        assert_eq!(error.line, 2, "{source}");
+    }
+}
+
+#[test]
+fn contains_focus_lets_the_keyboard_reach_a_hover_only_button() {
+    let ctx = egui::Context::default();
+    let mut view = todo_view(
+        r#"<layout>
+            <layout e-for="todo in todos" id="row" direction="left_to_right">
+                <checkbox id="done" e-model="todo.done" />
+                <button id="remove" :visible="$contains_pointer.row || $contains_focus.row" @click="todo.remove">Delete</button>
+            </layout>
+        </layout>"#,
+    );
+    let mut state = Todos {
+        todos: vec![todo(1, "a"), todo(2, "b")],
+        ..Default::default()
+    };
+    let enabled =
+        |view: &View<Todos>, key: u32| view.row_response("remove", &key).unwrap().enabled();
+    let focused =
+        |view: &View<Todos>, id: &str, key: u32| view.row_response(id, &key).unwrap().has_focus();
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    assert!(!enabled(&view, 1) && !enabled(&view, 2));
+    // Tab onto the first checkbox; its row then shows Delete, so the next Tab reaches it.
+    frame(
+        &ctx,
+        &mut view,
+        &mut state,
+        vec![key(egui::Key::Tab)],
+        false,
+    );
+    assert!(focused(&view, "done", 1));
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    assert!(enabled(&view, 1) && !enabled(&view, 2));
+    frame(
+        &ctx,
+        &mut view,
+        &mut state,
+        vec![key(egui::Key::Tab)],
+        false,
+    );
+    assert!(focused(&view, "remove", 1));
+    // Leaving the row hides its Delete again.
+    frame(
+        &ctx,
+        &mut view,
+        &mut state,
+        vec![key(egui::Key::Tab)],
+        false,
+    );
+    assert!(focused(&view, "done", 2));
+    frame(&ctx, &mut view, &mut state, vec![], false);
+    assert!(!enabled(&view, 1) && enabled(&view, 2));
+    frame(
+        &ctx,
+        &mut view,
+        &mut state,
+        vec![key(egui::Key::Tab)],
+        false,
+    );
+    frame(
+        &ctx,
+        &mut view,
+        &mut state,
+        vec![key(egui::Key::Space)],
+        false,
+    );
+    assert_eq!(state.removed, [2]);
+}
+
+#[test]
+fn aria_label_names_controls_with_interpolation() {
+    use egui::accesskit::Role;
+    let ctx = egui::Context::default();
+    ctx.enable_accesskit();
+    let mut view = todo_view(
+        r#"<layout>
+            <switch e-model="hide_done" aria_label="Hide done" />
+            <layout e-for="todo in todos" direction="left_to_right">
+                <checkbox e-model="todo.done" aria_label="{{ todo.title }}" />
+                <button aria_label="Delete {{ todo.title }}" @click="todo.remove">Delete</button>
+            </layout>
+        </layout>"#,
+    );
+    let mut state = Todos {
+        todos: vec![todo(1, "a"), todo(2, "b")],
+        ..Default::default()
+    };
+    let theme = theme();
+    let mut output = ctx.run_ui(RawInput::default(), |ui| view.show(ui, &theme, &mut state));
+    output.textures_delta.clear();
+    let nodes: Vec<_> = output
+        .platform_output
+        .accesskit_update
+        .expect("accesskit enabled")
+        .nodes;
+    let names = |role: Role| -> std::collections::BTreeSet<String> {
+        nodes
+            .iter()
+            .filter(|(_, n)| n.role() == role)
+            .map(|(_, n)| n.label().unwrap_or_default().to_owned())
+            .collect()
+    };
+    assert_eq!(
+        names(Role::Button),
+        ["Delete a".into(), "Delete b".into()].into()
+    );
+    assert_eq!(names(Role::CheckBox), ["a".into(), "b".into()].into());
+    assert_eq!(names(Role::Switch), ["Hide done".into()].into());
+    let error = todos()
+        .load(Source::inline("bad.ecml", "<text aria_label=\"x\" />"))
+        .err()
+        .expect("text takes no aria_label");
+    assert!(error.message.contains("unknown attribute"), "{error}");
 }

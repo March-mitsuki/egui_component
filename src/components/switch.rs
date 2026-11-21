@@ -16,6 +16,9 @@ pub struct Style {
     pub off_bg_color: Color32,
     pub knob_color: Color32,
     pub disabled: bool,
+    /// Screen-reader name, like `aria-label`; never drawn. `None` (default) leaves the
+    /// switch unnamed, or named by its [`field`](super::field) label.
+    pub aria_label: Option<String>,
 }
 
 impl Style {
@@ -28,6 +31,7 @@ impl Style {
             knob_color: theme.colors.primary.foreground,
             disabled: false,
             focus_ring: theme.focus_ring,
+            aria_label: None,
         }
     }
 
@@ -40,6 +44,7 @@ impl Style {
             knob_color: theme.colors.primary.foreground,
             disabled: false,
             focus_ring: theme.focus_ring,
+            aria_label: None,
         }
     }
 
@@ -56,6 +61,7 @@ impl Style {
             knob_color: theme.colors.primary.foreground,
             disabled: false,
             focus_ring: theme.focus_ring,
+            aria_label: None,
         }
     }
 
@@ -68,6 +74,7 @@ impl Style {
             knob_color: color.foreground,
             disabled: false,
             focus_ring: theme.focus_ring,
+            aria_label: None,
         }
     }
 
@@ -80,6 +87,7 @@ impl Style {
             knob_color: color.foreground,
             disabled: false,
             focus_ring: theme.focus_ring,
+            aria_label: None,
         }
     }
 
@@ -92,6 +100,7 @@ impl Style {
             knob_color: color.foreground,
             disabled: false,
             focus_ring: theme.focus_ring,
+            aria_label: None,
         }
     }
 
@@ -114,6 +123,13 @@ impl Style {
         self.disabled = disabled;
         self
     }
+
+    /// Name the switch for screen readers, e.g. "Dark mode". A switch draws no text,
+    /// so give it a name unless a [`field`](super::field) label names it.
+    pub fn aria_label(mut self, label: impl Into<String>) -> Self {
+        self.aria_label = Some(label.into());
+        self
+    }
 }
 
 pub fn render(ui: &mut Ui, on: &mut bool, style: Style) -> Response {
@@ -134,7 +150,7 @@ pub fn render(ui: &mut Ui, on: &mut bool, style: Style) -> Response {
             egui::Role::Switch,
             !style.disabled && ui.is_enabled(),
             *on,
-            "",
+            style.aria_label.as_deref().unwrap_or_default(),
         )
     });
 

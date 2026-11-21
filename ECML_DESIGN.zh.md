@@ -33,10 +33,10 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 - `layout` 和 `fragment` 是内置保留结构：`layout` 直接映射 egui，`fragment` 只分组、不创建布局。不得仅为标记语言添加公开 Row/Column 组件，也不接受 `row`/`column` 别名。
 - 保留 egui 字段名和 snake_case。结构化属性使用 `item_spacing.x` 这样的点号路径，不使用 `gap_x`、`item_spacing_x`。
 - 解析器保留完整属性名；schema 显式定义每个支持路径的类型、默认值及映射。UI 点号属性不等于嵌套状态绑定或任意 Rust 反射。
-- 指令使用 `e-`，动态属性使用 `:`，事件使用 `@`。当前表达式仅包含已注册名称、文本插值、条件中的布尔取反、`$contains_pointer.<id>`，以及样式属性中的 `cond ? value : value`（见“动态样式”）；计算放在 Rust getter 中。
+- 指令使用 `e-`，动态属性使用 `:`，事件使用 `@`。当前表达式仅包含已注册名称、文本插值、条件（`!`、`&&`、`||`、`$contains_pointer.<id>`、`$contains_focus.<id>`），以及样式属性中的 `cond ? value : value`（见“动态样式”）；计算放在 Rust getter 中。
 - 未知标签/属性、重复项、非法值、未注册名称和类型/读写能力不匹配必须报错，不得静默忽略未支持语法或进行有损转换。
 
-自定义语法要求一个根节点，属性值必须带引号；不带值的 `e-else` 是唯一例外。支持自闭合节点、文本、节点内部注释，以及五种具名实体（`amp`、`lt`、`gt`、`quot`、`apos`）。名称段使用 ASCII 字母或下划线开头，后续允许字母、数字、下划线和连字符；属性路径可用点号连接名称段，并可带 `:`/`@` 前缀。模板上限为 256 KiB、64 层节点。错误包含文件、行、列；文本插值错误目前定位到所属节点。
+自定义语法要求一个根节点，属性值必须带引号；不带值的 `e-else` 是唯一例外。支持自闭合节点、文本、节点内部注释，以及五种具名实体（`amp`、`lt`、`gt`、`quot`、`apos`）。与 HTML 相同，不构成 `&名称;` 的 `&` 按字面处理，所以条件里的 `a && b` 不需要转义。名称段使用 ASCII 字母或下划线开头，后续允许字母、数字、下划线和连字符；属性路径可用点号连接名称段，并可带 `:`/`@` 前缀。模板上限为 256 KiB、64 层节点。错误包含文件、行、列；文本插值错误目前定位到所属节点。
 
 ## 布局约定
 
@@ -195,7 +195,7 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 </layout>
 ```
 
-- `e-if="名称"` 和 `e-else-if="名称"` 接收一个已注册的 bool（根名称或 `别名.名称`），可用 `!` 取反，规则与 `:disabled` 相同。计算放在 Rust 的 `bind` getter 中。`e-else` 是语法中唯一不带值的属性。
+- `e-if` 和 `e-else-if` 接收一个条件，规则与 `:disabled` 相同：`cond := all ("||" all)*`，`all := term ("&&" term)*`，其中 term 是已注册的 bool（根名称或 `别名.名称`）、`$contains_pointer.<id>` 或 `$contains_focus.<id>`，可用 `!` 取反。`&&` 优先级更高，不支持括号；`!` 只作用于一个 term。比较等计算放在 Rust 的 `bind` getter 中。`e-else` 是语法中唯一不带值的属性。
 - `e-else-if` 和 `e-else` 必须紧跟在带 `e-if` 或 `e-else-if` 的兄弟元素之后，中间只允许注释。一条分支链最多渲染第一个为真的分支，`e-else` 结束分支链。
 - 条件在每个 pass 绘制到分支链时求值一次。循环外的写回是立即的，后面的条件在同一 pass 就能看到；循环内的写回是缓冲的，条件要到下一 pass 才看到。pass 之间模板结构不变，只有选中的分支会变。
 - 隐藏的分支不绘制、不占空间，`View::response(id)` 对其中节点返回 `None`。每个分支都是独立的模板元素，有自己的结构路径，因此切换分支不会改变兄弟节点的自动 ID。隐藏与移除一样不保证清除 egui 记忆，获得焦点的控件被隐藏时会失去焦点。显式 ID 仍在 View 内唯一，跨分支也不得重复。
@@ -216,7 +216,7 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 ```
 
 - 样式属性可以是常量，也可以加 `:` 前缀写表达式。常量是一个裸单词（`variant="ghost"`）或一个主题路径（`color="$theme.colors.gray.l6"`）。同一元素不能同时写 `name` 和 `:name`。
-- 表达式语法刻意保持很小：`expr := value | cond "?" value ":" expr`。`value` 是带引号的单词（`'ghost'`，因为属性本身用双引号，所以用单引号）或主题路径；`cond` 是已注册的 bool，可以是根注册或 `alias.name`，可以用 `!` 取反，与 `e-if` 相同。条件成立时取的值只能是单个值，连写发生在 else 位置，取第一个为真的条件。bool 属性（`underline`、`strikethrough`、`disabled`）接受 `true`/`false`，写成 `:name` 时直接写条件。不支持算术、比较和函数调用，计算放在 Rust 的 `bind` getter 里。
+- 表达式语法刻意保持很小：`expr := value | cond "?" value ":" expr`。`value` 是带引号的单词（`'ghost'`，因为属性本身用双引号，所以用单引号）或主题路径；`cond` 是与 `e-if` 相同的条件（用 `&&` 和 `||` 连接的 term）。以 `$theme` 之外的 `$` 名字开头的表达式视为以条件开头。条件成立时取的值只能是单个值，连写发生在 else 位置，取第一个为真的条件。bool 属性（`underline`、`strikethrough`、`disabled`）接受 `true`/`false`，写成 `:name` 时直接写条件。不支持算术、比较和函数调用，计算放在 Rust 的 `bind` getter 里。
 - `$theme` 是保留关键字，路径与 Rust 的 `Theme` 字段一致：`$theme.colors.<色阶>.<foreground|l0..l9>` 和 `$theme.colors.<bg|fg>.<base|subtle|accent>` 是颜色，`$theme.colors.<色阶>` 是整个色阶（用于 button 的 `color`）。色阶有 primary、gray、red、green、blue、yellow、orange。路径在编译模板时与一张固定的表匹配（不做反射），绘制时在传给 `View::show` 的 Theme 里取值，所以切换明暗主题不需要重新编译。其他 `Theme` 字段暂未开放。
 - 每个值都在编译期按属性检查类型：单词必须是该属性的可选值之一，颜色必须是颜色路径，色阶必须是色阶路径。Rust 绑定暂时不能返回颜色或 variant。
 - 目前支持：text 的 `size`、`color`、`underline`、`strikethrough`；button 的 `size`、`variant`、`color`；text_edit 的 `size`、`variant`；switch 和 checkbox 的 `size`。text 的线宽为 1 点，颜色取文字颜色，对应 `text::Style::underline`/`strikethrough`。layout 属性和 `width` 仍只接受常量。
@@ -247,7 +247,8 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 ```html
 <layout e-for="todo in todos" id="todo" direction="left_to_right">
     <text>{{ todo.title }}</text>
-    <button :visible="$contains_pointer.todo" @click="todo.remove">Delete</button>
+    <button :visible="$contains_pointer.todo || $contains_focus.todo"
+            aria_label="Delete {{ todo.title }}" @click="todo.remove">Delete</button>
 </layout>
 ```
 
@@ -255,7 +256,9 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 - 即时模式下，元素的区域要画完才知道，所以 View 在每次 show 时记录所有带 id 的元素的区域，条件用上一次记录的区域和本帧的鼠标位置比较（`Context::rect_contains_pointer`）。祖先、前面和后面的元素都按同样方式工作，都晚一帧；鼠标移动时 egui 会重画，所以看不出延迟。上一次 show 没画出的元素（新出现的、被 `e-if` 隐藏的）结果为假。
 - id 在使用条件的位置必须对应唯一的元素：要么在循环外，要么在同样包含这个条件的循环里（同一行；嵌套循环的外层行也可以）。在循环外或另一个循环里引用某个循环里的元素，会在编译期报错；未知 id、fragment（没有自己的区域）和其他 `$` 名字也会报错。
 - 反馈循环：如果由 `$contains_pointer` 引起的变化会移动或改变它所读取的元素（例如用 `e-if` 在它前面插入元素，或换成更宽的 variant），元素可能离开鼠标，条件变为假，布局恢复，鼠标又落在元素上，于是每帧来回闪烁。这类变化应保持不影响布局：用 `:visible` 代替 `e-if`，改颜色或换尺寸相同的 variant。
-- 所有元素（包括 fragment）都支持 `visible`/`:visible`。为假时元素仍占位置，但不绘制也不响应，与 egui 的 `Ui::set_invisible` 相同（CSS 的 `visibility: hidden`）；`e-if` 则移除元素（CSS 的 `display: none`）。不可见的控件不能获得焦点，所以只在 hover 时显示的控件无法用键盘访问；键盘访问（类似 `:focus-within`）留作未来工作。
+- 所有元素（包括 fragment）都支持 `visible`/`:visible`。为假时元素仍占位置，但不绘制也不响应，与 egui 的 `Ui::set_invisible` 相同（CSS 的 `visibility: hidden`）；`e-if` 则移除元素（CSS 的 `display: none`）。不可见的控件同时也是禁用的，不能获得焦点；只在 hover 时显示的控件，除非条件里也用了 `$contains_focus`，否则无法用键盘访问。
+- `$contains_focus.<id>` 在键盘焦点位于该元素内的控件上时为真，类似 CSS 的 `:focus-within`，id 规则与 `$contains_pointer` 相同。绘制时，View 会记录每个带 id 的元素内是否有控件 `has_focus()`，条件读取上一次 show 的结果，晚一帧。写成 `:visible="$contains_pointer.row || $contains_focus.row"` 时，Tab 到这一行的第一个控件就会显示隐藏的控件，再按一次 Tab 就能到达它；Tab 离开这一行后它再次隐藏。被隐藏的控件不能是这一行唯一可聚焦的控件，否则焦点永远进不了这一行。
+- 不可见的控件仍然有 AccessKit 节点，并标记为禁用：egui 会给每个可聚焦的控件建节点，也没有提供把它移出无障碍树的方法。会列出控件的读屏器可能把隐藏的控件显示为不可用。
 - 应用也可以在 Rust 里读取上一次 show 的 response：循环外的元素用 `View::response(id)`，在 `show` 之前复制到 state，再用 `.bind` 暴露。行内元素的 response 暂未公开。
 
 ## text 的点击事件
@@ -269,6 +272,18 @@ ECML 是 Vue 风格的自定义标记语言，不承诺 XML/HTML/Vue 兼容，�
 - egui 把双击的第二次松开也报告为一次点击，所以双击会触发两次 `@click` 和一次 `@double_click`，与浏览器的 click、click、dblclick 一致。同一帧内 `@click` 先执行。单击不会为了区分双击而延迟；需要单击什么都不做时，只绑定 `@double_click`。
 - 可点击的 text 可以用 Tab 获得焦点：按 Space 或 Enter 触发 `@click`（egui 的模拟点击），egui 用下划线标示焦点。双击没有对应的键盘操作，所以要配合另一个控件，比如 todo app 里的 Edit 按钮。
 - 三击、右键点击和其他事件暂不支持；以后按同样方式、使用 egui 的名字添加。
+
+## 无障碍名称
+
+```html
+<checkbox e-model="todo.done" aria_label="{{ todo.title }}" />
+<button aria_label="Delete {{ todo.title }}" @click="todo.remove">Delete</button>
+<switch e-model="dark" aria_label="Dark mode" />
+```
+
+- button、checkbox 和 switch 上的 `aria_label` 映射到组件的 `Style::aria_label`：读屏器读出的名称，替代可见文字，与 HTML 的 `aria-label` 相同，不会被绘制。可见文字不够明确（很多行都是“Delete”）或没有可见文字（没有内容的 checkbox、switch）时使用。
+- 它与 `placeholder` 一样支持插值，所以没有 `:aria_label`；名称是文字，不是样式表达式。
+- 其他元素不接受它：text 本身就会被读出，layout 和 fragment 不绘制控件，text_edit 在 Rust 中还没有覆盖名称的选项。为 text_edit 命名（Rust 的 `field` 已经能关联可见标签）以及其他 ARIA 属性留作未来工作。
 
 ## 扩展 ECML
 

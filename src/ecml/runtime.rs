@@ -409,6 +409,7 @@ impl<S: 'static> Builder<S> {
             runtime_error: None,
             autofocused: HashSet::new(),
             rects: HashMap::new(),
+            focus_within: HashSet::new(),
             autofocus_retry: HashMap::new(),
             text_focus: HashSet::new(),
             lost_reported: HashSet::new(),
@@ -441,6 +442,9 @@ pub struct View<S> {
     autofocused: HashSet<egui::Id>,
     /// Areas of elements with an id, from the last show, for `$contains_pointer`.
     rects: HashMap<egui::Id, (egui::Rect, egui::LayerId)>,
+    /// Elements with an id holding the focused control on the last show, for
+    /// `$contains_focus`.
+    focus_within: HashSet<egui::Id>,
     autofocus_retry: HashMap<egui::Id, egui::Id>,
     /// Text edits focused when last drawn and those whose focus loss was reported on the
     /// last frame, so each loss fires one handler (see the text_edit renderer).
@@ -532,6 +536,9 @@ impl<S: 'static> View<S> {
             ctx: ui.ctx().clone(),
             rects: &self.rects,
             rects_now: HashMap::new(),
+            focus_within: &self.focus_within,
+            focus_within_now: HashSet::new(),
+            focus_inside: false,
             responses: &mut self.responses,
             #[cfg(test)]
             row_responses: &mut self.row_responses,
@@ -562,9 +569,11 @@ impl<S: 'static> View<S> {
             text_focus_now,
             lost_now,
             rects_now,
+            focus_within_now,
             ..
         } = runtime;
         self.rects = rects_now;
+        self.focus_within = focus_within_now;
         self.runtime_error = runtime_error;
         if first {
             self.autofocused = autofocus_now;
@@ -675,6 +684,10 @@ struct Runtime<'a, S> {
     ctx: egui::Context,
     rects: &'a HashMap<egui::Id, (egui::Rect, egui::LayerId)>,
     rects_now: HashMap<egui::Id, (egui::Rect, egui::LayerId)>,
+    focus_within: &'a HashSet<egui::Id>,
+    focus_within_now: HashSet<egui::Id>,
+    /// Whether the node being drawn holds the focused control so far.
+    focus_inside: bool,
     responses: &'a mut HashMap<String, egui::Response>,
     #[cfg(test)]
     row_responses: &'a mut HashMap<(String, egui::Id), egui::Response>,
@@ -786,14 +799,25 @@ impl<S: 'static> Runtime<'_, S> {
         match expr {
             BoolExpr::Literal(v) => *v,
             BoolExpr::Binding(r, not) => matches!(self.get(access, *r), Value::Bool(true)) ^ not,
-            BoolExpr::ContainsPointer { depth, key, negate } => {
-                let scope = depth.map_or(self.root, |depth| self.rows[depth]);
-                // Last show's area against this frame's pointer; nothing while unseen.
-                self.rects
-                    .get(&scope.with(key))
-                    .is_some_and(|(rect, layer)| self.ctx.rect_contains_pointer(*layer, *rect))
-                    ^ negate
+            BoolExpr::Contains {
+                focus,
+                depth,
+                key,
+                negate,
+            } => {
+                let scope = depth.map_or(self.root, |depth| self.rows[depth]).with(key);
+                let inside = if *focus {
+                    self.focus_within.contains(&scope)
+                } else {
+                    // Last show's area against this frame's pointer; nothing while unseen.
+                    self.rects
+                        .get(&scope)
+                        .is_some_and(|(rect, layer)| self.ctx.rect_contains_pointer(*layer, *rect))
+                };
+                inside ^ negate
             }
+            BoolExpr::Any(terms) => terms.iter().any(|t| self.boolean(access, t)),
+            BoolExpr::All(terms) => terms.iter().all(|t| self.boolean(access, t)),
         }
     }
     fn value<T: Copy>(&self, access: &Access<'_, S>, expr: &Expr<T>) -> T {
@@ -893,6 +917,7 @@ fn render<S: 'static>(
         }
         _ => {}
     }
+    let focus_before = std::mem::take(&mut rt.focus_inside);
     // Explicit scope_id keeps auto-allocated IDs inside existing components stable too.
     let scope = ui.scope_builder(
         egui::UiBuilder::new().scope_id(rt.instance.with(&node.key)),
@@ -1062,9 +1087,10 @@ fn render<S: 'static>(
                     color,
                     width,
                     disabled,
+                    aria_label,
                     click,
                 } => {
-                    let style = button::Style::new(
+                    let mut style = button::Style::new(
                         theme,
                         color.as_ref().map(|c| *(rt.value(access, c).0)(theme)),
                         rt.value(access, size),
@@ -1078,6 +1104,9 @@ fn render<S: 'static>(
                     } else {
                         button::ButtonState::None
                     });
+                    if let Some(label) = aria_label {
+                        style = style.aria_label(rt.text(access, label));
+                    }
                     let response = button::render(ui, &rt.text(access, text), style);
                     if rt.first
                         && response.clicked()
@@ -1175,15 +1204,19 @@ fn render<S: 'static>(
                     model,
                     size,
                     disabled,
+                    aria_label,
                 } => {
                     let Value::Bool(mut value) = rt.get(access, *model) else {
                         unreachable!()
                     };
-                    let style = match rt.value(access, size) {
+                    let mut style = match rt.value(access, size) {
                         "sm" => switch::Style::new_sm(theme),
                         "lg" => switch::Style::new_lg(theme),
                         _ => switch::Style::new_md(theme),
                     };
+                    if let Some(label) = aria_label {
+                        style = style.aria_label(rt.text(access, label));
+                    }
                     let response = switch::render(
                         ui,
                         &mut value,
@@ -1199,16 +1232,20 @@ fn render<S: 'static>(
                     label,
                     size,
                     disabled,
+                    aria_label,
                 } => {
                     let Value::Bool(mut value) = rt.get(access, *model) else {
                         unreachable!()
                     };
-                    let style = match rt.value(access, size) {
+                    let mut style = match rt.value(access, size) {
                         "sm" => checkbox::Style::new_sm(theme),
                         "lg" => checkbox::Style::new_lg(theme),
                         _ => checkbox::Style::new_md(theme),
                     }
                     .disabled(rt.boolean(access, disabled));
+                    if let Some(label) = aria_label {
+                        style = style.aria_label(rt.text(access, label));
+                    }
                     let label = rt.text(access, label);
                     let response = if label.is_empty() {
                         checkbox::render(ui, &mut value, style)
@@ -1221,6 +1258,9 @@ fn render<S: 'static>(
                     Some(response)
                 }
             };
+            if response.as_ref().is_some_and(egui::Response::has_focus) {
+                rt.focus_inside = true;
+            }
             if let (Some(id), Some(response)) = (&node.explicit_id, response) {
                 match access {
                     Access::Root(_) => {
@@ -1240,9 +1280,12 @@ fn render<S: 'static>(
     );
     // A loop's element records each row's area itself, under the row's identity.
     if node.explicit_id.is_some() && !matches!(node.kind, Kind::For { .. }) {
-        rt.rects_now.insert(
-            rt.instance.with(&node.key),
-            (scope.response.rect, ui.layer_id()),
-        );
+        let id = rt.instance.with(&node.key);
+        rt.rects_now
+            .insert(id, (scope.response.rect, ui.layer_id()));
+        if rt.focus_inside {
+            rt.focus_within_now.insert(id);
+        }
     }
+    rt.focus_inside |= focus_before;
 }

@@ -598,3 +598,43 @@ fn icon_aria_label_picks_button_image_or_decorative() {
         "unlabeled hover-only icons stay out of the tree"
     );
 }
+
+#[test]
+fn aria_label_replaces_the_visible_name() {
+    use super::checkbox;
+    let ctx = egui::Context::default();
+    ctx.enable_accesskit();
+    let theme = theme();
+    let (mut done, mut on) = (false, true);
+    let nodes = nodes(&ctx, |ui| {
+        let delete = button::Style::new_ghost_sm(&theme).aria_label("Delete Buy milk");
+        button::render(ui, "Delete", delete);
+        button::render(ui, "Edit", button::Style::new_ghost_sm(&theme));
+        let done_box = checkbox::Style::new(&theme).aria_label("Buy milk");
+        checkbox::render(ui, &mut done, done_box);
+        let all = checkbox::Style::new(&theme).aria_label("Mark all as complete");
+        checkbox::render_with_label(ui, &mut done, "All", all);
+        switch::render(
+            ui,
+            &mut on,
+            switch::Style::new(&theme).aria_label("Dark mode"),
+        );
+    });
+    // AccessKit's update lists nodes in no fixed order.
+    let name_of = |role: Role| -> std::collections::BTreeSet<_> {
+        nodes
+            .iter()
+            .filter(|n| n.role() == role)
+            .map(|n| n.label().unwrap_or_default().to_owned())
+            .collect()
+    };
+    assert_eq!(
+        name_of(Role::Button),
+        ["Delete Buy milk".into(), "Edit".into()].into()
+    );
+    assert_eq!(
+        name_of(Role::CheckBox),
+        ["Buy milk".into(), "Mark all as complete".into()].into()
+    );
+    assert_eq!(name_of(Role::Switch), ["Dark mode".into()].into());
+}

@@ -12,14 +12,17 @@
                        @submit="todo.save" @blur="todo.save" @cancel="todo.cancel" />
             <!-- While editing, only the field is shown, as in TodoMVC. -->
             <fragment e-else>
-                <checkbox id="done" e-model="todo.done" />
+                <checkbox id="done" e-model="todo.done" aria_label="{{ todo.title }}" />
                 <text id="title" @double_click="todo.edit"
                       :color="todo.done ? $theme.colors.gray.l6 : $theme.colors.fg.base"
                       :strikethrough="todo.done">{{ todo.title }}</text>
                 <!-- Double-click cannot be done from the keyboard; the button can. -->
-                <button id="edit_button" size="sm" variant="ghost" @click="todo.edit">Edit</button>
-                <!-- As in TodoMVC, Delete shows while the pointer is over the row; it keeps its space. -->
-                <button id="remove" size="sm" variant="ghost" :visible="$contains_pointer.todo"
+                <button id="edit_button" size="sm" variant="ghost" aria_label="Edit {{ todo.title }}"
+                        @click="todo.edit">Edit</button>
+                <!-- As in TodoMVC, Delete shows while the pointer is over the row, and while
+                     keyboard focus is in it so Tab reaches it; it keeps its space. -->
+                <button id="remove" size="sm" variant="ghost" aria_label="Delete {{ todo.title }}"
+                        :visible="$contains_pointer.todo || $contains_focus.todo"
                         @click="todo.remove">Delete</button>
             </fragment>
         </layout>

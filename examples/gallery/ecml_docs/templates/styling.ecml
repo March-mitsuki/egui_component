@@ -1,13 +1,15 @@
 <layout item_spacing.y="12">
     <!-- Constant values: a word, or a $theme path that mirrors the Rust Theme fields. -->
     <text color="$theme.colors.primary.l6" underline="true">A constant theme color with an underline</text>
-    <!-- :attr takes cond ? value : value; words are quoted and conditions may use !. -->
+    <!-- :attr takes cond ? value : value; words are quoted and conditions may use !, && and ||. -->
     <layout e-for="todo in todos" id="styled_row" direction="left_to_right" item_spacing.x="8" cross_align="center">
-        <checkbox e-model="todo.done" />
+        <checkbox e-model="todo.done" aria_label="{{ todo.title }}" />
         <text :color="todo.done ? $theme.colors.gray.l6 : $theme.colors.fg.base"
               :strikethrough="todo.done">{{ todo.title }}</text>
-        <!-- Shown while the pointer is over this row; visible keeps the space. -->
-        <button size="sm" variant="ghost" :visible="$contains_pointer.styled_row" @click="todo.remove">Delete</button>
+        <!-- Shown while the pointer or keyboard focus is in this row; visible keeps the space. -->
+        <button size="sm" variant="ghost" aria_label="Delete {{ todo.title }}"
+                :visible="$contains_pointer.styled_row || $contains_focus.styled_row"
+                @click="todo.remove">Delete</button>
     </layout>
     <layout direction="left_to_right" item_spacing.x="8" cross_align="center">
         <switch size="sm" e-model="enabled" />

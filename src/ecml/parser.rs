@@ -211,9 +211,17 @@ fn decode(text: &str) -> Result<String, &'static str> {
     while let Some(start) = rest.find('&') {
         out.push_str(&rest[..start]);
         rest = &rest[start..];
-        let Some(end) = rest.find(';') else {
-            return Err("unterminated entity; use &amp; for '&'");
-        };
+        // As in HTML, '&' that does not start `&name;` is literal, so `a && b` needs no
+        // escaping.
+        let name_len = rest[1..]
+            .find(|c: char| !c.is_ascii_alphanumeric() && c != '#')
+            .unwrap_or(rest.len() - 1);
+        let end = name_len + 1;
+        if name_len == 0 || !rest[end..].starts_with(';') {
+            out.push('&');
+            rest = &rest[1..];
+            continue;
+        }
         out.push(match &rest[..=end] {
             "&amp;" => '&',
             "&lt;" => '<',

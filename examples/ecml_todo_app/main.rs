@@ -132,7 +132,7 @@ fn builder() -> ecml::Builder<State> {
 struct App {
     state: State,
     view: ecml::View<State>,
-    theme: UiTheme,
+    ui_theme: UiTheme,
 }
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
@@ -140,7 +140,7 @@ impl eframe::App for App {
         egui::CentralPanel::default().show(ui, |ui| {
             // ECML layouts do not scroll; the host decides where scrolling happens.
             egui::ScrollArea::vertical().show(ui, |ui| {
-                self.view.show(ui, &self.theme.dark, &mut self.state);
+                self.view.show(ui, &self.ui_theme.dark, &mut self.state);
             });
         });
     }
@@ -157,7 +157,7 @@ fn main() -> eframe::Result {
     let app = App {
         state,
         view,
-        theme: UiTheme::from_json_bytes(include_bytes!("../theme.json")).unwrap(),
+        ui_theme: UiTheme::from_json_bytes(include_bytes!("../theme.json")).unwrap(),
     };
     eframe::run_native(
         "ECML todos — edit examples/ecml_todo_app/todos.ecml",

@@ -19,14 +19,19 @@ pub(super) enum Ref {
 pub(super) enum BoolExpr {
     Literal(bool),
     Binding(Ref, bool),
-    /// `$contains_pointer.<id>`: whether the pointer is over the element's area from the
-    /// last frame. `depth` is the loop row the element is drawn in (`None` outside loops),
-    /// `key` its node key; the bool negates.
-    ContainsPointer {
+    /// `$contains_pointer.<id>` or `$contains_focus.<id>`: whether the pointer is over the
+    /// element's area, or keyboard focus is on a control inside it, as of the last frame.
+    /// `depth` is the loop row the element is drawn in (`None` outside loops), `key` its
+    /// node key; the bool negates.
+    Contains {
+        focus: bool,
         depth: Option<usize>,
         key: String,
         negate: bool,
     },
+    /// `a || b`, and `a && b`, which binds tighter.
+    Any(Vec<BoolExpr>),
+    All(Vec<BoolExpr>),
 }
 /// An attribute value: a constant, or `cond ? then : otherwise` from a `:` attribute.
 pub(super) enum Expr<T> {
@@ -236,6 +241,7 @@ pub(super) enum Kind {
         color: Option<Expr<ThemeScale>>,
         width: Option<f32>,
         disabled: BoolExpr,
+        aria_label: Option<Vec<TextPart>>,
         click: Option<Ref>,
     },
     TextEdit {
@@ -255,12 +261,14 @@ pub(super) enum Kind {
         model: Ref,
         size: Expr<&'static str>,
         disabled: BoolExpr,
+        aria_label: Option<Vec<TextPart>>,
     },
     Checkbox {
         model: Ref,
         label: Vec<TextPart>,
         size: Expr<&'static str>,
         disabled: BoolExpr,
+        aria_label: Option<Vec<TextPart>>,
     },
 }
 type Names = HashMap<String, (usize, ValueKind, bool)>;
@@ -725,12 +733,38 @@ impl<'r> Compiler<'r> {
         e.attrs.remove(directive);
         Ok((condition, self.node(e, path, false)?))
     }
-    /// A bool name or `$contains_pointer.<id>`, optionally negated with `!`: the condition
-    /// syntax of :disabled, e-if and styling expressions.
+    /// Terms joined by `||` and `&&` (tighter), without parentheses. A term is a bool name,
+    /// `$contains_pointer.<id>` or `$contains_focus.<id>`, optionally negated with `!`: the
+    /// condition syntax of :disabled, e-if and styling expressions.
     fn condition(&self, e: &Element, attr: &str) -> Result<BoolExpr, Error> {
         self.condition_in(e, attr, self.attr(e, attr, ""))
     }
     fn condition_in(&self, e: &Element, attr: &str, expr: &str) -> Result<BoolExpr, Error> {
+        if expr.contains(['(', ')']) {
+            return Err(self.error(
+                e,
+                attr,
+                "conditions have no parentheses; && binds tighter than ||",
+            ));
+        }
+        let join = |terms: Vec<BoolExpr>, all: bool| match terms.len() {
+            1 => terms.into_iter().next().expect("one term"),
+            _ if all => BoolExpr::All(terms),
+            _ => BoolExpr::Any(terms),
+        };
+        let any = expr
+            .split("||")
+            .map(|part| {
+                let all = part
+                    .split("&&")
+                    .map(|term| self.term(e, attr, term))
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(join(all, true))
+            })
+            .collect::<Result<Vec<_>, Error>>()?;
+        Ok(join(any, false))
+    }
+    fn term(&self, e: &Element, attr: &str, expr: &str) -> Result<BoolExpr, Error> {
         let expr = expr.trim();
         let (name, negate) = expr
             .strip_prefix('!')
@@ -739,28 +773,33 @@ impl<'r> Compiler<'r> {
             return Err(self.error(e, attr, format!("{attr} needs a registered bool name")));
         }
         if name.starts_with('$') {
-            return self.contains_pointer(e, attr, name, negate);
+            return self.contains(e, attr, name, negate);
         }
         Ok(BoolExpr::Binding(
             self.binding(e, attr, name, Some(ValueKind::Bool), false)?,
             negate,
         ))
     }
-    /// `$contains_pointer.<id>`. The element must be the same one wherever this is drawn:
-    /// outside loops, or in a loop that also encloses this element (the same row).
-    fn contains_pointer(
+    /// `$contains_pointer.<id>` or `$contains_focus.<id>`. The element must be the same one
+    /// wherever this is drawn: outside loops, or in a loop that also encloses this element
+    /// (the same row).
+    fn contains(
         &self,
         e: &Element,
         attr: &str,
         name: &str,
         negate: bool,
     ) -> Result<BoolExpr, Error> {
-        let Some(id) = name.strip_prefix("$contains_pointer.") else {
-            return Err(self.error(
-                e,
-                attr,
-                format!("unknown built-in '{name}'; conditions take a registered bool or $contains_pointer.<id>"),
-            ));
+        let (focus, id) = match name.strip_prefix("$contains_pointer.") {
+            Some(id) => (false, id),
+            None => match name.strip_prefix("$contains_focus.") {
+                Some(id) => (true, id),
+                None => return Err(self.error(
+                    e,
+                    attr,
+                    format!("unknown built-in '{name}'; conditions take a registered bool, $contains_pointer.<id> or $contains_focus.<id>"),
+                )),
+            },
         };
         let Some(target) = self.targets.get(id) else {
             return Err(self.error(e, attr, format!("no element has id '{id}'")));
@@ -780,7 +819,8 @@ impl<'r> Compiler<'r> {
                 format!("'{id}' is drawn once per row of a loop that does not enclose this element, so it is not one element here"),
             ));
         }
-        Ok(BoolExpr::ContainsPointer {
+        Ok(BoolExpr::Contains {
+            focus,
             depth: target.loops.len().checked_sub(1),
             key: target.key.clone(),
             negate,
@@ -865,7 +905,8 @@ impl<'r> Compiler<'r> {
             "expected a quoted value like 'ghost', a $theme path, or cond ? value : value";
         let src = src.trim();
         let value = |s| self.leaf_value(e, attr, s, leaf, SHAPE);
-        if src.starts_with(['\'', '$']) {
+        // Other `$` names, such as $contains_pointer, start a condition.
+        if src.starts_with('\'') || src.starts_with("$theme") {
             let (v, rest) = value(src)?;
             if !rest.is_empty() {
                 return Err(self.error(
@@ -894,6 +935,13 @@ impl<'r> Compiler<'r> {
             Box::new(self.expr(e, attr, otherwise, leaf)?),
         ))
     }
+    /// `aria_label="Delete {{ todo.title }}"`: the screen-reader name, with interpolation.
+    fn aria_label(&self, e: &Element) -> Result<Option<Vec<TextPart>>, Error> {
+        e.attrs
+            .get("aria_label")
+            .map(|a| self.text(e, "aria_label", &a.value))
+            .transpose()
+    }
     fn text(&self, e: &Element, attr: &str, raw: &str) -> Result<Vec<TextPart>, Error> {
         let mut parts = vec![];
         let mut remaining = raw;
@@ -919,9 +967,9 @@ impl<'r> Compiler<'r> {
             "fragment" => &[],
             "layout" => &["direction", "cross_align", "item_spacing.x", "item_spacing.y"],
             "text" => &["size", ":size", "color", ":color", "underline", ":underline", "strikethrough", ":strikethrough", "@click", "@double_click"],
-            "button" => &["size", ":size", "variant", ":variant", "color", ":color", "width", "disabled", ":disabled", "@click"],
+            "button" => &["size", ":size", "variant", ":variant", "color", ":color", "width", "disabled", ":disabled", "aria_label", "@click"],
             "text_edit" => &["size", ":size", "variant", ":variant", "width", "placeholder", "disabled", ":disabled", "e-model", "autofocus", "@submit", "@cancel", "@blur"],
-            "switch" | "checkbox" => &["size", ":size", "disabled", ":disabled", "e-model"],
+            "switch" | "checkbox" => &["size", ":size", "disabled", ":disabled", "aria_label", "e-model"],
             _ => return Err(self.error(&e, "", format!("unknown component '{}'; prototype supports built-in layout and fragment and components text, button, text_edit, switch, checkbox (no aliases)", e.tag))),
         };
         // Every element may be hidden while keeping its space.
@@ -1039,6 +1087,7 @@ impl<'r> Compiler<'r> {
                     click,
                     width: self.number(&e, "width")?,
                     disabled: self.flag(&e, "disabled")?,
+                    aria_label: self.aria_label(&e)?,
                 }
             }
             "text_edit" => {
@@ -1103,6 +1152,7 @@ impl<'r> Compiler<'r> {
                     &words("size", &[("sm", "sm"), ("md", "md"), ("lg", "lg")]),
                 )?,
                 disabled: self.flag(&e, "disabled")?,
+                aria_label: self.aria_label(&e)?,
             },
             "checkbox" => Kind::Checkbox {
                 model: self.binding(
@@ -1120,6 +1170,7 @@ impl<'r> Compiler<'r> {
                     &words("size", &[("sm", "sm"), ("md", "md"), ("lg", "lg")]),
                 )?,
                 disabled: self.flag(&e, "disabled")?,
+                aria_label: self.aria_label(&e)?,
             },
             _ => unreachable!(),
         };
